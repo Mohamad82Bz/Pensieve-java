@@ -1,6 +1,7 @@
 package me.Mohamad82.Pensieve.record;
 
 import me.Mohamad82.Pensieve.nms.enums.NPCState;
+import me.Mohamad82.RUoM.ServerVersion;
 import me.Mohamad82.RUoM.Vector3;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ChatMessageType;
@@ -28,7 +29,7 @@ public class Recorder implements Listener {
     private final Set<Record> records = new HashSet<>();
     private final Map<Player, RecordTick> currentTick = new HashMap<>();
     private final Map<Player, RecordTick> lastTicks = new HashMap<>();
-    public final Map<UUID, RecordTick> lastNonNullTicks = new HashMap<>();
+    private final Map<UUID, RecordTick> lastNonNullTicks = new HashMap<>();
 
     private BukkitTask runnable;
     private int currentTickIndex = 0;
@@ -208,7 +209,7 @@ public class Recorder implements Listener {
             state = NPCState.CROUCHING;
         else if (player.isSleeping())
             state = NPCState.SLEEPING;
-        else if (player.isSwimming())
+        else if (ServerVersion.supports(13) && player.isSwimming())
             state = NPCState.SWIMMING;
         else if (player.isDead())
             state = NPCState.DYING;

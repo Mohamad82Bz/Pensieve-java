@@ -67,6 +67,11 @@
             <name>ruom-repo</name>
             <url>https://repo.repsy.io/mvn/mohamad82/ruom</url>
         </repository>
+        <!-- FAWE -->
+        <repository>
+            <id>IntellectualSites</id>
+            <url>https://mvn.intellectualsites.com/content/repositories/releases/</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -78,16 +83,35 @@
         </dependency>
         <dependency>
             <groupId>org.spigotmc</groupId>
-            <artifactId>spigot</artifactId>
+            <artifactId>spigot-1.16.5</artifactId>
             <version>1.16.5-R0.1-SNAPSHOT</version>
             <scope>system</scope>
             <systemPath>${basedir}/lib/spigot-1.16.5.jar/</systemPath>
         </dependency>
         <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-1.12</artifactId>
+            <version>1.12.2-R0.1-SNAPSHOT</version>
+            <scope>system</scope>
+            <systemPath>${basedir}/lib/spigot-1.12.2.jar/</systemPath>
+        </dependency>
+        <dependency>
             <groupId>me.Mohamad82</groupId>
             <artifactId>RUoM</artifactId>
             <version>1.9.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.intellectualsites.fawe</groupId>
+            <artifactId>FAWE-Bukkit</artifactId>
+            <version>1.16-637</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>me.wazup</groupId>
+            <artifactId>Eggwars</artifactId>
+            <version>5.8</version>
+            <scope>system</scope>
+            <systemPath>${basedir}/lib/Eggwars-5.8.jar</systemPath>
         </dependency>
     </dependencies>
 </project>

@@ -8,6 +8,7 @@ import me.Mohamad82.RUoM.Vector3Utils;
 import me.Mohamad82.RUoM.YamlConfig;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
@@ -16,6 +17,7 @@ import java.util.*;
 
 public class RecordManager {
 
+    private final Set<Player> recordingPlayers = new HashSet<>();
     private final Set<Recorder> recorders = new HashSet<>();
 
     private static RecordManager instance;
@@ -28,12 +30,19 @@ public class RecordManager {
     }
 
     public void writeToFile(File folder, String fileName, Set<Record> records) {
-        YamlConfig data = new YamlConfig(Main.getInstance(), folder, fileName + ".pensieve", false);
+        if (!fileName.endsWith(".pensieve"))
+            fileName = fileName + ".pensieve";
+
+        YamlConfig data = new YamlConfig(Main.getInstance(), folder, fileName, false);
+        ConfigurationSection infoSection = data.getConfig().createSection("info");
+        int maxTotalTicks = 0;
         for (Record record : records) {
             ConfigurationSection section = data.getConfig().createSection(record.getPlayerUUID().toString());
             section.set("start_location", record.getStartLocation().toString());
             section.set("center_location", record.getCenter().toString());
             int i = 0;
+            if (i > maxTotalTicks)
+                maxTotalTicks = i;
             RecordTick lastTick = null;
             for (RecordTick tick : record.getRecordTicks()) {
                 ConfigurationSection tickSection = section.createSection(String.valueOf(i));
@@ -67,10 +76,10 @@ public class RecordManager {
                     tickSection.set("message", tick.getMessage());
                 if (tick.getState() != null)
                     tickSection.set("state", tick.getState().toString().toUpperCase());
-                if (tick.tookDamage() || tick.didSwing() || tick.ateFood()) {
+                if (tick.tookDamage())
+                    tickSection.set("takendamagetype", tick.tookDamage());
+                if (tick.didSwing() || tick.ateFood()) {
                     List<String> actions = new ArrayList<>();
-                    if (tick.tookDamage())
-                        actions.add("damage");
                     if (tick.didSwing())
                         actions.add("swing");
                     if (tick.ateFood())
@@ -107,6 +116,9 @@ public class RecordManager {
                 i++;
             }
         }
+        infoSection.set("lenght", maxTotalTicks);
+        infoSection.set("version", 1.0);
+
         data.saveConfig();
     }
 
@@ -117,9 +129,10 @@ public class RecordManager {
         File file = new File(folder, fileName);
         if (!file.exists())
             throw new FileNotFoundException("Couldn't find pensieve record file!");
-        YamlConfig data = new YamlConfig(Main.getInstance(), folder, fileName + ".pensieve");
+        YamlConfig data = new YamlConfig(Main.getInstance(), folder, fileName, false);
 
         for (String uuid : data.getConfig().getConfigurationSection("").getKeys(false)) {
+            if (uuid.equalsIgnoreCase("info")) continue;
             Record record = new Record(UUID.fromString(uuid));
             List<RecordTick> ticks = new ArrayList<>();
             RecordTick lastTick = new RecordTick();
@@ -163,10 +176,10 @@ public class RecordManager {
                     tick.setMessage(tickSection.getString("message"));
                 if (tickSection.getString("state") != null)
                     tick.setState(NPCState.valueOf(tickSection.getString("state")));
+                if (tickSection.getString("takendamagetyoe") != null)
+                    tick.damage(DamageType.valueOf(tickSection.getString("takendamagetype")));
                 if (tickSection.getList("actions") != null) {
                     List<String> actions = tickSection.getStringList("actions");
-                    if (actions.contains("damage"))
-                        tick.damage();
                     if (actions.contains("swing"))
                         tick.swing();
                     if (actions.contains("ate"))
@@ -213,6 +226,10 @@ public class RecordManager {
             records.add(record);
         }
         return records;
+    }
+
+    public Set<Player> getRecordingPlayers() {
+        return recordingPlayers;
     }
 
     public Set<Recorder> getRecorders() {

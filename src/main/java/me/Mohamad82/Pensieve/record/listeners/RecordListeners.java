@@ -4,6 +4,7 @@ import me.Mohamad82.Pensieve.record.*;
 import me.Mohamad82.RUoM.ServerVersion;
 import me.Mohamad82.RUoM.Vector3;
 import org.bukkit.GameMode;
+import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -11,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
@@ -18,6 +20,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffectType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -111,6 +114,24 @@ public class RecordListeners implements Listener {
     }
 
     @EventHandler
+    public void onHit(EntityDamageByEntityEvent event) {
+        if (!event.getEntityType().equals(EntityType.PLAYER)) return;
+        if (!event.getDamager().getType().equals(EntityType.PLAYER)) return;
+        Player damager = (Player) event.getDamager();
+        Player victim = (Player) event.getEntity();
+        if (isCritical(damager)) {
+            for (Recorder recorder : RecordManager.getInstance().getRecorders()) {
+                if (recorder.getPlayers().contains(damager) && recorder.getPlayers().contains(victim)) {
+                    if (recorder.isRunning()) {
+                        RecordTick currentTick = recorder.getCurrentTick(victim);
+                        currentTick.damage(DamageType.CRITICAL);
+                    }
+                }
+            }
+        }
+    }
+
+    @EventHandler
     public void onDamage(EntityDamageEvent event) {
         if (!event.getEntityType().equals(EntityType.PLAYER)) return;
         Player player = (Player) event.getEntity();
@@ -118,7 +139,7 @@ public class RecordListeners implements Listener {
             if (recorder.getPlayers().contains(player)) {
                 if (recorder.isRunning()) {
                     RecordTick currentTick = recorder.getCurrentTick(player);
-                    currentTick.damage();
+                    currentTick.damage(DamageType.NORMAL);
                     currentTick.setHealth(player.getHealth() - event.getDamage());
                 }
             }
@@ -162,6 +183,17 @@ public class RecordListeners implements Listener {
                 }
             }
         }
+    }
+
+    @SuppressWarnings("deprecation")
+    private boolean isCritical(Player damager) {
+        return
+                damager.getFallDistance() > 0.0F &&
+                        !damager.isOnGround() &&
+                        !damager.isInsideVehicle() &&
+                        !damager.hasPotionEffect(PotionEffectType.BLINDNESS) &&
+                        damager.getLocation().getBlock().getType() != Material.LADDER &&
+                        damager.getLocation().getBlock().getType() != Material.VINE;
     }
 
 }

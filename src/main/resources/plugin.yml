@@ -3,4 +3,7 @@ version: ${project.version}
 main: me.Mohamad82.Pensieve.Main
 api-version: 1.13
 authors: [ Mohamad82 ]
-description: A well-supported record and replay system for Minecraft
+description: A well-supported record and replay system in Minecraft!
+commands:
+  pensieve:
+  record:

@@ -6,6 +6,7 @@ import me.Mohamad82.Pensieve.record.PendingBlockBreak;
 import me.Mohamad82.Pensieve.record.RecordManager;
 import me.Mohamad82.Pensieve.record.RecordTick;
 import me.Mohamad82.Pensieve.record.Recorder;
+import me.Mohamad82.RUoM.ServerVersion;
 import me.Mohamad82.RUoM.Vector3;
 import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import org.bukkit.Bukkit;
@@ -84,7 +85,7 @@ public class PacketListener implements Listener {
             @Override
             public void channelRead(ChannelHandlerContext context, Object packet) throws Exception {
                 if (packet.toString().contains("PacketPlayInBlockDig")) {
-                    Object digType = packet.getClass().getMethod("d").invoke(packet);
+                    Object digType = packet.getClass().getMethod(ServerVersion.supports(13) ? "d" : "c").invoke(packet);
 
                     switch (digType.toString()) {
                         case "START_DESTROY_BLOCK":
@@ -94,14 +95,15 @@ public class PacketListener implements Listener {
                                         if (player.getGameMode().equals(GameMode.SURVIVAL)) {
                                             RecordTick currentTick = recorder.getCurrentTick(player);
                                             PendingBlockBreak pendingBlockBreak = new PendingBlockBreak();
-                                            Object blockPosition = packet.getClass().getMethod("b").invoke(packet);
+                                            Object blockPosition = packet.getClass().getMethod(ServerVersion.supports(13) ? "b" : "a").invoke(packet);
                                             int x = (int) blockPosition.getClass().getMethod("getX").invoke(blockPosition);
                                             int y = (int) blockPosition.getClass().getMethod("getY").invoke(blockPosition);
                                             int z = (int) blockPosition.getClass().getMethod("getZ").invoke(blockPosition);
                                             pendingBlockBreak.setLocation(Vector3.at(x, y, z));
                                             pendingBlockBreak.setMaterial(player.getWorld().getBlockAt(x, y, z).getType());
                                             pendingBlockBreak.setBlockDirection(BlockDirection.valueOf(
-                                                    packet.getClass().getMethod("c").invoke(packet).toString().toUpperCase()));
+                                                    packet.getClass().getMethod(ServerVersion.supports(13) ? "c" : "b")
+                                                            .invoke(packet).toString().toUpperCase()));
                                             currentTick.setPendingBlockBreak(pendingBlockBreak);
                                             breakingPlayers.put(player, pendingBlockBreak);
                                         }

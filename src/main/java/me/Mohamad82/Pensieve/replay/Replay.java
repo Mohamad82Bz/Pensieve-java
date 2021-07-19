@@ -3,6 +3,7 @@ package me.Mohamad82.Pensieve.replay;
 import me.Mohamad82.Pensieve.nms.enums.NPCAnimation;
 import me.Mohamad82.Pensieve.nms.NMSUtils;
 import me.Mohamad82.Pensieve.nms.NPC;
+import me.Mohamad82.Pensieve.record.DamageType;
 import me.Mohamad82.Pensieve.record.Record;
 import me.Mohamad82.Pensieve.record.RecordTick;
 import me.Mohamad82.RUoM.LocUtils;
@@ -164,8 +165,12 @@ public class Replay {
 
                         if (tick.didSwing())
                             npc.animate(NPCAnimation.SWING_MAIN_ARM);
-                        if (tick.tookDamage())
-                            npc.animate(NPCAnimation.TAKE_DAMAGE);
+                        if (tick.tookDamage()) {
+                            if (tick.getTakenDamageType().equals(DamageType.CRITICAL))
+                                npc.animate(NPCAnimation.CRITICAL_EFFECT);
+                            else
+                                npc.animate(NPCAnimation.TAKE_DAMAGE);
+                        }
 
                         if (tick.getBlockPlaces() != null) {
                             for (Vector3 blockLoc : tick.getBlockPlaces().keySet()) {
@@ -248,21 +253,18 @@ public class Replay {
         }
     }
 
-    public Vector3 getCenterOffSet(Vector3 center, Vector3 location) {
-        return getTravelDistance(center, location);
-    }
-
     private void spawnBlockBreakParticle(Location blockLoc, Material material) {
         Location center = LocUtils.simplifyToCenter(blockLoc);
         Random random = new Random();
         for (int i = 0; i <= 30; i++) {
-            float x = (float) (random.nextInt(10) - 5) / 10;
-            float y = (float) (random.nextInt(10) - 5) / 10;
-            float z = (float) (random.nextInt(10) - 5) / 10;
             blockLoc.getWorld().spawnParticle(Particle.BLOCK_CRACK,
-                    center.clone().add(x, y + 0.5, z),
+                    center.clone().add(getRandomInBlock(), getRandomInBlock() + 0.5, getRandomInBlock()),
                     2, material.createBlockData());
         }
+    }
+
+    private float getRandomInBlock() {
+        return (float) (new Random().nextInt(10) - 5) / 10;
     }
 
     private void animateFoodEat(Location location, float yaw, ItemStack item) {
@@ -305,25 +307,6 @@ public class Replay {
         }
 
         return Vector3.at(xD, yD, zD);
-    }
-
-    private Location getTravelDistance(Location from, Location to) {
-        double xD = Math.abs(from.getX() - to.getX());
-        double yD = Math.abs(from.getY() - to.getY());
-        double zD = Math.abs(from.getZ() - to.getZ());
-        if (from.getX() > to.getX()) {
-            xD *= -1;
-        }
-
-        if (from.getY() > to.getY()) {
-            yD *= -1;
-        }
-
-        if (from.getZ() > to.getZ()) {
-            zD *= -1;
-        }
-
-        return new Location(to.getWorld(), xD, yD, zD, to.getYaw(), to.getPitch());
     }
 
 }

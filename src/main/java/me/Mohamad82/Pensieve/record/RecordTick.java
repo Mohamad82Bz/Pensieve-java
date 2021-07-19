@@ -17,6 +17,7 @@ public class RecordTick implements Cloneable {
     private ItemStack eatingItem;
     private Vector3 location;
     private NPCState state;
+    private DamageType takenDamageType;
     private String message;
 
     private boolean swing;
@@ -126,11 +127,15 @@ public class RecordTick implements Cloneable {
     }
 
     public boolean tookDamage() {
-        return takeDamage;
+        return takenDamageType != null;
     }
 
-    public void damage() {
-        this.takeDamage = true;
+    public DamageType getTakenDamageType() {
+        return takenDamageType;
+    }
+
+    public void damage(DamageType damageType) {
+        this.takenDamageType = damageType;
     }
 
     public boolean ateFood() {

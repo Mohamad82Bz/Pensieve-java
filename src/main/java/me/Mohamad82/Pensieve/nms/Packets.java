@@ -25,6 +25,7 @@ public class Packets {
                             entityPlayerArray.getClass());
             Array.set(entityPlayerArray, 0, entityPlayer);
 
+
             return packetPlayerInfoConstructor.newInstance(addPlayerEnum, entityPlayerArray);
         } catch (Exception e) {
             e.printStackTrace();
