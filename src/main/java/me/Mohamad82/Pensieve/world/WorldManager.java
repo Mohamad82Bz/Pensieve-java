@@ -1,10 +1,7 @@
 package me.Mohamad82.Pensieve.world;
 
 import me.Mohamad82.RUoM.ServerVersion;
-import org.bukkit.GameRule;
-import org.bukkit.World;
-import org.bukkit.WorldCreator;
-import org.bukkit.WorldType;
+import org.bukkit.*;
 
 public class WorldManager {
 
@@ -13,13 +10,21 @@ public class WorldManager {
         return instance;
     }
 
-    WorldCreator worldCreator;
-    World world;
+    private WorldCreator worldCreator;
+    private final World world;
+
+    private final String name = "pensieve_world";
 
     public WorldManager() {
         instance = this;
 
-        worldCreator = new WorldCreator("pensieve_world");
+        World bukkitWorld = Bukkit.getWorld(name);
+        if (bukkitWorld != null) {
+            world = bukkitWorld;
+            return;
+        }
+
+        worldCreator = new WorldCreator(name);
         if (ServerVersion.supports(13)) {
             worldCreator.generator(new EmptyChunkGenerator());
         } else {

@@ -82,20 +82,6 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot-1.16.5</artifactId>
-            <version>1.16.5-R0.1-SNAPSHOT</version>
-            <scope>system</scope>
-            <systemPath>${basedir}/lib/spigot-1.16.5.jar/</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot-1.12</artifactId>
-            <version>1.12.2-R0.1-SNAPSHOT</version>
-            <scope>system</scope>
-            <systemPath>${basedir}/lib/spigot-1.12.2.jar/</systemPath>
-        </dependency>
-        <dependency>
             <groupId>me.Mohamad82</groupId>
             <artifactId>RUoM</artifactId>
             <version>1.9.1</version>
@@ -112,6 +98,20 @@
             <version>5.8</version>
             <scope>system</scope>
             <systemPath>${basedir}/lib/Eggwars-5.8.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigotmc-1.16.5</artifactId>
+            <version>1.16.5</version>
+            <scope>system</scope>
+            <systemPath>${basedir}/lib/spigot-1.16.5.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigotmc-1.17</artifactId>
+            <version>1.17</version>
+            <scope>system</scope>
+            <systemPath>${basedir}/lib/spigot-1.17.jar</systemPath>
         </dependency>
     </dependencies>
 </project>

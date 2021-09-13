@@ -1,4 +1,4 @@
-package me.Mohamad82.Pensieve.eggwarsx;
+package me.Mohamad82.Pensieve.gamemodes.eggwarsx;
 
 import me.Mohamad82.Pensieve.Main;
 import me.Mohamad82.Pensieve.data.DataManager;

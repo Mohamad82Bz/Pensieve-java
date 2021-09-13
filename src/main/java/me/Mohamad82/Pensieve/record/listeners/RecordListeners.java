@@ -48,6 +48,8 @@ public class RecordListeners implements Listener {
     @EventHandler
     public void onBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
+        Material blockMaterial = event.getBlock().getType();
+
         for (Recorder recorder : RecordManager.getInstance().getRecorders()) {
             if (recorder.getPlayers().contains(player)) {
                 if (recorder.isRunning()) {

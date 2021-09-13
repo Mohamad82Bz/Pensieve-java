@@ -65,6 +65,12 @@ public class Replay {
             records.get(record).getViewers().addAll(Bukkit.getOnlinePlayers());
             records.get(record).addNPCPacket();
         }
+        int maxTicks = 0;
+        for (Record record : records.keySet()) {
+            if (record.getRecordTicks().size() > maxTicks)
+                maxTicks = record.getRecordTicks().size();
+        }
+        final int maxTicksFinal = maxTicks;
         replayRunnable = new BukkitRunnable() {
             int i = 0;
             int finishedRecords = 0;

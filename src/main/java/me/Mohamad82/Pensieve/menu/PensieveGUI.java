@@ -74,10 +74,11 @@ public class PensieveGUI extends GUI {
     }
 
     public void setPage(int page) {
-        for (int i = 0; i < page * replaySlots.size(); i++) {
-            int slot = replaySlots.get(i);
-            //getInventory().setItem(slot, replayItems.get());
-        }
+        /*for (int i = page * replaySlots.size(); i <) {
+            //int slot = replaySlots.get(i);
+
+
+        }*/
     }
 
     @Override

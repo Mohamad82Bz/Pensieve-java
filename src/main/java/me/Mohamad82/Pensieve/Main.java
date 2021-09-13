@@ -3,7 +3,7 @@ package me.Mohamad82.Pensieve;
 import me.Mohamad82.Pensieve.commands.PensieveCommand;
 import me.Mohamad82.Pensieve.core.ReplayArenasManager;
 import me.Mohamad82.Pensieve.data.DataManager;
-import me.Mohamad82.Pensieve.eggwarsx.EWXListeners;
+import me.Mohamad82.Pensieve.gamemodes.eggwarsx.EWXListeners;
 import me.Mohamad82.Pensieve.record.RecordManager;
 import me.Mohamad82.Pensieve.record.listeners.PacketListener;
 import me.Mohamad82.Pensieve.record.listeners.RecordListeners;
@@ -44,7 +44,7 @@ public final class Main extends JavaPlugin {
     public void initializeCommands() {
         getCommand("pensieve").setExecutor(new PensieveCommand());
 
-        //TEST
+        //TODO: Remove
         getCommand("record").setExecutor(new TestRecordCommand());
     }
 
