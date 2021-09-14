@@ -1,8 +1,8 @@
 package me.Mohamad82.Pensieve.record;
 
 import me.Mohamad82.Pensieve.nms.enums.NPCState;
-import me.Mohamad82.RUoM.ServerVersion;
-import me.Mohamad82.RUoM.Vector3;
+import me.Mohamad82.RUoM.utils.ServerVersion;
+import me.Mohamad82.RUoM.vector.Vector3;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -49,7 +49,7 @@ public class Recorder implements Listener {
 
     public void start() {
         for (Player player : players) {
-            records.add(new Record(player.getUniqueId()));
+            records.add(new Record(player.getUniqueId(), player.getName()));
             getPlayerRecord(player).setCenter(center);
             if (players.size() == 1)
                 center = Vector3.at(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ());

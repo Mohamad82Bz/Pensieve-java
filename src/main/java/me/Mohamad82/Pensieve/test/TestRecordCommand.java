@@ -5,7 +5,7 @@ import me.Mohamad82.Pensieve.record.RecordManager;
 import me.Mohamad82.Pensieve.record.Recorder;
 import me.Mohamad82.Pensieve.replay.Replay;
 import me.Mohamad82.Pensieve.utils.BlockSoundUtils;
-import me.Mohamad82.RUoM.Vector3;
+import me.Mohamad82.RUoM.vector.Vector3;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.Command;

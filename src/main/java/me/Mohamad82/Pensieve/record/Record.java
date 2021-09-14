@@ -1,7 +1,7 @@
 package me.Mohamad82.Pensieve.record;
 
 import me.Mohamad82.Pensieve.replay.ReplayCache;
-import me.Mohamad82.RUoM.Vector3;
+import me.Mohamad82.RUoM.vector.Vector3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,12 +11,14 @@ public class Record {
 
     private ReplayCache recordCache;
     private final UUID playerUUID;
+    private final String playerName;
     private Vector3 startLocation;
     private Vector3 center;
     private List<RecordTick> recordTicks = new ArrayList<>();
 
-    public Record(UUID playerUUID) {
+    public Record(UUID playerUUID, String playerName) {
         this.playerUUID = playerUUID;
+        this.playerName = playerName;
     }
 
     public ReplayCache getRecordCache() {
@@ -29,6 +31,10 @@ public class Record {
 
     public UUID getPlayerUUID() {
         return playerUUID;
+    }
+
+    public String getPlayerName() {
+        return playerName;
     }
 
     public Vector3 getStartLocation() {

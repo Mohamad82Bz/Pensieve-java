@@ -2,7 +2,7 @@ package me.Mohamad82.Pensieve.record;
 
 import me.Mohamad82.Pensieve.nms.enums.BlockDirection;
 import me.Mohamad82.Pensieve.nms.NMSUtils;
-import me.Mohamad82.RUoM.Vector3;
+import me.Mohamad82.RUoM.vector.Vector3;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;

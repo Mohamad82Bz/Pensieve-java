@@ -3,9 +3,10 @@ package me.Mohamad82.Pensieve.record;
 import me.Mohamad82.Pensieve.Main;
 import me.Mohamad82.Pensieve.nms.enums.BlockDirection;
 import me.Mohamad82.Pensieve.nms.enums.NPCState;
-import me.Mohamad82.RUoM.Vector3;
-import me.Mohamad82.RUoM.Vector3Utils;
-import me.Mohamad82.RUoM.YamlConfig;
+import me.Mohamad82.Pensieve.record.enums.DamageType;
+import me.Mohamad82.RUoM.configuration.YamlConfig;
+import me.Mohamad82.RUoM.vector.Vector3;
+import me.Mohamad82.RUoM.vector.Vector3Utils;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -38,6 +39,7 @@ public class RecordManager {
         int maxTotalTicks = 0;
         for (Record record : records) {
             ConfigurationSection section = data.getConfig().createSection(record.getPlayerUUID().toString());
+            section.set("player_name", record.getPlayerName());
             section.set("start_location", record.getStartLocation().toString());
             section.set("center_location", record.getCenter().toString());
             int i = 0;
@@ -133,11 +135,14 @@ public class RecordManager {
 
         for (String uuid : data.getConfig().getConfigurationSection("").getKeys(false)) {
             if (uuid.equalsIgnoreCase("info")) continue;
-            Record record = new Record(UUID.fromString(uuid));
+            ConfigurationSection uuidSection = data.getConfig().getConfigurationSection(uuid);
+
+            String playerName = uuidSection.getString("player_name");
+            Record record = new Record(UUID.fromString(uuid), playerName);
             List<RecordTick> ticks = new ArrayList<>();
             RecordTick lastTick = new RecordTick();
 
-            for (String tickSectionName : data.getConfig().getConfigurationSection(uuid).getKeys(false)) {
+            for (String tickSectionName : uuidSection.getKeys(false)) {
                 if (tickSectionName.equals("start_location")) {
                     record.setStartLocation(Vector3Utils.toVector3(data.getConfig().getConfigurationSection(uuid).getString("start_location")));
                     continue;

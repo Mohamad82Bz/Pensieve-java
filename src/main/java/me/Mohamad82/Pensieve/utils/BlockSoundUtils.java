@@ -1,7 +1,7 @@
 package me.Mohamad82.Pensieve.utils;
 
-import me.Mohamad82.RUoM.ServerVersion;
-import me.Mohamad82.RUoM.StringUtils;
+import me.Mohamad82.RUoM.utils.ServerVersion;
+import me.Mohamad82.RUoM.utils.StringUtils;
 import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import org.bukkit.Material;
 import org.bukkit.Sound;

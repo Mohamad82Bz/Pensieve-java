@@ -2,11 +2,11 @@ package me.Mohamad82.Pensieve.menu;
 
 import me.Mohamad82.Pensieve.Main;
 import me.Mohamad82.Pensieve.data.DataManager;
-import me.Mohamad82.RUoM.GUI.GUI;
-import me.Mohamad82.RUoM.ListUtils;
-import me.Mohamad82.RUoM.StringUtils;
-import me.Mohamad82.RUoM.Translators.ItemReader;
-import me.Mohamad82.RUoM.YamlConfig;
+import me.Mohamad82.RUoM.configuration.YamlConfig;
+import me.Mohamad82.RUoM.gui.GUI;
+import me.Mohamad82.RUoM.translators.ItemReader;
+import me.Mohamad82.RUoM.utils.ListUtils;
+import me.Mohamad82.RUoM.utils.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -25,13 +25,13 @@ public class PensieveGUI extends GUI {
     private final UUID playerUuid;
     private final ItemReader itemReader;
 
-    private int currentPage = 1;
+    private final int currentPage = 1;
     private int maxPages;
 
     public PensieveGUI(UUID playerUuid) {
         super(StringUtils.colorize("&5Pensieve"));
         this.playerUuid = playerUuid;
-        itemReader = new ItemReader(null, Main.getInstance().getLogger());
+        itemReader = new ItemReader();
         replaySlots = ListUtils.toIntegerList(10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22,
                 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43);
 

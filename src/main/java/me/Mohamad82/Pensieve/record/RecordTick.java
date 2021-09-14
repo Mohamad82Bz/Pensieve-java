@@ -1,7 +1,8 @@
 package me.Mohamad82.Pensieve.record;
 
 import me.Mohamad82.Pensieve.nms.enums.NPCState;
-import me.Mohamad82.RUoM.Vector3;
+import me.Mohamad82.Pensieve.record.enums.DamageType;
+import me.Mohamad82.RUoM.vector.Vector3;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
@@ -235,7 +236,7 @@ public class RecordTick implements Cloneable {
                 tick.setLeggings(this.getLeggings().clone());
             if (this.getBoots() != null)
                 this.setBoots(this.getBoots().clone());
-            //
+
             return tick;
         } catch (CloneNotSupportedException e) {
             throw new Error(e);

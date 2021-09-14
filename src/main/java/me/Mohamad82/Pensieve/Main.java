@@ -1,7 +1,7 @@
 package me.Mohamad82.Pensieve;
 
 import me.Mohamad82.Pensieve.commands.PensieveCommand;
-import me.Mohamad82.Pensieve.core.ReplayArenasManager;
+import me.Mohamad82.Pensieve.core.ReplayArenaManager;
 import me.Mohamad82.Pensieve.data.DataManager;
 import me.Mohamad82.Pensieve.gamemodes.eggwarsx.EWXListeners;
 import me.Mohamad82.Pensieve.record.RecordManager;
@@ -9,9 +9,9 @@ import me.Mohamad82.Pensieve.record.listeners.PacketListener;
 import me.Mohamad82.Pensieve.record.listeners.RecordListeners;
 import me.Mohamad82.Pensieve.test.TestRecordCommand;
 import me.Mohamad82.Pensieve.world.WorldManager;
-import me.Mohamad82.RUoM.AreaSelection.AreaSelectionListener;
-import me.Mohamad82.RUoM.AreaSelection.AreaSelectionManager;
-import me.Mohamad82.RUoM.StringUtils;
+import me.Mohamad82.RUoM.Ruom;
+import me.Mohamad82.RUoM.areaselection.AreaSelectionListener;
+import me.Mohamad82.RUoM.utils.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -60,8 +60,8 @@ public final class Main extends JavaPlugin {
         new WorldManager();
         new RecordManager();
         new DataManager();
-        new ReplayArenasManager();
-        new AreaSelectionManager(ReplayArenasManager.wand);
+        new ReplayArenaManager();
+        Ruom.initializeAreaSelection(ReplayArenaManager.wand);
     }
 
     public void sendFiglet() {

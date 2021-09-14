@@ -1,8 +1,9 @@
 package me.Mohamad82.Pensieve.record.listeners;
 
 import me.Mohamad82.Pensieve.record.*;
-import me.Mohamad82.RUoM.ServerVersion;
-import me.Mohamad82.RUoM.Vector3;
+import me.Mohamad82.Pensieve.record.enums.DamageType;
+import me.Mohamad82.RUoM.utils.ServerVersion;
+import me.Mohamad82.RUoM.vector.Vector3;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.EntityType;

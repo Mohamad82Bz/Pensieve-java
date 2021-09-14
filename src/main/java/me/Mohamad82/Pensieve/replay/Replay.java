@@ -1,14 +1,18 @@
 package me.Mohamad82.Pensieve.replay;
 
-import me.Mohamad82.Pensieve.nms.enums.NPCAnimation;
 import me.Mohamad82.Pensieve.nms.NMSUtils;
 import me.Mohamad82.Pensieve.nms.NPC;
-import me.Mohamad82.Pensieve.record.DamageType;
+import me.Mohamad82.Pensieve.nms.enums.NPCAnimation;
 import me.Mohamad82.Pensieve.record.Record;
 import me.Mohamad82.Pensieve.record.RecordTick;
-import me.Mohamad82.RUoM.LocUtils;
-import me.Mohamad82.RUoM.Vector3;
-import me.Mohamad82.RUoM.Vector3Utils;
+import me.Mohamad82.Pensieve.record.enums.DamageType;
+import me.Mohamad82.Pensieve.utils.BlockSoundUtils;
+import me.Mohamad82.RUoM.XSeries.XSound;
+import me.Mohamad82.RUoM.utils.BlockUtils;
+import me.Mohamad82.RUoM.utils.LocUtils;
+import me.Mohamad82.RUoM.utils.PlayerUtils;
+import me.Mohamad82.RUoM.vector.Vector3;
+import me.Mohamad82.RUoM.vector.Vector3Utils;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -42,14 +46,14 @@ public class Replay {
             center = Vector3.at(center.getBlockX() + 0.5, center.getBlockY(), center.getBlockZ() + 0.5);
         this.center = center;
         for (Record record : records) {
-            Vector3 centerOffSetDistance = getTravelDistance(record.getCenter(), record.getStartLocation());
+            Vector3 centerOffSetDistance = Vector3Utils.getTravelDistance(record.getCenter(), record.getStartLocation());
             Vector3 centerOffSet = center.clone().add(centerOffSetDistance.getX(), centerOffSetDistance.getY(), centerOffSetDistance.getZ());
-            this.records.put(record, new NPC(Bukkit.getPlayer(record.getPlayerUUID()),
+            this.records.put(record, new NPC(record.getPlayerName(),
                     new Location(world, centerOffSet.getX(), centerOffSet.getY(), centerOffSet.getZ())));
 
             ReplayCache cache = new ReplayCache();
             replayCache.put(record.getPlayerUUID(), cache);
-            cache.setCentersDistance(getTravelDistance(record.getCenter(), center));
+            cache.setCentersDistance(Vector3Utils.getTravelDistance(record.getCenter(), center));
         }
     }
 
@@ -58,7 +62,7 @@ public class Replay {
     }
 
     public PlayBackControl start() {
-        PlayBackControl control = new PlayBackControl();
+        PlayBackControl playbackControl = new PlayBackControl();
         for (Record record : records.keySet()) {
             replayCache.get(record.getPlayerUUID()).setPlaying(true);
 
@@ -113,8 +117,8 @@ public class Replay {
 
                             Vector3 travelDistance = Vector3.at(0, 0, 0);
                             if (tick.getLocation() != null) {
-                                Vector3 centerOffSet = getTravelDistance(record.getCenter(), tick.getLocation());
-                                travelDistance = getTravelDistance(lastNonNullTick.getLocation().clone().add(centerOffSet),
+                                Vector3 centerOffSet = Vector3Utils.getTravelDistance(record.getCenter(), tick.getLocation());
+                                travelDistance = Vector3Utils.getTravelDistance(lastNonNullTick.getLocation().clone().add(centerOffSet),
                                         tick.getLocation().clone().add(centerOffSet));
                                 lastNonNullTick.setLocation(tick.getLocation());
                             }
@@ -172,31 +176,45 @@ public class Replay {
                         if (tick.didSwing())
                             npc.animate(NPCAnimation.SWING_MAIN_ARM);
                         if (tick.tookDamage()) {
-                            if (tick.getTakenDamageType().equals(DamageType.CRITICAL))
+                            Location npcLocation = Vector3Utils.toLocation(world, tick.getLocation());
+                            if (tick.getTakenDamageType().equals(DamageType.CRITICAL)) {
                                 npc.animate(NPCAnimation.CRITICAL_EFFECT);
-                            else
+                                for (Player player : npc.getViewers()) {
+                                    player.playSound(npcLocation, XSound.ENTITY_PLAYER_ATTACK_CRIT.parseSound(), 1, 1);
+                                }
+                            } else {
                                 npc.animate(NPCAnimation.TAKE_DAMAGE);
+                                for (Player player : npc.getViewers()) {
+                                    player.playSound(npcLocation, XSound.ENTITY_PLAYER_ATTACK_WEAK.parseSound(), 1, 1);
+                                }
+                            }
                         }
 
                         if (tick.getBlockPlaces() != null) {
                             for (Vector3 blockLoc : tick.getBlockPlaces().keySet()) {
-                                Vector3 blockLocFinal = center.clone().add(getTravelDistance(record.getCenter(), blockLoc));
+                                Vector3 blockLocFinal = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), blockLoc));
                                 Location blockLocation = new Location(world, blockLocFinal.getBlockX(), blockLocFinal.getBlockY(), blockLocFinal.getBlockZ());
+                                Material blockMaterial = tick.getBlockPlaces().get(blockLocFinal);
                                 for (Player player : npc.getViewers()) {
-                                    player.sendBlockChange(blockLocation, tick.getBlockPlaces().get(blockLoc).createBlockData());
+                                    player.sendBlockChange(blockLocation, blockMaterial.createBlockData());
+                                    player.playSound(blockLocation,
+                                            BlockSoundUtils.getBlockSound(BlockSoundUtils.SoundType.PLACE, blockMaterial), 1, 1);
                                 }
                             }
                         }
 
                         if (tick.getBlockBreaks() != null) {
                             for (Vector3 blockLoc : tick.getBlockBreaks().keySet()) {
-                                Vector3 blockLocFinal = center.clone().add(getTravelDistance(record.getCenter(), blockLoc));
+                                Vector3 blockLocFinal = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), blockLoc));
                                 Location blockLocation = new Location(world, blockLocFinal.getBlockX(), blockLocFinal.getBlockY(), blockLocFinal.getBlockZ());
+                                Material blockMaterial = tick.getBlockBreaks().get(blockLoc);
                                 for (Player player : npc.getViewers()) {
                                     player.sendBlockChange(blockLocation, Material.AIR.createBlockData());
+                                    player.playSound(blockLocation,
+                                            BlockSoundUtils.getBlockSound(BlockSoundUtils.SoundType.BREAK, blockMaterial), 1, 1);
                                 }
                                 NMSUtils.sendBlockBreakAnimation(npc.getViewers(), blockLocFinal, -1);
-                                spawnBlockBreakParticle(blockLocation, tick.getBlockBreaks().get(blockLoc));
+                                BlockUtils.spawnBlockBreakParticles(blockLocation, tick.getBlockBreaks().get(blockLoc));
                             }
                         }
 
@@ -205,7 +223,7 @@ public class Replay {
                             ReplayCache cache = replayCache.get(record.getPlayerUUID());
                             if (!cache.getPendingBlockBreakOffSetLocations().containsKey(record.getPlayerUUID())) {
                                 cache.getPendingBlockBreakOffSetLocations().put(record.getPlayerUUID(),
-                                        center.clone().add(getTravelDistance(record.getCenter(), tick.getPendingBlockBreak().getLocation())));
+                                        center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), tick.getPendingBlockBreak().getLocation())));
                             }
                             tick.getPendingBlockBreak().spawnParticle(world, cache.getPendingBlockBreakOffSetLocations().get(record.getPlayerUUID()));
 
@@ -233,8 +251,11 @@ public class Replay {
                             if (cache.getPendingFoodEatSkippedTicks().get(record.getPlayerUUID()) % 5 == 0) {
                                 RecordTick lastNonNullTick = lastNonNullTicks.get(record.getPlayerUUID());
                                 Location location = Vector3Utils.toLocation(world,
-                                        center.clone().add(getTravelDistance(record.getCenter(), lastNonNullTick.getLocation())));
-                                animateFoodEat(location, lastNonNullTick.getYaw(), tick.getEatingItem());
+                                        center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), lastNonNullTick.getLocation())));
+                                Location locationYawFixed = location.clone();
+                                locationYawFixed.setYaw(lastNonNullTick.getYaw());
+
+                                PlayerUtils.spawnFoodEatParticles(locationYawFixed, tick.getEatingItem());
                             }
                             cache.getPendingFoodEatSkippedTicks().put(record.getPlayerUUID(),
                                     cache.getPendingFoodEatSkippedTicks().get(record.getPlayerUUID()) + 1);
@@ -248,7 +269,7 @@ public class Replay {
             }
         }.runTaskTimer(plugin, 0, 1);
 
-        return control;
+        return playbackControl;
     }
 
     public void suspend() {
@@ -261,7 +282,6 @@ public class Replay {
 
     private void spawnBlockBreakParticle(Location blockLoc, Material material) {
         Location center = LocUtils.simplifyToCenter(blockLoc);
-        Random random = new Random();
         for (int i = 0; i <= 30; i++) {
             blockLoc.getWorld().spawnParticle(Particle.BLOCK_CRACK,
                     center.clone().add(getRandomInBlock(), getRandomInBlock() + 0.5, getRandomInBlock()),
@@ -271,48 +291,6 @@ public class Replay {
 
     private float getRandomInBlock() {
         return (float) (new Random().nextInt(10) - 5) / 10;
-    }
-
-    private void animateFoodEat(Location location, float yaw, ItemStack item) {
-        Random random = new Random();
-        Location rightSide = getRightSide(location, yaw).add(0, -0.25, 0);
-        for (int i = 0; i < 11; i++) {
-            if (random.nextInt(7) < 1) continue;
-            float a1 = (float) (random.nextInt(4) - 2) / 10;
-            float a2 = (float) (random.nextInt(4) - 2) / 10;
-            float a3 = (float) (random.nextInt(15) - 5) / 100;
-
-            location.getWorld().spawnParticle(Particle.ITEM_CRACK, rightSide,
-                    0, 0 + a1, 1, 0 + a2, 0.23 + a3,
-                    item);
-        }
-    }
-
-    private Location getRightSide(Location location, float yaw) {
-        double yawRightHandDirection = Math.toRadians(-1 * yaw);
-        double x = 0.5 * Math.sin(yawRightHandDirection) + location.getX();
-        double y = location.getY() + 1;
-        double z = 0.5 * Math.cos(yawRightHandDirection) + location.getZ();
-        return new Location(location.getWorld(), x, y, z);
-    }
-
-    private Vector3 getTravelDistance(Vector3 from, Vector3 to) {
-        double xD = Math.abs(from.getX() - to.getX());
-        double yD = Math.abs(from.getY() - to.getY());
-        double zD = Math.abs(from.getZ() - to.getZ());
-        if (from.getX() > to.getX()) {
-            xD *= -1;
-        }
-
-        if (from.getY() > to.getY()) {
-            yD *= -1;
-        }
-
-        if (from.getZ() > to.getZ()) {
-            zD *= -1;
-        }
-
-        return Vector3.at(xD, yD, zD);
     }
 
 }

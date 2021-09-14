@@ -3,7 +3,7 @@ package me.Mohamad82.Pensieve.core;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-public class AreaSelection extends me.Mohamad82.RUoM.AreaSelection.AreaSelection {
+public class AreaSelection extends me.Mohamad82.RUoM.areaselection.AreaSelection {
 
     public AreaSelection(Player player, ItemStack wand) {
         super(player, wand);

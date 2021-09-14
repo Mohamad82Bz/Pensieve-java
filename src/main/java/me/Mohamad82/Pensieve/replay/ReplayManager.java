@@ -1,7 +1,5 @@
 package me.Mohamad82.Pensieve.replay;
 
-import org.bukkit.entity.Player;
-
 public class ReplayManager {
 
     private static ReplayManager instance;

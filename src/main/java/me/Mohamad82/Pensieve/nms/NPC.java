@@ -18,18 +18,15 @@ import java.util.UUID;
 
 public class NPC {
 
-    private final Player player;
     private final Set<Player> players = new HashSet<>();
     private final float yaw;
     private final Object npc;
 
-    public NPC(Player player, Location location) {
-        this.player = player;
-
+    public NPC(String playerName, Location location) {
         try {
             Object server = ReflectionUtils.getCraftClass("CraftServer").getMethod("getServer").invoke(Bukkit.getServer());
             Object world = ReflectionUtils.getCraftClass("CraftWorld").getMethod("getHandle").invoke(location.getWorld());
-            GameProfile profile = new GameProfile(UUID.randomUUID(), ChatColor.AQUA + player.getName());
+            GameProfile profile = new GameProfile(UUID.randomUUID(), ChatColor.AQUA + playerName);
 
             Constructor<?> entityPlayerConstructor = ReflectionUtils.getNMSClass("EntityPlayer")
                     .getConstructor(ReflectionUtils.getNMSClass("MinecraftServer"), ReflectionUtils.getNMSClass("WorldServer"),
@@ -140,10 +137,6 @@ public class NPC {
             ReflectionUtils.sendPacket(player,
                     packetPlayOutEntityMetadata);
         }
-    }
-
-    public Player getPlayer() {
-        return player;
     }
 
     public boolean addViewer(Player player) {

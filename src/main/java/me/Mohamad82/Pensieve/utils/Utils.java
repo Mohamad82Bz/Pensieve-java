@@ -1,6 +1,6 @@
 package me.Mohamad82.Pensieve.utils;
 
-import me.Mohamad82.RUoM.Vector3;
+import me.Mohamad82.RUoM.vector.Vector3;
 
 import java.util.HashSet;
 import java.util.Random;

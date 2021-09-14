@@ -5,11 +5,8 @@ public class PlayBackControl {
     private int progress;
     private int maxProgress;
     private String progressFormatted;
-
     private boolean pause;
-
     private float volume;
-
     private Speed speed;
 
     public PlayBackControl() {

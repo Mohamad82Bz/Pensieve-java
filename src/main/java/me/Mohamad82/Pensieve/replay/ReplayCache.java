@@ -1,6 +1,6 @@
 package me.Mohamad82.Pensieve.replay;
 
-import me.Mohamad82.RUoM.Vector3;
+import me.Mohamad82.RUoM.vector.Vector3;
 
 import java.util.HashMap;
 import java.util.Map;

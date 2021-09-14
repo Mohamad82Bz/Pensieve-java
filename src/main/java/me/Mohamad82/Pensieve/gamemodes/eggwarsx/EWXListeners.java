@@ -4,7 +4,7 @@ import me.Mohamad82.Pensieve.Main;
 import me.Mohamad82.Pensieve.data.DataManager;
 import me.Mohamad82.Pensieve.record.RecordManager;
 import me.Mohamad82.Pensieve.record.Recorder;
-import me.Mohamad82.RUoM.Vector3;
+import me.Mohamad82.RUoM.vector.Vector3;
 import me.wazup.eggwars.events.EWArenaStartEvent;
 import me.wazup.eggwars.events.EWArenaStopEvent;
 import me.wazup.eggwars.events.EWPlayerLeaveArenaEvent;

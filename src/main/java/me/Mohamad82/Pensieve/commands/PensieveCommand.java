@@ -1,10 +1,10 @@
 package me.Mohamad82.Pensieve.commands;
 
 import me.Mohamad82.Pensieve.core.AreaSelection;
-import me.Mohamad82.Pensieve.core.ReplayArenasManager;
+import me.Mohamad82.Pensieve.core.ReplayArenaManager;
 import me.Mohamad82.Pensieve.menu.PensieveGUI;
-import me.Mohamad82.RUoM.AreaSelection.AreaSelectionManager;
-import me.Mohamad82.RUoM.Vector3Utils;
+import me.Mohamad82.RUoM.areaselection.AreaSelectionManager;
+import me.Mohamad82.RUoM.vector.Vector3Utils;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -45,9 +45,9 @@ public class PensieveCommand implements CommandExecutor {
                 return true;
             }
             if (args[1].equalsIgnoreCase("wand")) {
-                if (ReplayArenasManager.getInstance().giveWand(player)) {
+                if (ReplayArenaManager.getInstance().giveWand(player)) {
                     if (!AreaSelectionManager.getInstance().containsPlayerAreaSelection(player))
-                        AreaSelectionManager.getInstance().addAreaSelection(new AreaSelection(player, ReplayArenasManager.wand));
+                        AreaSelectionManager.getInstance().addAreaSelection(new AreaSelection(player, ReplayArenaManager.wand));
                     //TODO MESSAGE
                     player.sendMessage("Wand has been given to you. set two positions and then run /pensieve setup save <name>");
                 } else {
@@ -61,7 +61,7 @@ public class PensieveCommand implements CommandExecutor {
                     player.sendMessage("Please specify a name for this setup.");
                     return true;
                 }
-                me.Mohamad82.RUoM.AreaSelection.AreaSelection areaSelection = AreaSelectionManager.getInstance().getPlayerAreaSection(player);
+                me.Mohamad82.RUoM.areaselection.AreaSelection areaSelection = AreaSelectionManager.getInstance().getPlayerAreaSection(player);
                 if (areaSelection.getFirstPos() == null) {
                     player.sendMessage("You did not set first pos.");
                     return true;
@@ -69,7 +69,7 @@ public class PensieveCommand implements CommandExecutor {
                     player.sendMessage("You did not set second pos.");
                     return true;
                 }
-                ReplayArenasManager.getInstance().createReplayArena(args[2].toLowerCase(),
+                ReplayArenaManager.getInstance().createReplayArena(args[2].toLowerCase(),
                         Vector3Utils.toVector3(areaSelection.getFirstPos()), Vector3Utils.toVector3(areaSelection.getSecondPos()));
 
                 return true;

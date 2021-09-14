@@ -1,27 +1,27 @@
 package me.Mohamad82.Pensieve.core;
 
 import me.Mohamad82.Pensieve.Main;
-import me.Mohamad82.RUoM.Translators.ItemReader;
-import me.Mohamad82.RUoM.Vector3;
-import me.Mohamad82.RUoM.YamlConfig;
+import me.Mohamad82.RUoM.configuration.YamlConfig;
+import me.Mohamad82.RUoM.translators.ItemReader;
+import me.Mohamad82.RUoM.vector.Vector3;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-public class ReplayArenasManager {
+public class ReplayArenaManager {
 
     private final YamlConfig arenas;
     public static ItemStack wand;
 
-    private static ReplayArenasManager instance;
-    public static ReplayArenasManager getInstance() {
+    private static ReplayArenaManager instance;
+    public static ReplayArenaManager getInstance() {
         return instance;
     }
 
-    public ReplayArenasManager() {
+    public ReplayArenaManager() {
         instance = this;
         arenas = new YamlConfig(Main.getInstance(), Main.getInstance().getDataFolder(), "replay-arenas.yml", false);
-        wand = new ItemReader(null, Main.getInstance().getLogger()).toItemStack("STONE_AXE ; Name:&d• &5Pensieve &6Wand" +
+        wand = new ItemReader().toItemStack("STONE_AXE ; Name:&d• &5Pensieve &6Wand" +
                 " ; Lore:&r|&d• &bLeft Click: &7First Position|&d• &bRight Click: &7Second Position|&r ; ItemFlag:HIDE_ATTRIBUTES" +
                 " ; ItemFlag:HIDE_UNBREAKABLE ; UNBREAKABLE");
     }
