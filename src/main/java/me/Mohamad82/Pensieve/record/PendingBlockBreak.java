@@ -68,17 +68,17 @@ public class PendingBlockBreak implements Cloneable {
     public void spawnParticle(World world, Vector3 location) {
         Location centerBlock = new Location(world, location.getCenterX(), location.getCenterY() + 0.5, location.getCenterZ());
         if (blockDirection.equals(BlockDirection.UP))
-            centerBlock.add(0, 0.51, 0);
+            centerBlock.add(0, 0.504, 0);
         else if (blockDirection.equals(BlockDirection.DOWN))
-            centerBlock.add(0, -0.51, 0);
+            centerBlock.add(0, -0.504, 0);
         else if (blockDirection.equals(BlockDirection.NORTH))
-            centerBlock.add(0, 0, -0.51);
+            centerBlock.add(0, 0, -0.504);
         else if (blockDirection.equals(BlockDirection.SOUTH))
-            centerBlock.add(0, 0, 0.51);
+            centerBlock.add(0, 0, 0.504);
         else if (blockDirection.equals(BlockDirection.EAST))
-            centerBlock.add(0.51, 0, 0);
+            centerBlock.add(0.504, 0, 0);
         else if (blockDirection.equals(BlockDirection.WEST))
-            centerBlock.add(-0.51, 0, 0);
+            centerBlock.add(-0.504, 0, 0);
         Random random = new Random();
 
 
@@ -106,7 +106,8 @@ public class PendingBlockBreak implements Cloneable {
     }
 
     public void animateBlockBreak(Set<Player> players, int stage, Vector3 location) {
-        if (animationStages == null) return;
+        if (animationStages == null || animationStages.isEmpty()) return;
+
         if (stage >= animationStages.size())
             NMSUtils.sendBlockBreakAnimation(players, location, 9);
         else

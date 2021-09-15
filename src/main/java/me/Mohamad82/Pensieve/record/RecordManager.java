@@ -143,6 +143,9 @@ public class RecordManager {
             RecordTick lastTick = new RecordTick();
 
             for (String tickSectionName : uuidSection.getKeys(false)) {
+                if (tickSectionName.equals("player_name")) {
+                    continue;
+                }
                 if (tickSectionName.equals("start_location")) {
                     record.setStartLocation(Vector3Utils.toVector3(data.getConfig().getConfigurationSection(uuid).getString("start_location")));
                     continue;
@@ -151,7 +154,7 @@ public class RecordManager {
                     continue;
                 }
                 RecordTick tick = new RecordTick();
-                ConfigurationSection tickSection = data.getConfig().getConfigurationSection(uuid + "." + tickSectionName);
+                ConfigurationSection tickSection = uuidSection.getConfigurationSection(tickSectionName);
 
                 if (tickSection.getString("location") != null)
                     tick.setLocation(Vector3Utils.toVector3(tickSection.getString("location")));

@@ -10,6 +10,7 @@ public class ReplayCache {
 
     private final Map<UUID, Integer> pendingBlockBreakStages = new HashMap<>();
     private final Map<UUID, Vector3> pendingBlockBreakOffSetLocations = new HashMap<>();
+    private final Map<UUID, Integer> pendingBlockBreakSkippedParticleSpawns = new HashMap<>();
     private final Map<UUID, Integer> pendingFoodEatSkippedTicks = new HashMap<>();
     private Vector3 centersDistance;
     private boolean playing;
@@ -20,6 +21,10 @@ public class ReplayCache {
 
     public Map<UUID, Vector3> getPendingBlockBreakOffSetLocations() {
         return pendingBlockBreakOffSetLocations;
+    }
+
+    public Map<UUID, Integer> getPendingBlockBreakSkippedParticleSpawns() {
+        return pendingBlockBreakSkippedParticleSpawns;
     }
 
     public Map<UUID, Integer> getPendingFoodEatSkippedTicks() {

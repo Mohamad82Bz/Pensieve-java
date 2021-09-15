@@ -1,8 +1,8 @@
 package me.Mohamad82.Pensieve.utils;
 
+import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import me.Mohamad82.RUoM.utils.ServerVersion;
 import me.Mohamad82.RUoM.utils.StringUtils;
-import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 
@@ -176,7 +176,7 @@ public class BlockSoundUtils {
                         soundEffectMethod = "aE";
                         break;
                     case 16:
-                        soundEffectMethod = "placeSound";
+                        soundEffectMethod = "fallSound";
                         break;
                     case 15:
                         soundEffectMethod = "D";
@@ -195,10 +195,9 @@ public class BlockSoundUtils {
                 }
                 break;
         }
-        
-        soundEffectField = soundEffectType.getClass().getField(soundEffectMethod);
-        if (!ReflectionUtils.supports(16))
-            soundEffectField.setAccessible(true);
+
+        soundEffectField = soundEffectType.getClass().getDeclaredField(soundEffectMethod);
+        soundEffectField.setAccessible(true);
 
         return soundEffectField.get(soundEffectType);
     }

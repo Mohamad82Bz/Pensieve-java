@@ -26,7 +26,7 @@ public class NPC {
         try {
             Object server = ReflectionUtils.getCraftClass("CraftServer").getMethod("getServer").invoke(Bukkit.getServer());
             Object world = ReflectionUtils.getCraftClass("CraftWorld").getMethod("getHandle").invoke(location.getWorld());
-            GameProfile profile = new GameProfile(UUID.randomUUID(), ChatColor.AQUA + playerName);
+            GameProfile profile = new GameProfile(UUID.randomUUID(), ChatColor.YELLOW + playerName);
 
             Constructor<?> entityPlayerConstructor = ReflectionUtils.getNMSClass("EntityPlayer")
                     .getConstructor(ReflectionUtils.getNMSClass("MinecraftServer"), ReflectionUtils.getNMSClass("WorldServer"),

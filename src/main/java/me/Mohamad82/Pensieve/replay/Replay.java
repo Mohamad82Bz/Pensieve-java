@@ -7,6 +7,7 @@ import me.Mohamad82.Pensieve.record.Record;
 import me.Mohamad82.Pensieve.record.RecordTick;
 import me.Mohamad82.Pensieve.record.enums.DamageType;
 import me.Mohamad82.Pensieve.utils.BlockSoundUtils;
+import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.XSeries.XSound;
 import me.Mohamad82.RUoM.utils.BlockUtils;
 import me.Mohamad82.RUoM.utils.LocUtils;
@@ -19,7 +20,6 @@ import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -100,6 +100,13 @@ public class Replay {
                             continue;
                         }
                         RecordTick tick = record.getRecordTicks().get(i);
+                        RecordTick nextTick;
+                        try {
+                            nextTick = record.getRecordTicks().get(i + 1);
+                        } catch (IndexOutOfBoundsException e) {
+                            //It's in the last tick
+                            nextTick = null;
+                        }
 
                         if (i == 0) {
                             npc.setState(tick.getState());
@@ -115,7 +122,7 @@ public class Replay {
                         } else {
                             RecordTick lastNonNullTick = lastNonNullTicks.get(record.getPlayerUUID());
 
-                            Vector3 travelDistance = Vector3.at(0, 0, 0);
+                            Vector3 travelDistance = null;
                             if (tick.getLocation() != null) {
                                 Vector3 centerOffSet = Vector3Utils.getTravelDistance(record.getCenter(), tick.getLocation());
                                 travelDistance = Vector3Utils.getTravelDistance(lastNonNullTick.getLocation().clone().add(centerOffSet),
@@ -131,8 +138,11 @@ public class Replay {
                             if (pitch == -999)
                                 pitch = lastNonNullTick.getPitch();
 
-                            npc.moveAndLook(travelDistance.getX(), travelDistance.getY(), travelDistance.getZ(),
-                                    yaw, pitch);
+                            if (travelDistance != null) {
+                                //TravelDistance will be null if player don't move
+                                npc.moveAndLook(travelDistance.getX(), travelDistance.getY(), travelDistance.getZ(),
+                                        yaw, pitch);
+                            }
 
                             if (tick.getState() != null)
                                 npc.setState(tick.getState());
@@ -194,7 +204,7 @@ public class Replay {
                             for (Vector3 blockLoc : tick.getBlockPlaces().keySet()) {
                                 Vector3 blockLocFinal = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), blockLoc));
                                 Location blockLocation = new Location(world, blockLocFinal.getBlockX(), blockLocFinal.getBlockY(), blockLocFinal.getBlockZ());
-                                Material blockMaterial = tick.getBlockPlaces().get(blockLocFinal);
+                                Material blockMaterial = tick.getBlockPlaces().get(blockLoc);
                                 for (Player player : npc.getViewers()) {
                                     player.sendBlockChange(blockLocation, blockMaterial.createBlockData());
                                     player.playSound(blockLocation,
@@ -218,14 +228,23 @@ public class Replay {
                             }
                         }
 
+                        ReplayCache cache = replayCache.get(record.getPlayerUUID());
+
                         if (tick.getPendingBlockBreak() != null) {
                             npc.animate(NPCAnimation.SWING_MAIN_ARM);
-                            ReplayCache cache = replayCache.get(record.getPlayerUUID());
                             if (!cache.getPendingBlockBreakOffSetLocations().containsKey(record.getPlayerUUID())) {
                                 cache.getPendingBlockBreakOffSetLocations().put(record.getPlayerUUID(),
                                         center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), tick.getPendingBlockBreak().getLocation())));
                             }
-                            tick.getPendingBlockBreak().spawnParticle(world, cache.getPendingBlockBreakOffSetLocations().get(record.getPlayerUUID()));
+                            if (!cache.getPendingBlockBreakSkippedParticleSpawns().containsKey(record.getPlayerUUID())) {
+                                cache.getPendingBlockBreakSkippedParticleSpawns().put(record.getPlayerUUID(), 0);
+                            }
+
+                            if (cache.getPendingBlockBreakSkippedParticleSpawns().get(record.getPlayerUUID()) % 2 == 0) {
+                                tick.getPendingBlockBreak().spawnParticle(world, cache.getPendingBlockBreakOffSetLocations().get(record.getPlayerUUID()));
+                            }
+                            cache.getPendingBlockBreakSkippedParticleSpawns().put(record.getPlayerUUID(),
+                                    cache.getPendingBlockBreakSkippedParticleSpawns().get(record.getPlayerUUID()) + 1);
 
                             if (!cache.getPendingBlockBreakStages().containsKey(record.getPlayerUUID())) {
                                 cache.getPendingBlockBreakStages().put(record.getPlayerUUID(), 0);
@@ -236,15 +255,21 @@ public class Replay {
                                     cache.getPendingBlockBreakOffSetLocations().get(record.getPlayerUUID()));
                             cache.getPendingBlockBreakStages().put(record.getPlayerUUID(),
                                     cache.getPendingBlockBreakStages().get(record.getPlayerUUID()) + 1);
+
+                            if (nextTick != null && nextTick.getPendingBlockBreak() != null) {
+                                if (!tick.getPendingBlockBreak().getUuid().equals(nextTick.getPendingBlockBreak().getUuid())) {
+                                    cache.getPendingBlockBreakStages().remove(record.getPlayerUUID());
+                                    cache.getPendingBlockBreakOffSetLocations().remove(record.getPlayerUUID());
+                                    cache.getPendingBlockBreakSkippedParticleSpawns().remove(record.getPlayerUUID());
+                                }
+                            }
                         } else {
-                            ReplayCache cache = replayCache.get(record.getPlayerUUID());
                             cache.getPendingBlockBreakStages().remove(record.getPlayerUUID());
                             cache.getPendingBlockBreakOffSetLocations().remove(record.getPlayerUUID());
+                            cache.getPendingBlockBreakSkippedParticleSpawns().remove(record.getPlayerUUID());
                         }
 
                         if (tick.getEatingItem() != null) {
-                            ReplayCache cache = replayCache.get(record.getPlayerUUID());
-
                             if (!cache.getPendingFoodEatSkippedTicks().containsKey(record.getPlayerUUID())) {
                                 cache.getPendingFoodEatSkippedTicks().put(record.getPlayerUUID(), 1);
                             }
