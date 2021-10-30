@@ -3,12 +3,11 @@ package me.Mohamad82.Pensieve;
 import me.Mohamad82.Pensieve.commands.PensieveCommand;
 import me.Mohamad82.Pensieve.core.ReplayArenaManager;
 import me.Mohamad82.Pensieve.data.DataManager;
-import me.Mohamad82.Pensieve.gamemodes.eggwarsx.EWXListeners;
 import me.Mohamad82.Pensieve.record.RecordManager;
 import me.Mohamad82.Pensieve.record.listeners.PacketListener;
-import me.Mohamad82.Pensieve.record.listeners.RecordListeners;
 import me.Mohamad82.Pensieve.test.TestRecordCommand;
 import me.Mohamad82.Pensieve.world.WorldManager;
+import me.Mohamad82.Pensieve.record.listeners.RecordListeners;
 import me.Mohamad82.RUoM.RUoMPlugin;
 import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.areaselection.AreaSelectionListener;
@@ -19,9 +18,9 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class Main extends RUoMPlugin {
+public final class Pensieve extends RUoMPlugin {
 
-    private static Main instance;
+    private static Pensieve instance;
 
     @Override
     public void onEnable() {
@@ -49,11 +48,8 @@ public final class Main extends RUoMPlugin {
     }
 
     public void initializeEvents() {
-        getServer().getPluginManager().registerEvents(new PacketListener(this), this);
-        getServer().getPluginManager().registerEvents(new RecordListeners(), this);
-        getServer().getPluginManager().registerEvents(new AreaSelectionListener(), this);
-        if (getServer().getPluginManager().getPlugin("Eggwars") != null)
-            getServer().getPluginManager().registerEvents(new EWXListeners(), this);
+        Ruom.registerListener(new RecordListeners());
+        Ruom.registerListener(new AreaSelectionListener());
     }
 
     public void initializeInstances() {
@@ -61,7 +57,9 @@ public final class Main extends RUoMPlugin {
         new RecordManager();
         new DataManager();
         new ReplayArenaManager();
-        Ruom.initializeAreaSelection(ReplayArenaManager.wand);
+        PacketListener.initialize();
+        Ruom.initializeAreaSelection();
+        Ruom.initializeSkinBuilder();
     }
 
     public void sendFiglet() {
@@ -82,7 +80,7 @@ public final class Main extends RUoMPlugin {
         }
     }
 
-    public static Main getInstance() {
+    public static Pensieve getInstance() {
         return instance;
     }
 

@@ -40,10 +40,92 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <relocations>
+                                <relocation>
+                                    <pattern>me.Mohamad82.RUoM</pattern>
+                                    <shadedPattern>me.Mohamad82.Pensieve.ruom</shadedPattern>
+                                </relocation>
+                            </relocations>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
+            <!--<plugin>
+                <groupId>com.github.wvengen</groupId>
+                <artifactId>proguard-maven-plugin</artifactId>
+                <version>2.0.13</version>
+                <executions>
+                    <execution>
+                        <id>obfuscation-packaging</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>proguard</goal>
+                        </goals>
+                        <configuration>
+                            <proguardVersion>${tool.proguard.version}</proguardVersion>
+                            <obfuscate>true</obfuscate>
+                            <attach>true</attach>
+                            <appendClassifier>false</appendClassifier>
+                            <addMavenDescriptor>true</addMavenDescriptor>
+                            <injar>${project.build.finalName}.jar</injar>
+                            <injarNotExistsSkip>true</injarNotExistsSkip>
+                            <libs>
+                                <lib>${java.home}/lib/rt.jar</lib>
+                            </libs>
+
+                            <options>
+                                <option>-keepdirectories</option>
+                                <option>-keeppackagenames org.apache.maven.plugin.my.MyMojo</option>
+                                <option>-keepnames class * implements org.apache.maven.plugin.AbstractMojo</option>
+                                <option>-keepclassmembers class * implements org.apache.maven.plugin.AbstractMojo {
+                                    private <![CDATA[<fields>]]>;
+                                    private <![CDATA[<methods>]]>;
+                                    }
+                                </option>
+                                <option>-keepparameternames</option>
+                                <option>-renamesourcefileattribute SourceFile</option>
+                                <option>-keepattributes Exceptions,InnerClasses,Signature,Deprecated,
+                                    SourceFile,LineNumberTable,*Annotation*,EnclosingMethod
+                                </option>
+                                <option>-target 1.8</option>
+                                <option>-keep public class * {
+                                    public protected *;
+                                    }
+                                </option>
+                                <option>-keepclassmembernames class * {
+                                    java.lang.Class class$(java.lang.String);
+                                    java.lang.Class class$(java.lang.String, boolean);
+                                    }
+                                </option>
+                                <option>-keepclasseswithmembernames,includedescriptorclasses class * {
+                                    native <![CDATA[<methods>]]>;
+                                    }
+                                </option>
+                                <option>-keepclassmembers,allowoptimization enum * {
+                                    public static **[] values();
+                                    public static ** valueOf(java.lang.String);
+                                    }
+                                </option>
+                                <option>-keepclassmembers class * implements java.io.Serializable {
+                                    static final long serialVersionUID;
+                                    private static final java.io.ObjectStreamField[] serialPersistentFields;
+                                    private void writeObject(java.io.ObjectOutputStream);
+                                    private void readObject(java.io.ObjectInputStream);
+                                    java.lang.Object writeReplace();
+                                    java.lang.Object readResolve();
+                                    }
+                            </options>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>net.sf.proguard</groupId>
+                        <artifactId>proguard-base</artifactId>
+                        <version>6.2.2</version>
+                    </dependency>
+                </dependencies>
+            </plugin>-->
         </plugins>
         <resources>
             <resource>
@@ -84,7 +166,7 @@
         <dependency>
             <groupId>me.Mohamad82</groupId>
             <artifactId>RUoM</artifactId>
-            <version>2.3.2</version>
+            <version>2.7.3</version>
         </dependency>
         <dependency>
             <groupId>com.intellectualsites.fawe</groupId>
@@ -105,13 +187,6 @@
             <version>1.16.5</version>
             <scope>system</scope>
             <systemPath>${basedir}/lib/spigot-1.16.5.jar</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigotmc-1.17</artifactId>
-            <version>1.17</version>
-            <scope>system</scope>
-            <systemPath>${basedir}/lib/spigot-1.17.jar</systemPath>
         </dependency>
     </dependencies>
 </project>

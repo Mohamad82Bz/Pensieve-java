@@ -1,14 +1,19 @@
 package me.Mohamad82.Pensieve.record;
 
+import me.Mohamad82.Pensieve.nms.enums.EntityNPCType;
 import me.Mohamad82.Pensieve.nms.enums.NPCState;
+import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.utils.ServerVersion;
+import me.Mohamad82.RUoM.utils.StringUtils;
 import me.Mohamad82.RUoM.vector.Vector3;
+import me.Mohamad82.RUoM.vector.Vector3Utils;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.ThrownPotion;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -23,21 +28,22 @@ public class Recorder implements Listener {
     private final Recorder thisRecorder = this;
 
     private final JavaPlugin plugin;
-    private Vector3 center;
+    private final Vector3 center;
 
     private final Set<Player> players;
-    private final Set<Record> records = new HashSet<>();
+    private final Set<Entity> entities = new HashSet<>();
+    private final Set<PlayerRecord> playerRecords = new HashSet<>();
+    private final Set<EntityRecord> entityRecords = new HashSet<>();
     private final Map<Player, RecordTick> currentTick = new HashMap<>();
-    private final Map<Player, RecordTick> lastTicks = new HashMap<>();
     private final Map<UUID, RecordTick> lastNonNullTicks = new HashMap<>();
 
-    private BukkitTask runnable;
+    private BukkitTask bukkitTask;
     private int currentTickIndex = 0;
 
     public Recorder(JavaPlugin plugin, Set<Player> player, Vector3 center) {
         this.plugin = plugin;
         this.players = player;
-        this.center = Vector3.at(center.getBlockX() + 0.5, center.getBlockY(), center.getBlockZ() + 0.5);
+        this.center = Vector3Utils.simplifyToCenter(center);
     }
 
     public Recorder(JavaPlugin plugin, Player player) {
@@ -45,32 +51,29 @@ public class Recorder implements Listener {
         Set<Player> players = new HashSet<>();
         players.add(player);
         this.players = players;
+        this.center = Vector3.at(0.5, 100, 0.5);
     }
 
     public void start() {
         for (Player player : players) {
-            records.add(new Record(player.getUniqueId(), player.getName()));
-            getPlayerRecord(player).setCenter(center);
-            if (players.size() == 1)
-                center = Vector3.at(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ());
+            playerRecords.add(new PlayerRecord(player, center));
         }
         RecordManager.getInstance().getRecorders().add(this);
-        runnable = new BukkitRunnable() {
-            int i = 0;
+        bukkitTask = new BukkitRunnable() {
             public void run() {
                 try {
                     for (Player player : players) {
                         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.translateAlternateColorCodes('&',
-                                "&9Recorded &d" + i + " &9Ticks")));
+                                "&9Recorded &d" + currentTickIndex + " &9Ticks")));
 
                         RecordTick tick = new RecordTick();
                         currentTick.put(player, tick);
 
-                        if (i == 0) {
+                        if (currentTickIndex == 0) {
                             getPlayerRecord(player).setStartLocation(Vector3.at(
                                     player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ()));
 
-                            tick.setLocation(Vector3.at(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ()));
+                            tick.setLocation(Vector3Utils.toVector3(player.getLocation()));
                             tick.setYaw(player.getLocation().getYaw());
                             tick.setPitch(player.getLocation().getPitch());
                             tick.setState(getPlayerState(player));
@@ -85,113 +88,151 @@ public class Recorder implements Listener {
 
                             lastNonNullTicks.put(player.getUniqueId(), tick.clone());
                         } else {
-                            Vector3 location = Vector3.at(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ());
-                            RecordTick lastTick = lastTicks.get(player);
                             RecordTick lastNonNullTick = lastNonNullTicks.get(player.getUniqueId());
+
+                            Vector3 location = Vector3Utils.toVector3(player.getLocation());
                             if (!lastNonNullTick.getLocation().equals(location)) {
                                 tick.setLocation(location);
+                                lastNonNullTick.setLocation(tick.getLocation());
                             }
 
-                            if (lastNonNullTick.getYaw() != player.getLocation().getYaw())
-                                tick.setYaw(player.getLocation().getYaw());
+                            float yaw = player.getLocation().getYaw();
+                            if (lastNonNullTick.getYaw() != yaw) {
+                                tick.setYaw(yaw);
+                                lastNonNullTick.setYaw(tick.getYaw());
+                            }
 
-                            if (lastNonNullTick.getPitch() != player.getLocation().getPitch())
-                                tick.setPitch(player.getLocation().getPitch());
+                            float pitch = player.getLocation().getPitch();
+                            if (lastNonNullTick.getPitch() != pitch) {
+                                tick.setPitch(pitch);
+                                lastNonNullTick.setPitch(tick.getPitch());
+                            }
 
                             NPCState state = getPlayerState(player);
-                            if (!lastNonNullTick.getState().equals(state))
+                            if (!lastNonNullTick.getState().equals(state)) {
                                 tick.setState(state);
-
-                            /* Added in the Listener class
-                            double health = player.getHealth();
-                            if (lastTick.getHealth() != health)
-                                tick.setHealth(health);
-
-                            int food = player.getFoodLevel();
-                            if (lastTick.getHunger() != food)
-                                tick.setHunger(food);*/
+                                lastNonNullTick.setState(tick.getState());
+                            }
 
                             ItemStack hand = getPlayerEquipment(player, EquipmentSlot.HAND);
-                            if (!lastNonNullTick.getHand().equals(hand)) {
+                            if (!lastNonNullTick.getHand().equals(hand) && tick.getHand() == null) {
                                 if (hand == null)
                                     tick.setHand(new ItemStack(Material.AIR));
                                 else
                                     tick.setHand(hand);
+                                lastNonNullTick.setHand(tick.getHand());
                             }
 
                             ItemStack offHand = getPlayerEquipment(player, EquipmentSlot.OFF_HAND);
-                            if (!lastNonNullTick.getOffHand().equals(offHand)) {
+                            if (!lastNonNullTick.getOffHand().equals(offHand) && tick.getOffHand() == null) {
                                 if (offHand == null)
                                     tick.setOffHand(new ItemStack(Material.AIR));
                                 else
                                     tick.setOffHand(offHand);
+                                lastNonNullTick.setOffHand(tick.getOffHand());
                             }
 
                             ItemStack head = getPlayerEquipment(player, EquipmentSlot.HEAD);
-                            if (!lastNonNullTick.getHelmet().equals(head)) {
+                            if (!lastNonNullTick.getHelmet().equals(head) && tick.getHelmet() == null) {
                                 if (head == null)
                                     tick.setHelmet(new ItemStack(Material.AIR));
                                 else
                                     tick.setHelmet(head);
+                                lastNonNullTick.setHelmet(tick.getHelmet());
                             }
 
                             ItemStack chest = getPlayerEquipment(player, EquipmentSlot.CHEST);
-                            if (!lastNonNullTick.getChestplate().equals(chest)) {
+                            if (!lastNonNullTick.getChestplate().equals(chest) && tick.getChestplate() == null) {
                                 if (chest == null)
                                     tick.setChestplate(new ItemStack(Material.AIR));
                                 else
                                     tick.setChestplate(chest);
+                                lastNonNullTick.setChestplate(tick.getChestplate());
                             }
 
                             ItemStack legs = getPlayerEquipment(player, EquipmentSlot.LEGS);
-                            if (!lastNonNullTick.getLeggings().equals(legs)) {
+                            if (!lastNonNullTick.getLeggings().equals(legs) && tick.getLeggings() == null) {
                                 if (legs == null)
                                     tick.setLeggings(new ItemStack(Material.AIR));
                                 else
                                     tick.setLeggings(legs);
+                                lastNonNullTick.setLeggings(tick.getLeggings());
                             }
 
                             ItemStack feet = getPlayerEquipment(player, EquipmentSlot.FEET);
-                            if (!lastNonNullTick.getBoots().equals(feet)) {
+                            if (!lastNonNullTick.getBoots().equals(feet) && tick.getBoots() == null) {
                                 if (feet == null)
                                     tick.setBoots(new ItemStack(Material.AIR));
                                 else
                                     tick.setBoots(feet);
-                            }
-
-                            if (tick.getLocation() != null)
-                                lastNonNullTick.setLocation(tick.getLocation());
-                            if (tick.getYaw() != -999)
-                                lastNonNullTick.setYaw(tick.getYaw());
-                            if (tick.getPitch() != -999)
-                                lastNonNullTick.setPitch(tick.getPitch());
-                            if (tick.getState() != null)
-                                lastNonNullTick.setState(tick.getState());
-                            if (tick.getHand() != null)
-                                lastNonNullTick.setHand(tick.getHand());
-                            if (tick.getOffHand() != null)
-                                lastNonNullTick.setOffHand(tick.getOffHand());
-                            if (tick.getHelmet() != null)
-                                lastNonNullTick.setHelmet(tick.getHelmet());
-                            if (tick.getChestplate() != null)
-                                lastNonNullTick.setChestplate(tick.getChestplate());
-                            if (tick.getLeggings() != null)
-                                lastNonNullTick.setLeggings(tick.getLeggings());
-                            if (tick.getBoots() != null)
                                 lastNonNullTick.setBoots(tick.getBoots());
+                            }
                         }
 
-                        getPlayerRecord(player).getRecordTicks().add(tick);
-                        lastTicks.put(player, tick);
+                        getPlayerRecord(player).addRecordTick(tick);
                     }
-                    i++;
+
+                    Set<Entity> entitiesToRemove = new HashSet<>();
+                    for (Entity entity : entities) {
+                        if (getEntityRecord(entity) == null) {
+                            EntityRecord record = new EntityRecord(entity.getUniqueId(), center, EntityNPCType.getByEntityType(entity.getType()), currentTickIndex);
+                            record.setStartLocation(Vector3Utils.toVector3(entity.getLocation()));
+                            if (entity instanceof ThrownPotion) {
+                                record.setItem(((ThrownPotion) entity).getItem());
+                            }
+                            getEntityRecords().add(record);
+                        }
+                        RecordTick tick = new RecordTick();
+                        RecordTick lastNonNullTick;
+
+                        if (!lastNonNullTicks.containsKey(entity.getUniqueId())) {
+                            tick.setLocation(Vector3Utils.toVector3(entity.getLocation()));
+                            tick.setYaw(entity.getLocation().getYaw());
+                            tick.setPitch(entity.getLocation().getPitch());
+                            tick.setVelocity(Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ()));
+
+                            lastNonNullTicks.put(entity.getUniqueId(), tick.clone());
+                        } else {
+                            lastNonNullTick = lastNonNullTicks.get(entity.getUniqueId());
+
+                            Vector3 location = Vector3Utils.toVector3(entity.getLocation());
+                            if (!lastNonNullTick.getLocation().equals(location)) {
+                                tick.setLocation(location);
+                                lastNonNullTick.setLocation(location);
+                            } else {
+                                Vector3 velocity = Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ());
+                                if (lastNonNullTick.getVelocity() == null || !lastNonNullTick.getVelocity().equals(velocity)) {
+                                    tick.setVelocity(velocity);
+                                    lastNonNullTick.setVelocity(velocity);
+                                }
+                            }
+
+                            if (lastNonNullTick.getYaw() != entity.getLocation().getYaw()) {
+                                tick.setYaw(entity.getLocation().getYaw());
+                                lastNonNullTick.setYaw(entity.getLocation().getYaw());
+                            }
+
+                            if (lastNonNullTick.getPitch() != entity.getLocation().getPitch()) {
+                                tick.setPitch(entity.getLocation().getPitch());
+                                lastNonNullTick.setPitch(entity.getLocation().getPitch());
+                            }
+                        }
+
+                        if (entity.isDead()) {
+                            entitiesToRemove.add(entity);
+                        } else {
+                            getEntityRecord(entity).addRecordTick(tick);
+                        }
+                    }
+                    entitiesToRemove.forEach(entities::remove);
+
                     currentTickIndex++;
                 } catch (Exception e) {
                     RecordManager.getInstance().getRecorders().remove(thisRecorder);
                     cancel();
                     e.printStackTrace();
-                    Bukkit.getConsoleSender().sendMessage("§4Something wrong happened with the recorder. Record process is now terminated" +
-                            " to prevent furthur errors. Please contact the developer and provide the errors you see above.");
+                    Ruom.error(StringUtils.colorize("&4Something wrong happened with the recorder. Record process is now terminated" +
+                            " to prevent furthur errors. Please contact the developer and provide the errors you see above."));
                 }
             }
         }.runTaskTimer(plugin, 0, 1);
@@ -199,7 +240,7 @@ public class Recorder implements Listener {
 
     public void stop() {
         RecordManager.getInstance().getRecorders().remove(this);
-        runnable.cancel();
+        bukkitTask.cancel();
     }
 
     private NPCState getPlayerState(Player player) {
@@ -213,7 +254,7 @@ public class Recorder implements Listener {
             state = NPCState.SWIMMING;
         else if (player.isDead())
             state = NPCState.DYING;
-        else if (player.isGliding())
+        else if (ServerVersion.supports(9) && player.isGliding())
             state = NPCState.SWIMMING;
         else
             state = NPCState.STANDING;
@@ -228,9 +269,17 @@ public class Recorder implements Listener {
             return player.getInventory().getItem(slot);
     }
 
-    private Record getPlayerRecord(Player player) {
-        for (Record record : records) {
-            if (record.getPlayerUUID().equals(player.getUniqueId()))
+    private PlayerRecord getPlayerRecord(Player player) {
+        for (PlayerRecord record : playerRecords) {
+            if (record.getUuid().equals(player.getUniqueId()))
+                return record;
+        }
+        return null;
+    }
+
+    private EntityRecord getEntityRecord(Entity entity) {
+        for (EntityRecord record : entityRecords) {
+            if (record.getUuid().equals(entity.getUniqueId()))
                 return record;
         }
         return null;
@@ -241,19 +290,35 @@ public class Recorder implements Listener {
     }
 
     public boolean isRunning() {
-        return !runnable.isCancelled();
+        return !bukkitTask.isCancelled();
+    }
+
+    public RecordTick getRecordTick(Player player, int tickIndex) {
+        return getPlayerRecord(player).getRecordTicks().get(tickIndex);
     }
 
     public RecordTick getCurrentTick(Player player) {
         return currentTick.get(player);
     }
 
+    public RecordTick getLastNonNullTick(UUID uuid) {
+        return lastNonNullTicks.get(uuid);
+    }
+
     public Set<Player> getPlayers() {
         return players;
     }
 
-    public Set<Record> getRecords() {
-        return records;
+    public Set<Entity> getEntities() {
+        return entities;
+    }
+
+    public Set<PlayerRecord> getPlayerRecords() {
+        return playerRecords;
+    }
+
+    public Set<EntityRecord> getEntityRecords() {
+        return entityRecords;
     }
 
 }

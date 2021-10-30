@@ -1,6 +1,6 @@
 package me.Mohamad82.Pensieve.data;
 
-import me.Mohamad82.Pensieve.Main;
+import me.Mohamad82.Pensieve.Pensieve;
 
 import java.io.File;
 import java.text.DateFormat;
@@ -21,13 +21,13 @@ public class DataManager {
     }
 
     public File createFolder(String name) {
-        File file = new File(Main.getInstance().getDataFolder(), name);
+        File file = new File(Pensieve.getInstance().getDataFolder(), name);
         file.mkdir();
         return file;
     }
 
     public int getFilesCountInFolder(String name) {
-        File folder = new File(Main.getInstance().getDataFolder(), name);
+        File folder = new File(Pensieve.getInstance().getDataFolder(), name);
         if (!folder.isDirectory()) return -1;
 
         return folder.listFiles().length;
@@ -46,7 +46,7 @@ public class DataManager {
     }
 
     public File getFile(String name) {
-        return new File(Main.getInstance().getDataFolder(), name);
+        return new File(Pensieve.getInstance().getDataFolder(), name);
     }
 
 }

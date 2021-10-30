@@ -61,7 +61,7 @@ public class PensieveCommand implements CommandExecutor {
                     player.sendMessage("Please specify a name for this setup.");
                     return true;
                 }
-                me.Mohamad82.RUoM.areaselection.AreaSelection areaSelection = AreaSelectionManager.getInstance().getPlayerAreaSection(player);
+                me.Mohamad82.RUoM.areaselection.AreaSelection areaSelection = AreaSelectionManager.getInstance().getPlayerAreaSelection(player);
                 if (areaSelection.getFirstPos() == null) {
                     player.sendMessage("You did not set first pos.");
                     return true;

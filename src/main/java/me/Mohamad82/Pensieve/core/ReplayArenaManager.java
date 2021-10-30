@@ -1,6 +1,6 @@
 package me.Mohamad82.Pensieve.core;
 
-import me.Mohamad82.Pensieve.Main;
+import me.Mohamad82.Pensieve.Pensieve;
 import me.Mohamad82.RUoM.configuration.YamlConfig;
 import me.Mohamad82.RUoM.translators.ItemReader;
 import me.Mohamad82.RUoM.vector.Vector3;
@@ -20,7 +20,7 @@ public class ReplayArenaManager {
 
     public ReplayArenaManager() {
         instance = this;
-        arenas = new YamlConfig(Main.getInstance(), Main.getInstance().getDataFolder(), "replay-arenas.yml", false);
+        arenas = new YamlConfig(Pensieve.getInstance(), Pensieve.getInstance().getDataFolder(), "replay-arenas.yml", false);
         wand = new ItemReader().toItemStack("STONE_AXE ; Name:&d• &5Pensieve &6Wand" +
                 " ; Lore:&r|&d• &bLeft Click: &7First Position|&d• &bRight Click: &7Second Position|&r ; ItemFlag:HIDE_ATTRIBUTES" +
                 " ; ItemFlag:HIDE_UNBREAKABLE ; UNBREAKABLE");

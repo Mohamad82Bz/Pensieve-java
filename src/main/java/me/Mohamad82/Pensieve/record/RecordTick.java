@@ -4,6 +4,7 @@ import me.Mohamad82.Pensieve.nms.enums.NPCState;
 import me.Mohamad82.Pensieve.record.enums.DamageType;
 import me.Mohamad82.RUoM.vector.Vector3;
 import org.bukkit.Material;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
@@ -17,13 +18,17 @@ public class RecordTick implements Cloneable {
     private PendingBlockBreak pendingBlockBreak;
     private ItemStack eatingItem;
     private Vector3 location;
+    private Vector3 velocity;
     private NPCState state;
     private DamageType takenDamageType;
     private String message;
 
     private boolean swing;
-    private boolean takeDamage;
     private boolean eatFood;
+    private boolean throwPotion;
+    private boolean drawCrossbow;
+    private boolean shootCrossbow;
+    private boolean drawBowWithOffHand;
 
     private float yaw = -999;
     private float pitch = -999;
@@ -31,6 +36,8 @@ public class RecordTick implements Cloneable {
     private double health = -999;
     private int hunger = -999;
     private int ping = -999;
+    private int drawBow = -1;
+    private int crossbowChargeLevel = -1;
 
     private ItemStack hand;
     private ItemStack offHand;
@@ -38,6 +45,10 @@ public class RecordTick implements Cloneable {
     private ItemStack chestplate;
     private ItemStack leggings;
     private ItemStack boots;
+
+    protected RecordTick() {
+
+    }
 
     public Map<Vector3, Material> getBlockPlaces() {
         return blockPlaces;
@@ -85,6 +96,14 @@ public class RecordTick implements Cloneable {
 
     public void setLocation(Vector3 location) {
         this.location = location;
+    }
+
+    public Vector3 getVelocity() {
+        return velocity;
+    }
+
+    public void setVelocity(Vector3 velocity) {
+        this.velocity = velocity;
     }
 
     public NPCState getState() {
@@ -145,6 +164,54 @@ public class RecordTick implements Cloneable {
 
     public void eatFood() {
         this.eatFood = true;
+    }
+
+    public boolean threwPotion() {
+        return throwPotion;
+    }
+
+    public void throwPotion() {
+        this.throwPotion = true;
+    }
+
+    public boolean drawnCrossbow() {
+        return drawCrossbow;
+    }
+
+    public void drawCrossbow() {
+        this.drawCrossbow = true;
+    }
+
+    public boolean shotCrossbow() {
+        return shootCrossbow;
+    }
+
+    public void shootCrossbow() {
+        this.shootCrossbow = true;
+    }
+
+    public int getCrossbowChargeLevel() {
+        return crossbowChargeLevel;
+    }
+
+    public void setCrossbowChargeLevel(int crossbowChargeLevel) {
+        this.crossbowChargeLevel = crossbowChargeLevel;
+    }
+
+    public boolean drawnBowWithOffHand() {
+        return drawBowWithOffHand;
+    }
+
+    public void drawBowWithOffHand() {
+        this.drawBowWithOffHand = true;
+    }
+
+    public int getDrawBow() {
+        return drawBow;
+    }
+
+    public void drawBow(int drawnBow) {
+        this.drawBow = drawnBow;
     }
 
     public double getHealth() {
@@ -217,6 +284,48 @@ public class RecordTick implements Cloneable {
 
     public void setBoots(ItemStack boots) {
         this.boots = boots;
+    }
+
+    public ItemStack getItem(EquipmentSlot slot) {
+        switch (slot) {
+            case HAND:
+                return hand;
+            case OFF_HAND:
+                return offHand;
+            case HEAD:
+                return helmet;
+            case CHEST:
+                return chestplate;
+            case LEGS:
+                return leggings;
+            case FEET:
+                return boots;
+            default:
+                return null;
+        }
+    }
+
+    public void setItem(EquipmentSlot slot, ItemStack item) {
+        switch (slot) {
+            case HAND:
+                this.hand = item;
+                break;
+            case OFF_HAND:
+                this.offHand = item;
+                break;
+            case HEAD:
+                this.helmet = item;
+                break;
+            case CHEST:
+                this.chestplate = item;
+                break;
+            case LEGS:
+                this.leggings = item;
+                break;
+            case FEET:
+                this.boots = item;
+                break;
+        }
     }
 
     public RecordTick clone() {

@@ -1,40 +1,38 @@
 package me.Mohamad82.Pensieve.record;
 
-import me.Mohamad82.Pensieve.replay.ReplayCache;
+import com.google.common.collect.ImmutableList;
 import me.Mohamad82.RUoM.vector.Vector3;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class Record {
+public abstract class Record {
 
-    private ReplayCache recordCache;
-    private final UUID playerUUID;
-    private final String playerName;
-    private Vector3 startLocation;
-    private Vector3 center;
     private List<RecordTick> recordTicks = new ArrayList<>();
+    private final UUID uuid;
+    private final Vector3 center;
+    private Vector3 startLocation;
 
-    public Record(UUID playerUUID, String playerName) {
-        this.playerUUID = playerUUID;
-        this.playerName = playerName;
+    protected Record(UUID uuid, Vector3 center) {
+        this.uuid = uuid;
+        this.center = center;
     }
 
-    public ReplayCache getRecordCache() {
-        return recordCache;
+    protected void setRecordTicks(List<RecordTick> recordTicks) {
+        this.recordTicks = recordTicks;
     }
 
-    public void setRecordCache(ReplayCache recordCache) {
-        this.recordCache = recordCache;
+    public int getTotalTicks() {
+        return recordTicks.size();
     }
 
-    public UUID getPlayerUUID() {
-        return playerUUID;
+    public UUID getUuid() {
+        return uuid;
     }
 
-    public String getPlayerName() {
-        return playerName;
+    public Vector3 getCenter() {
+        return center;
     }
 
     public Vector3 getStartLocation() {
@@ -45,24 +43,12 @@ public class Record {
         this.startLocation = startLocation;
     }
 
-    public Vector3 getCenter() {
-        return center;
+    public void addRecordTick(RecordTick recordTick) {
+        recordTicks.add(recordTick);
     }
 
-    protected void setCenter(Vector3 center) {
-        this.center = center;
-    }
-
-    public List<RecordTick> getRecordTicks() {
-        return recordTicks;
-    }
-
-    protected void setRecordTicks(List<RecordTick> recordTicks) {
-        this.recordTicks = recordTicks;
-    }
-
-    public int getTotalTicks() {
-        return recordTicks.size();
+    public ImmutableList<RecordTick> getRecordTicks() {
+        return ImmutableList.copyOf(recordTicks);
     }
 
 }

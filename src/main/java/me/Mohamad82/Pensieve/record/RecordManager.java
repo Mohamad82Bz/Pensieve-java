@@ -1,16 +1,17 @@
 package me.Mohamad82.Pensieve.record;
 
-import me.Mohamad82.Pensieve.Main;
 import me.Mohamad82.Pensieve.nms.enums.BlockDirection;
 import me.Mohamad82.Pensieve.nms.enums.NPCState;
 import me.Mohamad82.Pensieve.record.enums.DamageType;
 import me.Mohamad82.RUoM.configuration.YamlConfig;
+import me.Mohamad82.RUoM.translators.skin.MinecraftSkin;
 import me.Mohamad82.RUoM.vector.Vector3;
 import me.Mohamad82.RUoM.vector.Vector3Utils;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -30,18 +31,20 @@ public class RecordManager {
         instance = this;
     }
 
-    public void writeToFile(File folder, String fileName, Set<Record> records) {
+    public void writeToFile(File folder, String fileName, Set<RecordOld> records) {
         if (!fileName.endsWith(".pensieve"))
             fileName = fileName + ".pensieve";
 
-        YamlConfig data = new YamlConfig(Main.getInstance(), folder, fileName, false);
+        YamlConfig data = new YamlConfig(folder, fileName, false);
         ConfigurationSection infoSection = data.getConfig().createSection("info");
         int maxTotalTicks = 0;
-        for (Record record : records) {
-            ConfigurationSection section = data.getConfig().createSection(record.getPlayerUUID().toString());
-            section.set("player_name", record.getPlayerName());
+        for (RecordOld record : records) {
+            ConfigurationSection section = data.getConfig().createSection(record.getUuid().toString());
+            section.set("player_name", record.getName());
             section.set("start_location", record.getStartLocation().toString());
             section.set("center_location", record.getCenter().toString());
+            if (record.getSkin().isPresent())
+                section.set("skin", record.getSkin().get().getTexture() + ";;" + record.getSkin().get().getSignature());
             int i = 0;
             if (i > maxTotalTicks)
                 maxTotalTicks = i;
@@ -124,21 +127,21 @@ public class RecordManager {
         data.saveConfig();
     }
 
-    public Set<Record> getFromFile(File folder, String fileName) throws FileNotFoundException {
-        Set<Record> records = new HashSet<>();
+    public Set<RecordOld> getFromFile(File folder, String fileName) throws FileNotFoundException {
+        Set<RecordOld> records = new HashSet<>();
         if (!fileName.endsWith(".pensieve"))
             fileName = fileName + ".pensieve";
         File file = new File(folder, fileName);
         if (!file.exists())
             throw new FileNotFoundException("Couldn't find pensieve record file!");
-        YamlConfig data = new YamlConfig(Main.getInstance(), folder, fileName, false);
+        YamlConfig data = new YamlConfig(folder, fileName, false);
 
         for (String uuid : data.getConfig().getConfigurationSection("").getKeys(false)) {
             if (uuid.equalsIgnoreCase("info")) continue;
             ConfigurationSection uuidSection = data.getConfig().getConfigurationSection(uuid);
 
             String playerName = uuidSection.getString("player_name");
-            Record record = new Record(UUID.fromString(uuid), playerName);
+            RecordOld record = new RecordOld(UUID.fromString(uuid), playerName);
             List<RecordTick> ticks = new ArrayList<>();
             RecordTick lastTick = new RecordTick();
 
@@ -151,6 +154,10 @@ public class RecordManager {
                     continue;
                 } else if (tickSectionName.equals("center_location")) {
                     record.setCenter(Vector3Utils.toVector3(data.getConfig().getConfigurationSection(uuid).getString("center_location")));
+                    continue;
+                } else if (tickSectionName.equals("skin")) {
+                    String[] skinSplit = data.getConfig().getConfigurationSection(uuid).getString("skin").split(";;");
+                    record.setSkin(new MinecraftSkin(skinSplit[0], skinSplit[1]));
                     continue;
                 }
                 RecordTick tick = new RecordTick();
@@ -234,6 +241,25 @@ public class RecordManager {
             records.add(record);
         }
         return records;
+    }
+
+    public @Nullable RecordTick getCurrentRecordTick(Player player) {
+        for (Recorder recorder : recorders) {
+            if (recorder.getPlayers().contains(player)) {
+                if (recorder.isRunning()) {
+                    return recorder.getCurrentTick(player);
+                }
+            }
+        }
+        return null;
+    }
+
+    public @Nullable Recorder getPlayerRecorder(Player player) {
+        for (Recorder recorder : recorders) {
+            if (recorder.getPlayers().contains(player))
+                return recorder;
+        }
+        return null;
     }
 
     public Set<Player> getRecordingPlayers() {

@@ -1,6 +1,6 @@
 package me.Mohamad82.Pensieve.menu;
 
-import me.Mohamad82.Pensieve.Main;
+import me.Mohamad82.Pensieve.Pensieve;
 import me.Mohamad82.Pensieve.data.DataManager;
 import me.Mohamad82.RUoM.configuration.YamlConfig;
 import me.Mohamad82.RUoM.gui.GUI;
@@ -40,7 +40,7 @@ public class PensieveGUI extends GUI {
 
         int i = 0;
         for (File replayFile : folder.listFiles()) {
-            YamlConfig replay = new YamlConfig(Main.getInstance(), folder, replayFile.getName(), false);
+            YamlConfig replay = new YamlConfig(Pensieve.getInstance(), folder, replayFile.getName(), false);
 
             int totalSeconds = Integer.parseInt(replay.getConfig().getString("info.lenght")) / 20;
             int minutes = totalSeconds / 60;

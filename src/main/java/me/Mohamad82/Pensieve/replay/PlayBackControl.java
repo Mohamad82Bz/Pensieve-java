@@ -2,14 +2,14 @@ package me.Mohamad82.Pensieve.replay;
 
 public class PlayBackControl {
 
-    private int progress;
+    private int progress = 0;
     private int maxProgress;
     private String progressFormatted;
     private boolean pause;
     private float volume;
     private Speed speed;
 
-    public PlayBackControl() {
+    protected PlayBackControl() {
         this.progress = 0;
         this.pause = false;
         this.volume = 1;
@@ -21,14 +21,18 @@ public class PlayBackControl {
     }
 
     public void setProgress(int progress) {
-        this.progress = progress;
+        this.progress = Math.min(progress, maxProgress);
+    }
+
+    public void addProgress(int progressToAdd) {
+        setProgress(progress + progressToAdd);
     }
 
     public int getMaxProgress() {
         return maxProgress;
     }
 
-    public void setMaxProgress(int maxProgress) {
+    protected void setMaxProgress(int maxProgress) {
         this.maxProgress = maxProgress;
     }
 
@@ -36,7 +40,7 @@ public class PlayBackControl {
         return progressFormatted;
     }
 
-    private void setProgressFormatted(String progressFormatted) {
+    protected void setProgressFormatted(String progressFormatted) {
         this.progressFormatted = progressFormatted;
     }
 
