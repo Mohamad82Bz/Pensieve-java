@@ -1,9 +1,10 @@
 package me.Mohamad82.Pensieve.nms.npc;
 
 import com.mojang.authlib.GameProfile;
+import me.Mohamad82.Pensieve.nms.EntityMetadata;
 import me.Mohamad82.Pensieve.nms.PacketProvider;
-import me.Mohamad82.Pensieve.nms.enums.NPCAnimation;
-import me.Mohamad82.Pensieve.nms.enums.EntityMetadata;
+import me.Mohamad82.Pensieve.nms.npc.enums.NPCAnimation;
+import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import me.Mohamad82.RUoM.translators.skin.MinecraftSkin;
 import me.Mohamad82.RUoM.utils.ServerVersion;
@@ -18,7 +19,7 @@ import java.util.UUID;
 
 public class PlayerNPC extends NPC {
 
-    private static Class<?> CRAFT_SERVER, CRAFT_WORLD, ENTITY_PLAYER, MINECRAFT_SERVER, PLAYER_INTERACT_MANAGER, WORLD_SERVER, ENTITY, PROFILE;
+    private static Class<?> CRAFT_SERVER, CRAFT_WORLD, ENTITY_PLAYER, MINECRAFT_SERVER, PLAYER_INTERACT_MANAGER, WORLD_SERVER;
     private static Constructor<?> ENTITY_PLAYER_CONSTRUCTOR, INTERACT_MANAGER_CONSTRUCTOR;
     private static Method SET_LOCATION_METHOD, GET_SERVER_METHOD, CRAFT_WORLD_GET_HANDLE_METHOD;
 
@@ -31,14 +32,12 @@ public class PlayerNPC extends NPC {
                 MINECRAFT_SERVER = ReflectionUtils.getNMSClass("server", "MinecraftServer");
                 PLAYER_INTERACT_MANAGER = ReflectionUtils.getNMSClass("server.level", "PlayerInteractManager");
                 WORLD_SERVER = ReflectionUtils.getNMSClass("server.level", "WorldServer");
-                ENTITY = ReflectionUtils.getNMSClass("world.entity", "Entity");
-                PROFILE = Class.forName("com.mojang.authlib.GameProfile");
             }
             {
                 if (ServerVersion.supports(17))
-                    ENTITY_PLAYER_CONSTRUCTOR = ENTITY_PLAYER.getConstructor(MINECRAFT_SERVER, WORLD_SERVER, PROFILE);
+                    ENTITY_PLAYER_CONSTRUCTOR = ENTITY_PLAYER.getConstructor(MINECRAFT_SERVER, WORLD_SERVER, GameProfile.class);
                 else
-                    ENTITY_PLAYER_CONSTRUCTOR = ENTITY_PLAYER.getConstructor(MINECRAFT_SERVER, WORLD_SERVER, PROFILE, PLAYER_INTERACT_MANAGER);
+                    ENTITY_PLAYER_CONSTRUCTOR = ENTITY_PLAYER.getConstructor(MINECRAFT_SERVER, WORLD_SERVER, GameProfile.class, PLAYER_INTERACT_MANAGER);
                 INTERACT_MANAGER_CONSTRUCTOR = PLAYER_INTERACT_MANAGER.getConstructor(WORLD_SERVER);
             }
             {
@@ -51,14 +50,16 @@ public class PlayerNPC extends NPC {
         }
     }
 
-    private final float yaw;
     private final Object npc; //EntityPlayer
+    private final GameProfile profile;
+    private final float yaw;
+    private boolean tabListVisibility = true;
 
     public PlayerNPC(String name, Location location, Optional<MinecraftSkin> skin) {
         try {
             Object server = GET_SERVER_METHOD.invoke(Bukkit.getServer());
             Object world = CRAFT_WORLD_GET_HANDLE_METHOD.invoke(location.getWorld());
-            GameProfile profile = new GameProfile(UUID.randomUUID(), name);
+            this.profile = new GameProfile(UUID.randomUUID(), name);
 
             npc = ENTITY_PLAYER_CONSTRUCTOR.newInstance(server, world, profile, INTERACT_MANAGER_CONSTRUCTOR.newInstance(world));
             SET_LOCATION_METHOD.invoke(npc, location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
@@ -81,6 +82,57 @@ public class PlayerNPC extends NPC {
             ReflectionUtils.sendPacket(player,
                     packetPlayOutAnimation);
         });
+    }
+
+    public void collect(int collectedEntityId, int amount) {
+        collect(collectedEntityId, id, amount);
+    }
+
+    public void setTabList(String newName, Player... players) {
+        Object packetPlayOutPlayerInfo = PacketProvider.getPacketPlayOutPlayerInfoTabListUpdate(npc, profile, newName);
+
+        for (Player player : players) {
+            ReflectionUtils.sendPacket(player,
+                    packetPlayOutPlayerInfo);
+        }
+    }
+
+    public void setTabList(String newName) {
+        setTabList(newName, getViewers().toArray(new Player[0]));
+    }
+
+    public void addNPCTabList(Player... players) {
+        tabListVisibility = true;
+        Object packetPlayOutPlayerInfo = PacketProvider.getPacketPlayOutPlayerInfo(npc, "ADD_PLAYER");
+
+        for (Player player : players) {
+            ReflectionUtils.sendPacket(player,
+                    packetPlayOutPlayerInfo);
+        }
+    }
+
+    public void addNPCTabList() {
+        addNPCTabList(getViewers().toArray(new Player[0]));
+    }
+
+    public void removeNPCTabList(Player... players) {
+        tabListVisibility = false;
+        Object packetPlayOutPlayerInfo = PacketProvider.getPacketPlayOutPlayerInfo(npc, "REMOVE_PLAYER");
+
+        Ruom.runSync(() -> {
+            for (Player player : players) {
+                ReflectionUtils.sendPacket(player,
+                        packetPlayOutPlayerInfo);
+            }
+        }, 3);
+    }
+
+    public void removeNPCTabList() {
+        removeNPCTabList(getViewers().toArray(new Player[0]));
+    }
+
+    public boolean isTabListVisible() {
+        return tabListVisibility;
     }
 
     public Object getNpc() {

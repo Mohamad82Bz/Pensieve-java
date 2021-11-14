@@ -1,7 +1,7 @@
 package me.Mohamad82.Pensieve.nms.npc;
 
 import me.Mohamad82.Pensieve.nms.PacketProvider;
-import me.Mohamad82.Pensieve.nms.enums.EntityNPCType;
+import me.Mohamad82.Pensieve.nms.npc.enums.EntityNPCType;
 import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -18,6 +18,10 @@ public class EntityNPC extends NPC {
         this.entityType = entityType;
 
         initialize(uuid.hashCode(), location);
+    }
+
+    public void collect(int collectorEntityId, int amount) {
+        collect(id, collectorEntityId, amount);
     }
 
     @Override

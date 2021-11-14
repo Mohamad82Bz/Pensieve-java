@@ -1,4 +1,4 @@
-package me.Mohamad82.Pensieve.nms.enums;
+package me.Mohamad82.Pensieve.nms.npc.enums;
 
 public enum NPCAnimation {
     SWING_MAIN_ARM(0),

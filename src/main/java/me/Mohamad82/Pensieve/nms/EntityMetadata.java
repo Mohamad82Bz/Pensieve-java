@@ -1,6 +1,10 @@
-package me.Mohamad82.Pensieve.nms.enums;
+package me.Mohamad82.Pensieve.nms;
 
 import me.Mohamad82.RUoM.utils.ServerVersion;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 public class EntityMetadata {
 
@@ -9,6 +13,38 @@ public class EntityMetadata {
             return 8;
         } else {
             return 7;
+        }
+    }
+
+    public static int getDroppedItemMetadataId() {
+        if (ServerVersion.supports(17)) {
+            return 8;
+        } else {
+            return 7;
+        }
+    }
+
+    public static int getLivingEntityPotionColorMetadataId() {
+        if (ServerVersion.supports(17)) {
+            return 10;
+        } else {
+            return 9;
+        }
+    }
+
+    public static int getLivingEntityPotionAmbientMetadataId() {
+        if (ServerVersion.supports(17)) {
+            return 11;
+        } else {
+            return 10;
+        }
+    }
+
+    public static int getBodyArrowsMetadataId() {
+        if (ServerVersion.supports(17)) {
+            return 12;
+        } else {
+            return 11;
         }
     }
 
@@ -34,6 +70,10 @@ public class EntityMetadata {
         }
 
         public static byte getBitMasks(EntityStatus... entityStatuses) {
+            return getBitMasks(new HashSet<>(Arrays.asList(entityStatuses)));
+        }
+
+        public static byte getBitMasks(Set<EntityStatus> entityStatuses) {
             byte bytes = 0;
             for (EntityStatus entityStatus : entityStatuses) {
                 bytes += entityStatus.getBitMask();

@@ -1,4 +1,4 @@
-package me.Mohamad82.Pensieve.nms.enums;
+package me.Mohamad82.Pensieve.nms.npc.enums;
 
 import org.bukkit.entity.EntityType;
 
@@ -76,6 +76,7 @@ public enum EntityNPCType {
     SLIME,
     SMALL_FIREBALL,
     SNOW_GOLEM,
+    SNOWBALL,
     SPECTRAL_ARROW,
     SPIDER,
     SQUID,
@@ -107,6 +108,7 @@ public enum EntityNPCType {
     public static EntityNPCType getByEntityType(EntityType entityType) {
         switch (entityType) {
             case SPLASH_POTION: return POTION;
+            case DROPPED_ITEM: return ITEM;
             default: return valueOf(entityType.toString());
         }
     }

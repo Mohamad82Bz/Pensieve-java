@@ -1,6 +1,6 @@
 package me.Mohamad82.Pensieve.record;
 
-import me.Mohamad82.Pensieve.nms.enums.NPCState;
+import me.Mohamad82.Pensieve.nms.npc.enums.NPCState;
 import me.Mohamad82.Pensieve.record.enums.DamageType;
 import me.Mohamad82.RUoM.vector.Vector3;
 import org.bukkit.Material;
@@ -25,7 +25,9 @@ public class RecordTick implements Cloneable {
 
     private boolean swing;
     private boolean eatFood;
-    private boolean throwPotion;
+    private boolean throwProjectile;
+    private boolean throwSnowball;
+    private boolean throwEnderPearl;
     private boolean drawCrossbow;
     private boolean shootCrossbow;
     private boolean drawBowWithOffHand;
@@ -38,6 +40,10 @@ public class RecordTick implements Cloneable {
     private int ping = -999;
     private int drawBow = -1;
     private int crossbowChargeLevel = -1;
+    private int bodyArrows = -1;
+    private int potionColor = -1;
+    private int itemAmount = -1;
+    private byte entityMetadata = -1;
 
     private ItemStack hand;
     private ItemStack offHand;
@@ -166,12 +172,12 @@ public class RecordTick implements Cloneable {
         this.eatFood = true;
     }
 
-    public boolean threwPotion() {
-        return throwPotion;
+    public boolean threwProjectile() {
+        return throwProjectile;
     }
 
-    public void throwPotion() {
-        this.throwPotion = true;
+    public void throwProjectile() {
+        this.throwProjectile = true;
     }
 
     public boolean drawnCrossbow() {
@@ -196,6 +202,38 @@ public class RecordTick implements Cloneable {
 
     public void setCrossbowChargeLevel(int crossbowChargeLevel) {
         this.crossbowChargeLevel = crossbowChargeLevel;
+    }
+
+    public int getBodyArrows() {
+        return bodyArrows;
+    }
+
+    public void setBodyArrows(int bodyArrows) {
+        this.bodyArrows = bodyArrows;
+    }
+
+    public int getPotionColor() {
+        return potionColor;
+    }
+
+    public void setPotionColor(int potionColor) {
+        this.potionColor = potionColor;
+    }
+
+    public int getItemAmount() {
+        return itemAmount;
+    }
+
+    public void setItemAmount(int itemAmount) {
+        this.itemAmount = itemAmount;
+    }
+
+    public byte getEntityMetadata() {
+        return entityMetadata;
+    }
+
+    public void setEntityMetadata(byte entityMetadata) {
+        this.entityMetadata = entityMetadata;
     }
 
     public boolean drawnBowWithOffHand() {

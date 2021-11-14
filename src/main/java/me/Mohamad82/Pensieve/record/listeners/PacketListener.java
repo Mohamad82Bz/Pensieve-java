@@ -1,8 +1,7 @@
 package me.Mohamad82.Pensieve.record.listeners;
 
-import io.netty.channel.*;
+import me.Mohamad82.Pensieve.nms.EntityMetadata;
 import me.Mohamad82.Pensieve.nms.enums.BlockDirection;
-import me.Mohamad82.Pensieve.nms.enums.EntityMetadata;
 import me.Mohamad82.Pensieve.record.PendingBlockBreak;
 import me.Mohamad82.Pensieve.record.RecordManager;
 import me.Mohamad82.Pensieve.record.RecordTick;
@@ -10,6 +9,9 @@ import me.Mohamad82.Pensieve.record.Recorder;
 import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import me.Mohamad82.RUoM.XSeries.XMaterial;
+import me.Mohamad82.RUoM.events.packets.PacketContainer;
+import me.Mohamad82.RUoM.events.packets.clientbound.AsyncClientBoundPacketEvent;
+import me.Mohamad82.RUoM.events.packets.serverbound.AsyncServerBoundPacketEvent;
 import me.Mohamad82.RUoM.utils.MilliCounter;
 import me.Mohamad82.RUoM.utils.ServerVersion;
 import me.Mohamad82.RUoM.vector.Vector3;
@@ -17,8 +19,6 @@ import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.CrossbowMeta;
@@ -29,14 +29,13 @@ import java.util.*;
 
 public class PacketListener implements Listener {
 
-    private static Class<?> PACKET_PLAY_IN_BLOCK_DIG, PACKET_PLAY_OUT_ENTITY_METADATA, BLOCK_POSITION, PLAYER_CONNECTION, NETWORK_MANAGER, DATA_WATCHER_ITEM,
+    private static Class<?> PACKET_PLAY_IN_BLOCK_DIG, PACKET_PLAY_OUT_ENTITY_METADATA, BLOCK_POSITION, DATA_WATCHER_ITEM,
             DATA_WATCHER_OBJECT;
 
     private static Method PACKET_PLAY_IN_BLOCK_DIG_TYPE_METHOD, PACKET_PLAY_IN_BLOCK_DIG_GET_BLOCK_POSITION_METHOD, PACKET_PLAY_IN_BLOCK_DIG_GET_ENUM_DIRECTION,
             DATA_WATCHER_ITEM_A_METHOD, DATA_WATCHER_ITEM_B_METHOD, DATA_WATCHER_OBJECT_A_METHOD, BLOCK_POSITION_GET_X, BLOCK_POSITION_GET_Y, BLOCK_POSITION_GET_Z;
 
-    private static Field PLAYER_CONNECTION_NETWORK_MANAGER_FIELD, NETWORK_MANAGER_CHANNEL_FIELD, PACKET_PLAY_OUT_ENTITY_METADATA_ID_FIELD,
-            PACKET_PLAY_OUT_ENTITY_METADATA_ITEMS_FIELD;
+    private static Field PACKET_PLAY_OUT_ENTITY_METADATA_ID_FIELD, PACKET_PLAY_OUT_ENTITY_METADATA_ITEMS_FIELD;
 
     static {
         try {
@@ -44,8 +43,6 @@ public class PacketListener implements Listener {
                 PACKET_PLAY_IN_BLOCK_DIG = ReflectionUtils.getNMSClass("network.protocol.game", "PacketPlayInBlockDig");
                 PACKET_PLAY_OUT_ENTITY_METADATA = ReflectionUtils.getNMSClass("network.protocol.game", "PacketPlayOutEntityMetadata");
                 BLOCK_POSITION = ReflectionUtils.getNMSClass("core", "BlockPosition");
-                PLAYER_CONNECTION = ReflectionUtils.getNMSClass("server.network", "PlayerConnection");
-                NETWORK_MANAGER = ReflectionUtils.getNMSClass("network", "NetworkManager");
                 DATA_WATCHER_ITEM = ReflectionUtils.getNMSClass("network.syncher", "DataWatcher$Item");
                 DATA_WATCHER_OBJECT = ReflectionUtils.getNMSClass("network.syncher", "DataWatcherObject");
             }
@@ -61,8 +58,6 @@ public class PacketListener implements Listener {
                 BLOCK_POSITION_GET_Z = BLOCK_POSITION.getMethod("getZ");
             }
             {
-                PLAYER_CONNECTION_NETWORK_MANAGER_FIELD = PLAYER_CONNECTION.getField(ServerVersion.supports(17) ? "b" : "networkManager");
-                NETWORK_MANAGER_CHANNEL_FIELD = NETWORK_MANAGER.getField("channel");
                 PACKET_PLAY_OUT_ENTITY_METADATA_ID_FIELD = PACKET_PLAY_OUT_ENTITY_METADATA.getDeclaredField("a");
                 PACKET_PLAY_OUT_ENTITY_METADATA_ITEMS_FIELD = PACKET_PLAY_OUT_ENTITY_METADATA.getDeclaredField("b");
                 PACKET_PLAY_OUT_ENTITY_METADATA_ID_FIELD.setAccessible(true);
@@ -86,27 +81,11 @@ public class PacketListener implements Listener {
         instance = this;
         start();
 
-        for (Player player : Ruom.getOnlinePlayers()) {
-            try {
-                injectPlayer(player);
-            } catch (IllegalArgumentException ignore) {}
-        }
-
         Ruom.registerListener(this);
     }
 
     public static PacketListener initialize() {
         return new PacketListener();
-    }
-
-    @EventHandler
-    public void onJoin(PlayerJoinEvent event) {
-        injectPlayer(event.getPlayer());
-    }
-
-    @EventHandler
-    public void onQuit(PlayerQuitEvent event) {
-        removePlayer(event.getPlayer());
     }
 
     public void start() {
@@ -138,168 +117,142 @@ public class PacketListener implements Listener {
         }, 0, 1);
     }
 
-    MilliCounter counter;
+    @EventHandler
+    public void onAsyncServerBoundPacket(AsyncServerBoundPacketEvent event) {
+        Player player = event.getPlayer();
+        PacketContainer packetContainer = event.getPacket();
+        Object packet = packetContainer.getPacket();
 
-    private void injectPlayer(Player player) {
-        ChannelDuplexHandler channelDuplexHandler = new ChannelDuplexHandler() {
-            @Override
-            public void channelRead(ChannelHandlerContext context, Object packet) throws Exception {
-                super.channelRead(context, packet);
-                if (packet.toString().contains("PacketPlayInBlockDig")) {
-                    RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
-                    if (currentTick != null) {
-                        Ruom.runAsync(() -> {
-                            try {
-                                Object digType = PACKET_PLAY_IN_BLOCK_DIG_TYPE_METHOD.invoke(packet);
-                                switch (digType.toString()) {
-                                    case "START_DESTROY_BLOCK":
-                                        if (player.getGameMode().equals(GameMode.SURVIVAL)) {
-                                            final PendingBlockBreak pendingBlockBreak = new PendingBlockBreak();
-                                            currentTick.setPendingBlockBreak(pendingBlockBreak);
-                                            Object blockPosition = PACKET_PLAY_IN_BLOCK_DIG_GET_BLOCK_POSITION_METHOD.invoke(packet);
-                                            int x = (int) BLOCK_POSITION_GET_X.invoke(blockPosition);
-                                            int y = (int) BLOCK_POSITION_GET_Y.invoke(blockPosition);
-                                            int z = (int) BLOCK_POSITION_GET_Z.invoke(blockPosition);
-                                            pendingBlockBreak.setLocation(Vector3.at(x, y, z));
-                                            pendingBlockBreak.setMaterial(player.getWorld().getBlockAt(x, y, z).getType());
-                                            pendingBlockBreak.setBlockDirection(BlockDirection.valueOf(
-                                                    PACKET_PLAY_IN_BLOCK_DIG_GET_ENUM_DIRECTION.invoke(packet).toString().toUpperCase()));
-                                            breakingPlayers.put(player, pendingBlockBreak);
-                                        }
-                                        break;
-                                    case "ABORT_DESTROY_BLOCK":
-                                    case "STOP_DESTROY_BLOCK":
-                                        breakingPlayers.remove(player);
-                                        break;
-                                    case "RELEASE_USE_ITEM":
-                                        eatingPlayers.remove(player);
-                                        break;
-                                }
-                            } catch (Exception e) {
-                                e.printStackTrace();
+        try {
+            if (packetContainer.getName().equals("PacketPlayInBlockDig")) {
+                RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
+                if (currentTick != null) {
+                    Object digType = PACKET_PLAY_IN_BLOCK_DIG_TYPE_METHOD.invoke(packet);
+                    switch (digType.toString()) {
+                        case "START_DESTROY_BLOCK":
+                            if (player.getGameMode().equals(GameMode.SURVIVAL)) {
+                                final PendingBlockBreak pendingBlockBreak = new PendingBlockBreak();
+                                currentTick.setPendingBlockBreak(pendingBlockBreak);
+                                Object blockPosition = PACKET_PLAY_IN_BLOCK_DIG_GET_BLOCK_POSITION_METHOD.invoke(packet);
+                                int x = (int) BLOCK_POSITION_GET_X.invoke(blockPosition);
+                                int y = (int) BLOCK_POSITION_GET_Y.invoke(blockPosition);
+                                int z = (int) BLOCK_POSITION_GET_Z.invoke(blockPosition);
+                                pendingBlockBreak.setLocation(Vector3.at(x, y, z));
+                                pendingBlockBreak.setMaterial(player.getWorld().getBlockAt(x, y, z).getType());
+                                pendingBlockBreak.setBlockDirection(BlockDirection.valueOf(
+                                        PACKET_PLAY_IN_BLOCK_DIG_GET_ENUM_DIRECTION.invoke(packet).toString().toUpperCase()));
+                                breakingPlayers.put(player, pendingBlockBreak);
                             }
-                        });
+                            break;
+                        case "ABORT_DESTROY_BLOCK":
+                        case "STOP_DESTROY_BLOCK":
+                            breakingPlayers.remove(player);
+                            break;
+                        case "RELEASE_USE_ITEM":
+                            eatingPlayers.remove(player);
+                            break;
                     }
                 }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
-            @Override
-            public void write(ChannelHandlerContext context, Object packet, ChannelPromise channelPromise) throws Exception {
-                super.write(context, packet, channelPromise);
-                if (packet.toString().contains("PacketPlayOutEntityMetadata")) {
-                    RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
+    @EventHandler
+    public void onAsyncClientBoundPacket(AsyncClientBoundPacketEvent event) throws Exception {
+        Player player = event.getPlayer();
+        PacketContainer packetContainer = event.getPacket();
+        Object packet = packetContainer.getPacket();
 
-                    @SuppressWarnings("unchecked")
-                    List<Object> itemsObject = (List<Object>) PACKET_PLAY_OUT_ENTITY_METADATA_ITEMS_FIELD.get(packet);
-                    int i = 1;
-                    for (Object itemObject : itemsObject) {
-                        int metadataId = (int) DATA_WATCHER_OBJECT_A_METHOD.invoke(DATA_WATCHER_ITEM_A_METHOD.invoke(itemObject));
-                        Object value = DATA_WATCHER_ITEM_B_METHOD.invoke(itemObject);
+        if (packetContainer.getName().equals("PacketPlayOutEntityMetadata")) {
+            RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
 
-                        if (currentTick != null) {
-                            if (metadataId == EntityMetadata.ItemUseKey.getMetadataId() && value instanceof Byte)  {
-                                byte byteValue = (byte) value;
-                                EquipmentSlot slot;
-                                if (byteValue == EntityMetadata.ItemUseKey.RELEASE.getBitMask() || byteValue == EntityMetadata.ItemUseKey.HOLD.getBitMask())
-                                    slot = EquipmentSlot.HAND;
-                                else
-                                    slot = EquipmentSlot.OFF_HAND;
+            @SuppressWarnings("unchecked")
+            List<Object> itemsObject = (List<Object>) PACKET_PLAY_OUT_ENTITY_METADATA_ITEMS_FIELD.get(packet);
+            int i = 1;
+            for (Object itemObject : itemsObject) {
+                int metadataId = (int) DATA_WATCHER_OBJECT_A_METHOD.invoke(DATA_WATCHER_ITEM_A_METHOD.invoke(itemObject));
+                Object value = DATA_WATCHER_ITEM_B_METHOD.invoke(itemObject);
 
-                                if (player.getInventory().getItem(slot).getType().equals(XMaterial.BOW.parseMaterial()) ||
-                                        (ServerVersion.supports(14) && player.getInventory().getItem(slot).getType().equals(XMaterial.CROSSBOW.parseMaterial()))) {
-                                    if (byteValue == EntityMetadata.ItemUseKey.RELEASE.getBitMask() || byteValue == EntityMetadata.ItemUseKey.OFFHAND_RELEASE.getBitMask()) {
-                                        if (drawnBowCounters.containsKey(player.getUniqueId())) {
-                                            MilliCounter drawBowCounter = drawnBowCounters.get(player.getUniqueId());
-                                            drawBowCounter.stop();
-                                            currentTick.drawBow((int) drawBowCounter.get());
-                                            drawnBowCounters.remove(player.getUniqueId());
-                                            if (slot.equals(EquipmentSlot.OFF_HAND)) {
-                                                currentTick.drawBowWithOffHand();
-                                            }
-                                            if (ServerVersion.supports(14) && player.getInventory().getItem(slot).getType().equals(XMaterial.CROSSBOW.parseMaterial())) {
-                                                currentTick.drawCrossbow();
-                                                Recorder recorder = RecordManager.getInstance().getPlayerRecorder(player);
+                if (currentTick != null) {
+                    if (metadataId == EntityMetadata.ItemUseKey.getMetadataId() && value instanceof Byte)  {
+                        byte byteValue = (byte) value;
+                        EquipmentSlot slot;
+                        if (byteValue == EntityMetadata.ItemUseKey.RELEASE.getBitMask() || byteValue == EntityMetadata.ItemUseKey.HOLD.getBitMask())
+                            slot = EquipmentSlot.HAND;
+                        else
+                            slot = EquipmentSlot.OFF_HAND;
 
-                                                if (drawBowCounter.get() < 100) {
-                                                    currentTick.setCrossbowChargeLevel(0);
-                                                } else if (drawBowCounter.get() < 700) {
-                                                    currentTick.setCrossbowChargeLevel(1);
-                                                    recorder.getRecordTick(player, recorder.getCurrentTickIndex() - 10).setCrossbowChargeLevel(0);
-                                                } else if (drawBowCounter.get() > 990) {
-                                                    currentTick.setCrossbowChargeLevel(2);
-                                                    recorder.getRecordTick(player, recorder.getCurrentTickIndex() - 10).setCrossbowChargeLevel(1);
-                                                    recorder.getRecordTick(player, recorder.getCurrentTickIndex() - 20).setCrossbowChargeLevel(0);
+                        if (player.getInventory().getItem(slot).getType().equals(XMaterial.BOW.parseMaterial()) ||
+                                (ServerVersion.supports(14) && player.getInventory().getItem(slot).getType().equals(XMaterial.CROSSBOW.parseMaterial()))) {
+                            if (byteValue == EntityMetadata.ItemUseKey.RELEASE.getBitMask() || byteValue == EntityMetadata.ItemUseKey.OFFHAND_RELEASE.getBitMask()) {
+                                if (drawnBowCounters.containsKey(player.getUniqueId())) {
+                                    MilliCounter drawBowCounter = drawnBowCounters.get(player.getUniqueId());
+                                    drawBowCounter.stop();
+                                    currentTick.drawBow((int) drawBowCounter.get());
+                                    drawnBowCounters.remove(player.getUniqueId());
+                                    if (slot.equals(EquipmentSlot.OFF_HAND)) {
+                                        currentTick.drawBowWithOffHand();
+                                    }
+                                    if (ServerVersion.supports(14) && player.getInventory().getItem(slot).getType().equals(XMaterial.CROSSBOW.parseMaterial())) {
+                                        currentTick.drawCrossbow();
+                                        Recorder recorder = RecordManager.getInstance().getPlayerRecorder(player);
 
-                                                    RecordTick lastNonNullTick = RecordManager.getInstance().getPlayerRecorder(player).getLastNonNullTick(player.getUniqueId());
-                                                    ItemStack crossbowItem = lastNonNullTick.getItem(slot).clone();
-                                                    if (crossbowItem.getType().equals(XMaterial.CROSSBOW.parseMaterial())) {
-                                                        CrossbowMeta crossbowMeta = (CrossbowMeta) crossbowItem.getItemMeta();
-                                                        List<ItemStack> projectiles = new ArrayList<>();
-                                                        projectiles.add(XMaterial.ARROW.parseItem());
-                                                        crossbowMeta.setChargedProjectiles(projectiles);
-                                                        crossbowItem.setItemMeta(crossbowMeta);
-                                                        currentTick.setItem(slot, crossbowItem);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        if (!drawnBowCounters.containsKey(player.getUniqueId())) {
-                                            currentTick.drawBow(0);
-                                            MilliCounter drawBowCounter = new MilliCounter();
-                                            drawBowCounter.start();
-                                            drawnBowCounters.put(player.getUniqueId(), drawBowCounter);
-                                            if (slot.equals(EquipmentSlot.OFF_HAND)) {
-                                                currentTick.drawBowWithOffHand();
+                                        if (drawBowCounter.get() < 100) {
+                                            currentTick.setCrossbowChargeLevel(0);
+                                        } else if (drawBowCounter.get() < 700) {
+                                            currentTick.setCrossbowChargeLevel(1);
+                                            recorder.getRecordTick(player, recorder.getCurrentTickIndex() - 10).setCrossbowChargeLevel(0);
+                                        } else if (drawBowCounter.get() > 990) {
+                                            currentTick.setCrossbowChargeLevel(2);
+                                            recorder.getRecordTick(player, recorder.getCurrentTickIndex() - 10).setCrossbowChargeLevel(1);
+                                            recorder.getRecordTick(player, recorder.getCurrentTickIndex() - 20).setCrossbowChargeLevel(0);
+
+                                            RecordTick lastNonNullTick = RecordManager.getInstance().getPlayerRecorder(player).getLastNonNullTick(player.getUniqueId());
+                                            ItemStack crossbowItem = lastNonNullTick.getItem(slot).clone();
+                                            if (crossbowItem.getType().equals(XMaterial.CROSSBOW.parseMaterial())) {
+                                                CrossbowMeta crossbowMeta = (CrossbowMeta) crossbowItem.getItemMeta();
+                                                List<ItemStack> projectiles = new ArrayList<>();
+                                                projectiles.add(XMaterial.ARROW.parseItem());
+                                                crossbowMeta.setChargedProjectiles(projectiles);
+                                                crossbowItem.setItemMeta(crossbowMeta);
+                                                currentTick.setItem(slot, crossbowItem);
                                             }
                                         }
                                     }
                                 }
-                            }
-                        } else {
-                            if (player.hasPermission("pensieve.debug"))
-                                if (true) //TODO CONFIGURATION (debug feature)
-                                    try {
-                                        int entityId = (int) PACKET_PLAY_OUT_ENTITY_METADATA_ID_FIELD.get(packet);
-                                        Ruom.log("--------------  " + i + "  --------------");
-                                        Ruom.log("entityId: " + entityId);
-                                        Ruom.log(DATA_WATCHER_ITEM_A_METHOD.invoke(itemObject).toString());
-                                        Ruom.log(DATA_WATCHER_ITEM_B_METHOD.invoke(itemObject).toString());
-                                        Ruom.log("------------  DEBUG  ------------");
-                                        i++;
-                                    } catch (Exception e) {
-                                        e.printStackTrace();
-                                        Ruom.warn("This is a debugging error. Please report this to the plugin's author.");
+                            } else {
+                                if (!drawnBowCounters.containsKey(player.getUniqueId())) {
+                                    currentTick.drawBow(0);
+                                    MilliCounter drawBowCounter = new MilliCounter();
+                                    drawBowCounter.start();
+                                    drawnBowCounters.put(player.getUniqueId(), drawBowCounter);
+                                    if (slot.equals(EquipmentSlot.OFF_HAND)) {
+                                        currentTick.drawBowWithOffHand();
                                     }
+                                }
+                            }
                         }
                     }
+                } else {
+                    if (player.hasPermission("pensieve.debug"))
+                        if (true) //TODO CONFIGURATION (debug feature)
+                            try {
+                                int entityId = (int) PACKET_PLAY_OUT_ENTITY_METADATA_ID_FIELD.get(packet);
+                                Ruom.log("--------------  " + i + "  --------------");
+                                Ruom.log("entityId: " + entityId);
+                                Ruom.log(DATA_WATCHER_ITEM_A_METHOD.invoke(itemObject).toString());
+                                Ruom.log(DATA_WATCHER_ITEM_B_METHOD.invoke(itemObject).toString());
+                                Ruom.log("------------  DEBUG  ------------");
+                                i++;
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                Ruom.warn("This is a debugging error. Please report this to the plugin's author(s): " + Ruom.getPlugin().getDescription().getAuthors());
+                            }
                 }
             }
-        };
-
-        try {
-            ChannelPipeline pipeline = (getChannel(player).pipeline());
-            pipeline.addBefore("packet_handler", "pensieve_" + player.getName(), channelDuplexHandler);
-        } catch (Exception e) {
-            e.printStackTrace();
         }
-    }
-
-    public void removePlayer(Player player) {
-        try {
-            Channel channel = getChannel(player);
-            channel.eventLoop().submit(() -> {
-                channel.pipeline().remove("pensieve_" + player.getName());
-                return null;
-            });
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private Channel getChannel(Player player) throws IllegalAccessException {
-        Object playerConnection = ReflectionUtils.getConnection(player);
-        return (Channel) NETWORK_MANAGER_CHANNEL_FIELD.get(PLAYER_CONNECTION_NETWORK_MANAGER_FIELD.get(playerConnection));
     }
 
 }

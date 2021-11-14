@@ -1,12 +1,12 @@
 package me.Mohamad82.Pensieve.replay;
 
+import me.Mohamad82.Pensieve.nms.EntityMetadata;
 import me.Mohamad82.Pensieve.nms.NMSProvider;
-import me.Mohamad82.Pensieve.nms.enums.EntityMetadata;
-import me.Mohamad82.Pensieve.nms.enums.EntityNPCType;
-import me.Mohamad82.Pensieve.nms.enums.NPCAnimation;
 import me.Mohamad82.Pensieve.nms.npc.EntityNPC;
 import me.Mohamad82.Pensieve.nms.npc.NPC;
 import me.Mohamad82.Pensieve.nms.npc.PlayerNPC;
+import me.Mohamad82.Pensieve.nms.npc.enums.EntityNPCType;
+import me.Mohamad82.Pensieve.nms.npc.enums.NPCAnimation;
 import me.Mohamad82.Pensieve.record.EntityRecord;
 import me.Mohamad82.Pensieve.record.PlayerRecord;
 import me.Mohamad82.Pensieve.record.RecordTick;
@@ -25,6 +25,7 @@ import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -34,8 +35,9 @@ import java.util.*;
 public class Replay {
 
     private static final Sound ENTITY_ARROW_HIT, ENTITY_ARROW_SHOOT, ENTITY_PLAYER_HURT, ENTITY_PLAYER_ATTACK_CRIT, ENTITY_PLAYER_ATTACK_WEAK,
-            ENTITY_SPLASH_POTION_BREAK, ENTITY_SPLASH_POTION_THROW, ENTITY_GENERIC_EAT, ENTITY_GENERIC_DRINK, ITEM_CROSSBOW_SHOOT, ITEM_CROSSBOW_HIT,
-            ITEM_CROSSBOW_LOADING_START, ITEM_CROSSBOW_LOADING_MIDDLE, ITEM_CROSSBOW_LOADING_END;
+            ENTITY_PLAYER_ATTACK_STRONG, ENTITY_PLAYER_HURT_ON_FIRE, ENTITY_SPLASH_POTION_BREAK, ENTITY_SPLASH_POTION_THROW,
+            ENTITY_GENERIC_EAT, ENTITY_GENERIC_DRINK, ITEM_CROSSBOW_SHOOT, ITEM_CROSSBOW_LOADING_START, ITEM_CROSSBOW_LOADING_MIDDLE,
+            ITEM_CROSSBOW_LOADING_END;
 
     static {
         ENTITY_ARROW_HIT = XSound.ENTITY_ARROW_HIT.parseSound();
@@ -43,12 +45,13 @@ public class Replay {
         ENTITY_PLAYER_HURT = XSound.ENTITY_PLAYER_HURT.parseSound();
         ENTITY_PLAYER_ATTACK_CRIT = XSound.ENTITY_PLAYER_ATTACK_CRIT.parseSound();
         ENTITY_PLAYER_ATTACK_WEAK = XSound.ENTITY_PLAYER_ATTACK_WEAK.parseSound();
+        ENTITY_PLAYER_ATTACK_STRONG = XSound.ENTITY_PLAYER_ATTACK_STRONG.parseSound();
+        ENTITY_PLAYER_HURT_ON_FIRE = XSound.ENTITY_PLAYER_HURT_ON_FIRE.parseSound();
         ENTITY_SPLASH_POTION_BREAK = XSound.ENTITY_SPLASH_POTION_BREAK.parseSound();
         ENTITY_SPLASH_POTION_THROW = XSound.ENTITY_SPLASH_POTION_THROW.parseSound();
         ENTITY_GENERIC_EAT = XSound.ENTITY_GENERIC_EAT.parseSound();
         ENTITY_GENERIC_DRINK = XSound.ENTITY_GENERIC_DRINK.parseSound();
         ITEM_CROSSBOW_SHOOT = XSound.ITEM_CROSSBOW_SHOOT.parseSound();
-        ITEM_CROSSBOW_HIT = XSound.ITEM_CROSSBOW_HIT.parseSound();
         ITEM_CROSSBOW_LOADING_START = XSound.ITEM_CROSSBOW_LOADING_START.parseSound();
         ITEM_CROSSBOW_LOADING_MIDDLE = XSound.ITEM_CROSSBOW_LOADING_MIDDLE.parseSound();
         ITEM_CROSSBOW_LOADING_END = XSound.ITEM_CROSSBOW_LOADING_END.parseSound();
@@ -111,6 +114,7 @@ public class Replay {
             replayCache.get(record.getUuid()).setPlaying(true);
             playerRecords.get(record).getViewers().addAll(Ruom.getOnlinePlayers());
             playerRecords.get(record).addNPCPacket();
+            playerRecords.get(record).removeNPCTabList();
 
             if (record.getRecordTicks().size() > maxTicks)
                 maxTicks = record.getRecordTicks().size();
@@ -189,10 +193,20 @@ public class Replay {
                                     npc.setMetadata(EntityMetadata.getPotionMetadataId(), NMSProvider.getNmsItemStack(record.getItem()));
                                 }
                             }
+                            if (record.getDroppedItem() != null) {
+                                npc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSProvider.getNmsItemStack(record.getDroppedItem()));
+                            }
+
                             lastNonNullTicks.put(uuid, record.getRecordTicks().get(0).clone());
                         } else {
                             int entityTickIndex = tickIndex - (record.getStartingTick() + 1);
                             if (entityTickIndex >= record.getRecordTicks().size()) {
+                                if (record.getPickedUpBy() != null) {
+                                    int collector = getEntityId(record.getPickedUpBy());
+                                    if (collector != 0) {
+                                        npc.collect(collector, lastNonNullTicks.get(uuid).getItemAmount());
+                                    }
+                                }
                                 replayCache.get(uuid).setPlaying(false);
                                 npc.removeNPCPacket();
                             } else {
@@ -221,14 +235,29 @@ public class Replay {
                                     }
                                 }
                                 if (entityTickIndex == record.getRecordTicks().size() - 1) {
-                                    if (record.getEntityType().equals(EntityNPCType.POTION)) {
-                                        for (Player player : npc.getViewers()) {
-                                            Ruom.log("Playing");
-                                            player.playSound(location, ENTITY_SPLASH_POTION_BREAK, playbackControl.getVolume() - 0.3f, 1);
-                                            //noinspection deprecation
-                                            player.playEffect(location, Effect.POTION_BREAK, NMSProvider.getPotionColor(record.getItem()));
+                                    switch(record.getEntityType()) {
+                                        case POTION: {
+                                            for (Player player : npc.getViewers()) {
+                                                player.playSound(location, ENTITY_SPLASH_POTION_BREAK, playbackControl.getVolume() - 0.3f, 1);
+                                                //noinspection deprecation
+                                                player.playEffect(location, Effect.POTION_BREAK, NMSProvider.getPotionColor(record.getItem()));
+                                            }
+                                            break;
+                                        }
+                                        case SNOWBALL: {
+                                            for (Player player : npc.getViewers()) {
+                                                player.spawnParticle(Particle.SNOWBALL, location, random.nextInt(7));
+                                            }
+                                            break;
                                         }
                                     }
+                                }
+                                if (tick.getItemAmount() != -1) {
+                                    ItemStack droppedItem = new ItemStack(record.getDroppedItem().getType());
+                                    droppedItem.setItemMeta(record.getDroppedItem().getItemMeta());
+                                    droppedItem.setAmount(tick.getItemAmount());
+                                    npc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSProvider.getNmsItemStack(droppedItem));
+                                    lastNonNullTick.setItemAmount(tick.getItemAmount());
                                 }
                             }
                         }
@@ -280,6 +309,8 @@ public class Replay {
 
                                 if (tick.getState() != null)
                                     npc.setState(tick.getState());
+                                if (tick.getEntityMetadata() != -1)
+                                    npc.setMetadata(EntityMetadata.EntityStatus.getMetadataId(), tick.getEntityMetadata());
                                 if (tick.getHand() != null)
                                     npc.setEquipment(EquipmentSlot.HAND, tick.getHand());
                                 if (tick.getOffHand() != null)
@@ -326,6 +357,20 @@ public class Replay {
                                         player.playSound(location, ENTITY_PLAYER_ATTACK_CRIT, playbackControl.getVolume(), 1);
                                         player.playSound(location, ENTITY_PLAYER_HURT, playbackControl.getVolume(), 1);
                                     }
+                                } else if (tick.getTakenDamageType().equals(DamageType.SPRINT_ATTACK)) {
+                                    for (Player player : npc.getViewers()) {
+                                        player.playSound(location, ENTITY_PLAYER_ATTACK_STRONG, playbackControl.getVolume(), 1);
+                                        player.playSound(location, ENTITY_PLAYER_HURT, playbackControl.getVolume(), 1);
+                                    }
+                                } else if (tick.getTakenDamageType().equals(DamageType.BURN)) {
+                                    for (Player player : npc.getViewers()) {
+                                        player.playSound(location, ENTITY_PLAYER_HURT_ON_FIRE, playbackControl.getVolume(), 1);
+                                    }
+                                } else if (tick.getTakenDamageType().equals(DamageType.PROJECTILE)) {
+                                    for (Player player : npc.getViewers()) {
+                                        player.playSound(location, ENTITY_ARROW_SHOOT, playbackControl.getVolume(), 1);
+                                        player.playSound(location, ENTITY_PLAYER_HURT, playbackControl.getVolume(), 1);
+                                    }
                                 } else {
                                     for (Player player : npc.getViewers()) {
                                         player.playSound(location, ENTITY_PLAYER_HURT, playbackControl.getVolume(), 1);
@@ -333,8 +378,9 @@ public class Replay {
                                     }
                                 }
                             }
-                            if (tick.threwPotion()) {
+                            if (tick.threwProjectile()) {
                                 for (Player player : npc.getViewers()) {
+                                    //Throw sounds are all the same
                                     player.playSound(location, ENTITY_SPLASH_POTION_THROW, playbackControl.getVolume() - 0.5f, 0.1f);
                                 }
                             }
@@ -395,6 +441,13 @@ public class Replay {
                                 for (Player player : npc.getViewers()) {
                                     player.playSound(location, crossbowLoadingSound, playbackControl.getVolume() - 0.3f, 1);
                                 }
+                            }
+                            if (tick.getBodyArrows() >= 0) {
+                                npc.setMetadata(EntityMetadata.getBodyArrowsMetadataId(), tick.getBodyArrows());
+                            }
+                            if (tick.getPotionColor() != -1) {
+                                npc.setMetadata(EntityMetadata.getLivingEntityPotionColorMetadataId(), tick.getPotionColor());
+                                npc.setMetadata(EntityMetadata.getLivingEntityPotionAmbientMetadataId(), true);
                             }
 
                             if (tick.getBlockPlaces() != null) {
@@ -502,7 +555,7 @@ public class Replay {
                     cancel();
                 }
             }
-        }.runTaskTimer(plugin, 0, 2);
+        }.runTaskTimer(plugin, 0, 1);
 
         return playbackControl;
     }
@@ -558,10 +611,8 @@ public class Replay {
         if (travelDistance != null && !travelDistance.equals(Vector3.at(0, 0, 0))) {
             //Returns false if distance was more than 8 blocks, Move packet does not support more than 8 blocks.
             if (!npc.moveAndLook(travelDistance.getX(), travelDistance.getY(), travelDistance.getZ(), yaw, pitch, onGround)) {
-                //TODO Probably broken
-                Vector3 centerOffSet = Vector3Utils.getTravelDistance(recordCenter, tick.getLocation());
-                Vector3 location = tick.getLocation().clone().add(centerOffSet);
-                npc.teleport(location, yaw, pitch, true);
+                Location location = npc.getLocation().add(travelDistance.getX(), travelDistance.getY(), travelDistance.getZ());
+                npc.teleport(location, true);
             }
         } else {
             if (!(yaw == lastYaw && pitch == lastPitch))
@@ -629,6 +680,20 @@ public class Replay {
             }
         }
         return angle;
+    }
+
+    private int getEntityId(UUID uuid) {
+        for (PlayerRecord record : playerRecords.keySet()) {
+            if (record.getUuid().equals(uuid)) {
+                return playerRecords.get(record).getId();
+            }
+        }
+        for (EntityRecord record : entityRecords.keySet()) {
+            if (modifiedUuids.get(record.getUuid()).equals(uuid)) {
+                return entityRecords.get(record).getId();
+            }
+        }
+        return 0;
     }
 
 }

@@ -5,15 +5,14 @@ import me.Mohamad82.Pensieve.core.ReplayArenaManager;
 import me.Mohamad82.Pensieve.data.DataManager;
 import me.Mohamad82.Pensieve.record.RecordManager;
 import me.Mohamad82.Pensieve.record.listeners.PacketListener;
+import me.Mohamad82.Pensieve.record.listeners.RecordListeners;
 import me.Mohamad82.Pensieve.test.TestRecordCommand;
 import me.Mohamad82.Pensieve.world.WorldManager;
-import me.Mohamad82.Pensieve.record.listeners.RecordListeners;
 import me.Mohamad82.RUoM.RUoMPlugin;
 import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.areaselection.AreaSelectionListener;
 import me.Mohamad82.RUoM.utils.StringUtils;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,9 +34,7 @@ public final class Pensieve extends RUoMPlugin {
 
     @Override
     public void onDisable() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            PacketListener.getInstance().removePlayer(player);
-        }
+        Ruom.shutdown();
     }
 
     public void initializeCommands() {
@@ -60,6 +57,7 @@ public final class Pensieve extends RUoMPlugin {
         PacketListener.initialize();
         Ruom.initializeAreaSelection();
         Ruom.initializeSkinBuilder();
+        Ruom.initializePacketListener();
     }
 
     public void sendFiglet() {

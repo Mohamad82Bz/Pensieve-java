@@ -1,7 +1,7 @@
 package me.Mohamad82.Pensieve.nms.npc;
 
 import me.Mohamad82.Pensieve.nms.PacketProvider;
-import me.Mohamad82.Pensieve.nms.enums.NPCState;
+import me.Mohamad82.Pensieve.nms.npc.enums.NPCState;
 import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import me.Mohamad82.RUoM.vector.Vector3;
 import org.bukkit.Location;
@@ -19,6 +19,10 @@ public abstract class NPC {
 
     protected int id;
     protected Location location;
+
+    protected NPC() {
+
+    }
 
     public void initialize(int id, Location location) {
         this.id = id;
@@ -112,6 +116,10 @@ public abstract class NPC {
         teleport(vector.getX(), vector.getY(), vector.getZ(), yaw, pitch, onGround);
     }
 
+    public void teleport(Location location, boolean onGround) {
+        teleport(location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch(), onGround);
+    }
+
     public void velocity(double x, double y, double z) {
         Object packetPlayOutEntityVelocity = PacketProvider.getPacketPlayOutEntityVelocity(id, x, y, z);
 
@@ -134,6 +142,15 @@ public abstract class NPC {
         });
     }
 
+    protected void collect(int collectedEntityId, int collectorEntityId, int amount) {
+        Object packetPlayOutCollect = PacketProvider.getPacketPlayOutCollect(collectedEntityId, collectorEntityId, amount);
+
+        viewers.forEach(player -> {
+            ReflectionUtils.sendPacket(player,
+                    packetPlayOutCollect);
+        });
+    }
+
     public void setState(NPCState npcState) {
         Object packetPlayOutEntityMetadata = PacketProvider.getPacketPlayOutEntityMetadata(id, npcState);
 
@@ -153,6 +170,10 @@ public abstract class NPC {
 
     public int getId() {
         return id;
+    }
+
+    public Location getLocation() {
+        return location.clone();
     }
 
     public boolean addViewers(Set<Player> players) {

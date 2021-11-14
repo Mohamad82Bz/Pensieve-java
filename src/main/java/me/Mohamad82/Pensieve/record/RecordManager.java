@@ -1,7 +1,7 @@
 package me.Mohamad82.Pensieve.record;
 
 import me.Mohamad82.Pensieve.nms.enums.BlockDirection;
-import me.Mohamad82.Pensieve.nms.enums.NPCState;
+import me.Mohamad82.Pensieve.nms.npc.enums.NPCState;
 import me.Mohamad82.Pensieve.record.enums.DamageType;
 import me.Mohamad82.RUoM.configuration.YamlConfig;
 import me.Mohamad82.RUoM.translators.skin.MinecraftSkin;
@@ -9,6 +9,7 @@ import me.Mohamad82.RUoM.vector.Vector3;
 import me.Mohamad82.RUoM.vector.Vector3Utils;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -254,9 +255,28 @@ public class RecordManager {
         return null;
     }
 
+    public @Nullable RecordTick getCurrentRecordTick(Entity entity) {
+        for (Recorder recorder : recorders) {
+            if (recorder.getEntities().contains(entity)) {
+                if (recorder.isRunning()) {
+                    return recorder.getCurrentTick(entity);
+                }
+            }
+        }
+        return null;
+    }
+
     public @Nullable Recorder getPlayerRecorder(Player player) {
         for (Recorder recorder : recorders) {
             if (recorder.getPlayers().contains(player))
+                return recorder;
+        }
+        return null;
+    }
+
+    public @Nullable Recorder getEntityRecorder(Entity entity) {
+        for (Recorder recorder : recorders) {
+            if (recorder.getEntities().contains(entity))
                 return recorder;
         }
         return null;

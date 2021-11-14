@@ -2,14 +2,18 @@ package me.Mohamad82.Pensieve.record.listeners;
 
 import me.Mohamad82.Pensieve.record.*;
 import me.Mohamad82.Pensieve.record.enums.DamageType;
+import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.XSeries.XMaterial;
 import me.Mohamad82.RUoM.utils.ServerVersion;
 import me.Mohamad82.RUoM.vector.Vector3;
+import me.Mohamad82.RUoM.vector.Vector3Utils;
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -26,8 +30,9 @@ import java.util.List;
 
 public class RecordListeners implements Listener {
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlace(BlockPlaceEvent event) {
+        if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
         RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
@@ -41,25 +46,23 @@ public class RecordListeners implements Listener {
         currentTick.swing();
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onBreak(BlockBreakEvent event) {
+        if (event.isCancelled()) return;
         Player player = event.getPlayer();
         Block block = event.getBlock();
 
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
+        Recorder recorder = RecordManager.getInstance().getPlayerRecorder(player);
+        if (recorder == null) return;
+        RecordTick currentTick = recorder.getCurrentTick(player);
         if (currentTick == null) return;
 
         if (currentTick.getBlockBreaks() == null)
             currentTick.initializeBlockBreaks();
-        currentTick.getBlockBreaks().put(
-                Vector3.at(
-                        block.getLocation().getBlockX(),
-                        block.getLocation().getBlockY(),
-                        block.getLocation().getBlockZ()),
-                block.getType());
+        currentTick.getBlockBreaks().put(Vector3Utils.toVector3(block.getLocation()), block.getType());
+
         //Pending Block Break (Block break animations)
         if (player.getGameMode().equals(GameMode.SURVIVAL)) {
-            Recorder recorder = RecordManager.getInstance().getPlayerRecorder(player);
             List<PendingBlockBreak> pendingBlockBreaks = new ArrayList<>();
             int i = 2;
             for (PlayerRecord record : recorder.getPlayerRecords()) {
@@ -84,7 +87,88 @@ public class RecordListeners implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onSpawn(EntitySpawnEvent event) {
+        if (event.isCancelled()) return;
+        Entity entity = event.getEntity();
+        if (!entity.getType().equals(EntityType.DROPPED_ITEM)) return;
+
+        Player player = null;
+        for (Entity nearbyEntity : entity.getLocation().getWorld().getNearbyEntities(entity.getLocation(), 8, 8, 8)) {
+            if (nearbyEntity.getType().equals(EntityType.PLAYER)) {
+                Player nearbyPlayer = (Player) nearbyEntity;
+                RecordTick nearbyPlayerCurrentTick = RecordManager.getInstance().getCurrentRecordTick(nearbyPlayer);
+                if (nearbyPlayerCurrentTick != null) {
+                    if (nearbyPlayerCurrentTick.getBlockBreaks() != null) {
+                        for (Vector3 blockLocation : nearbyPlayerCurrentTick.getBlockBreaks().keySet()) {
+                            Vector3 entityLocation = Vector3Utils.toVector3(entity.getLocation());
+                            if (blockLocation.equals(Vector3.at(Math.floor(entityLocation.getX()), Math.floor(entityLocation.getY()), Math.floor(entityLocation.getZ())))) {
+                                player = nearbyPlayer;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (player == null) return;
+        Recorder recorder = RecordManager.getInstance().getPlayerRecorder(player);
+
+        recorder.getEntities().add(entity);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onDrop(PlayerDropItemEvent event) {
+        if (event.isCancelled()) return;
+        Item droppedItem = event.getItemDrop();
+
+        Player player = Bukkit.getPlayer(droppedItem.getThrower());
+        if (player == null) return;
+
+        Recorder recorder = RecordManager.getInstance().getPlayerRecorder(player);
+        if (recorder == null) return;
+
+        recorder.getEntities().add(droppedItem);
+        recorder.getCurrentTick(player).swing();
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPickup(EntityPickupItemEvent event) {
+        if (event.isCancelled()) return;
+        Item droppedItem = event.getItem();
+        LivingEntity entity = event.getEntity();
+
+        Recorder recorder = RecordManager.getInstance().getEntityRecorder(droppedItem);
+        if (recorder == null) return;
+        EntityRecord entityRecord = recorder.getEntityRecord(droppedItem);
+        if (entityRecord == null) return;
+        boolean pickerHasRecorder = false;
+
+        if (entity.getType().equals(EntityType.PLAYER)) {
+            if (RecordManager.getInstance().getPlayerRecorder((Player) entity) != null)
+                pickerHasRecorder = true;
+        } else {
+            if (RecordManager.getInstance().getEntityRecorder(entity) != null)
+                pickerHasRecorder = true;
+        }
+
+        if (pickerHasRecorder)
+            entityRecord.setPickedUpBy(event.getEntity().getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onMerge(ItemMergeEvent event) {
+        if (event.isCancelled()) return;
+        Item entity = event.getEntity();
+        Item target = event.getTarget();
+
+        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(target);
+        if (currentTick == null) return;
+
+        int amount = target.getItemStack().getAmount() + entity.getItemStack().getAmount();
+        currentTick.setItemAmount(amount);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
 
@@ -109,8 +193,9 @@ public class RecordListeners implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onHit(EntityDamageByEntityEvent event) {
+        if (event.isCancelled()) return;
         if (!event.getEntityType().equals(EntityType.PLAYER)) return;
         Player victim = (Player) event.getEntity();
 
@@ -120,28 +205,45 @@ public class RecordListeners implements Listener {
         if (!event.getDamager().getType().equals(EntityType.PLAYER)) {
             //Hit by a mob
             currentTick.damage(DamageType.NORMAL);
+            //Hit by an arrow
+            if (event.getDamager().getType().toString().contains("ARROW")) {
+                currentTick.damage(DamageType.PROJECTILE);
+                currentTick.setBodyArrows(victim.getArrowsInBody() + 1);
+                RecordManager.getInstance().getPlayerRecorder(victim).getLastNonNullTick(victim.getUniqueId()).setBodyArrows(victim.getArrowsInBody() + 1);
+            }
         } else {
             Player damager = (Player) event.getDamager();
             if (isCritical(damager)) {
                 currentTick.damage(DamageType.CRITICAL);
+            } else if (isSprintAttack(damager)) {
+                currentTick.damage(DamageType.SPRINT_ATTACK);
             }
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onDamage(EntityDamageEvent event) {
+        if (event.isCancelled()) return;
         if (!event.getEntityType().equals(EntityType.PLAYER)) return;
         Player player = (Player) event.getEntity();
 
         RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
         if (currentTick == null) return;
 
-        currentTick.damage(DamageType.NORMAL);
+        if (event.getCause().equals(EntityDamageEvent.DamageCause.LAVA) ||
+                event.getCause().equals(EntityDamageEvent.DamageCause.FIRE) ||
+                event.getCause().equals(EntityDamageEvent.DamageCause.FIRE_TICK) ||
+                event.getCause().equals(EntityDamageEvent.DamageCause.HOT_FLOOR)) {
+            currentTick.damage(DamageType.BURN);
+        } else {
+            currentTick.damage(DamageType.NORMAL);
+        }
         currentTick.setHealth(player.getHealth() - event.getDamage());
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onFoodLevelChange(FoodLevelChangeEvent event) {
+        if (event.isCancelled()) return;
         Player player = (Player) event.getEntity();
 
         RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
@@ -150,8 +252,9 @@ public class RecordListeners implements Listener {
         currentTick.setHunger(event.getFoodLevel());
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onItemConsume(PlayerItemConsumeEvent event) {
+        if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
         RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
@@ -161,8 +264,9 @@ public class RecordListeners implements Listener {
         currentTick.eatFood();
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onMainHandChange(PlayerItemHeldEvent event) {
+        if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
         RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
@@ -171,8 +275,9 @@ public class RecordListeners implements Listener {
         PacketListener.getInstance().eatingPlayers.remove(player);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onSwapHand(PlayerSwapHandItemsEvent event) {
+        if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
         RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
@@ -181,8 +286,9 @@ public class RecordListeners implements Listener {
         PacketListener.getInstance().eatingPlayers.remove(player);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onDropItem(PlayerDropItemEvent event) {
+        if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
         RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
@@ -193,8 +299,9 @@ public class RecordListeners implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        if (event.isCancelled()) return;
         Projectile projectile = event.getEntity();
         if (!(projectile.getShooter() instanceof Player)) return;
         Player player = (Player) projectile.getShooter();
@@ -204,13 +311,13 @@ public class RecordListeners implements Listener {
         RecordTick currentTick = recorder.getCurrentTick(player);
         if (currentTick == null) return;
 
-        if (projectile instanceof ThrownPotion) {
-            currentTick.throwPotion();
+        if (projectile instanceof ThrownPotion || projectile instanceof ThrownExpBottle || projectile instanceof Snowball || projectile instanceof EnderPearl || projectile instanceof Egg) {
+            currentTick.throwProjectile();
         }
 
         recorder.getEntities().add(projectile);
 
-        if (ServerVersion.supports(14) && projectile instanceof Arrow) {
+        if (ServerVersion.supports(14) && projectile instanceof AbstractArrow) {
             ItemStack crossbowItem = null;
             boolean hasCrossbowOnOffHand = false;
             boolean hasInteractableItemOnMainHand = false;
@@ -257,8 +364,9 @@ public class RecordListeners implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onProjectileHit(ProjectileHitEvent event) {
+        if (event.isCancelled()) return;
         Projectile projectile = event.getEntity();
         if (!(projectile.getShooter() instanceof Player)) return;
         if (event.getHitEntity() == null) return;
@@ -270,8 +378,9 @@ public class RecordListeners implements Listener {
         recorder.getEntities().remove(projectile);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onChat(AsyncPlayerChatEvent event) {
+        if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
         RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
@@ -281,14 +390,17 @@ public class RecordListeners implements Listener {
     }
 
     @SuppressWarnings("deprecation")
-    private boolean isCritical(Player damager) {
-        return
-                damager.getFallDistance() > 0.0F &&
-                        !damager.isOnGround() &&
-                        !damager.isInsideVehicle() &&
-                        !damager.hasPotionEffect(PotionEffectType.BLINDNESS) &&
-                        damager.getLocation().getBlock().getType() != Material.LADDER &&
-                        damager.getLocation().getBlock().getType() != Material.VINE;
+    private boolean isCritical(Player player) {
+        return player.getFallDistance() > 0.0f &&
+                !player.isOnGround() &&
+                !player.isInsideVehicle() &&
+                !player.hasPotionEffect(PotionEffectType.BLINDNESS) &&
+                player.getLocation().getBlock().getType() != Material.LADDER &&
+                player.getLocation().getBlock().getType() != Material.VINE;
+    }
+
+    private boolean isSprintAttack(Player player) {
+        return player.isSprinting();
     }
 
 }

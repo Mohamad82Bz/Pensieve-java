@@ -1,8 +1,11 @@
 package me.Mohamad82.Pensieve.record;
 
-import me.Mohamad82.Pensieve.nms.enums.EntityNPCType;
-import me.Mohamad82.Pensieve.nms.enums.NPCState;
+import me.Mohamad82.Pensieve.nms.NMSProvider;
+import me.Mohamad82.Pensieve.nms.EntityMetadata;
+import me.Mohamad82.Pensieve.nms.npc.enums.EntityNPCType;
+import me.Mohamad82.Pensieve.nms.npc.enums.NPCState;
 import me.Mohamad82.RUoM.Ruom;
+import me.Mohamad82.RUoM.XSeries.XMaterial;
 import me.Mohamad82.RUoM.utils.ServerVersion;
 import me.Mohamad82.RUoM.utils.StringUtils;
 import me.Mohamad82.RUoM.vector.Vector3;
@@ -12,12 +15,15 @@ import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.ThrownPotion;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -34,7 +40,8 @@ public class Recorder implements Listener {
     private final Set<Entity> entities = new HashSet<>();
     private final Set<PlayerRecord> playerRecords = new HashSet<>();
     private final Set<EntityRecord> entityRecords = new HashSet<>();
-    private final Map<Player, RecordTick> currentTick = new HashMap<>();
+    private final Map<Player, RecordTick> playerCurrentTick = new HashMap<>();
+    private final Map<Entity, RecordTick> entityCurrentTick = new HashMap<>();
     private final Map<UUID, RecordTick> lastNonNullTicks = new HashMap<>();
 
     private BukkitTask bukkitTask;
@@ -67,7 +74,7 @@ public class Recorder implements Listener {
                                 "&9Recorded &d" + currentTickIndex + " &9Ticks")));
 
                         RecordTick tick = new RecordTick();
-                        currentTick.put(player, tick);
+                        playerCurrentTick.put(player, tick);
 
                         if (currentTickIndex == 0) {
                             getPlayerRecord(player).setStartLocation(Vector3.at(
@@ -112,6 +119,12 @@ public class Recorder implements Listener {
                             if (!lastNonNullTick.getState().equals(state)) {
                                 tick.setState(state);
                                 lastNonNullTick.setState(tick.getState());
+                            }
+
+                            byte entityMetadata = getPlayerMetadata(player);
+                            if (lastNonNullTick.getEntityMetadata() != entityMetadata) {
+                                tick.setEntityMetadata(entityMetadata);
+                                lastNonNullTick.setEntityMetadata(entityMetadata);
                             }
 
                             ItemStack hand = getPlayerEquipment(player, EquipmentSlot.HAND);
@@ -167,6 +180,33 @@ public class Recorder implements Listener {
                                     tick.setBoots(feet);
                                 lastNonNullTick.setBoots(tick.getBoots());
                             }
+
+                            if (lastNonNullTick.getBodyArrows() != player.getArrowsInBody()) {
+                                tick.setBodyArrows(player.getArrowsInBody());
+                                lastNonNullTick.setBodyArrows(player.getArrowsInBody());
+                            }
+
+                            PotionEffect potionEffect = null;
+                            for (PotionEffect effect : player.getActivePotionEffects()) {
+                                if (effect.hasParticles())
+                                    potionEffect = effect;
+                            }
+                            if (potionEffect != null) {
+                                ItemStack potionItem = new ItemStack(XMaterial.POTION.parseMaterial());
+                                PotionMeta potionMeta = (PotionMeta) potionItem.getItemMeta();
+                                potionMeta.addCustomEffect(potionEffect, true);
+                                potionItem.setItemMeta(potionMeta);
+                                int potionColor = NMSProvider.getPotionColor(potionItem);
+                                if (lastNonNullTick.getPotionColor() != potionColor) {
+                                    tick.setPotionColor(potionColor);
+                                    lastNonNullTick.setPotionColor(potionColor);
+                                }
+                            } else {
+                                if (lastNonNullTick.getPotionColor() != 0) {
+                                    tick.setPotionColor(0);
+                                    lastNonNullTick.setPotionColor(0);
+                                }
+                            }
                         }
 
                         getPlayerRecord(player).addRecordTick(tick);
@@ -180,9 +220,13 @@ public class Recorder implements Listener {
                             if (entity instanceof ThrownPotion) {
                                 record.setItem(((ThrownPotion) entity).getItem());
                             }
+                            if (entity instanceof Item) {
+                                record.setDroppedItem(((Item) entity).getItemStack().clone());
+                            }
                             getEntityRecords().add(record);
                         }
                         RecordTick tick = new RecordTick();
+                        entityCurrentTick.put(entity, tick);
                         RecordTick lastNonNullTick;
 
                         if (!lastNonNullTicks.containsKey(entity.getUniqueId())) {
@@ -262,14 +306,36 @@ public class Recorder implements Listener {
         return state;
     }
 
+    public byte getPlayerMetadata(Player player) {
+        Set<EntityMetadata.EntityStatus> metadata = new HashSet<>();
+
+        if (player.getFireTicks() > 0)
+            metadata.add(EntityMetadata.EntityStatus.BURNING);
+        if (player.isSneaking())
+            metadata.add(EntityMetadata.EntityStatus.CROUCHING);
+        if (player.isSprinting())
+            metadata.add(EntityMetadata.EntityStatus.SPRINTING);
+        if (ServerVersion.supports(13) && player.isSwimming())
+            metadata.add(EntityMetadata.EntityStatus.SWIMMING);
+        if (player.isInvisible())
+            metadata.add(EntityMetadata.EntityStatus.INVISIBLE);
+        if (ServerVersion.supports(9) && player.isGlowing())
+            metadata.add(EntityMetadata.EntityStatus.GLOWING);
+        if (ServerVersion.supports(11) && player.isGliding()) {
+            metadata.add(EntityMetadata.EntityStatus.GLIDING);
+        }
+
+        return EntityMetadata.EntityStatus.getBitMasks(metadata);
+    }
+
     private ItemStack getPlayerEquipment(Player player, EquipmentSlot slot) {
         if (player.getInventory().getItem(slot) == null)
             return new ItemStack(Material.AIR);
         else
-            return player.getInventory().getItem(slot);
+            return player.getInventory().getItem(slot).clone();
     }
 
-    private PlayerRecord getPlayerRecord(Player player) {
+    public PlayerRecord getPlayerRecord(Player player) {
         for (PlayerRecord record : playerRecords) {
             if (record.getUuid().equals(player.getUniqueId()))
                 return record;
@@ -277,7 +343,7 @@ public class Recorder implements Listener {
         return null;
     }
 
-    private EntityRecord getEntityRecord(Entity entity) {
+    public EntityRecord getEntityRecord(Entity entity) {
         for (EntityRecord record : entityRecords) {
             if (record.getUuid().equals(entity.getUniqueId()))
                 return record;
@@ -298,7 +364,11 @@ public class Recorder implements Listener {
     }
 
     public RecordTick getCurrentTick(Player player) {
-        return currentTick.get(player);
+        return playerCurrentTick.get(player);
+    }
+
+    public RecordTick getCurrentTick(Entity entity) {
+        return entityCurrentTick.get(entity);
     }
 
     public RecordTick getLastNonNullTick(UUID uuid) {
