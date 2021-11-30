@@ -4,11 +4,13 @@ import me.Mohamad82.Pensieve.record.*;
 import me.Mohamad82.Pensieve.record.enums.DamageType;
 import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.XSeries.XMaterial;
+import me.Mohamad82.RUoM.utils.ListUtils;
 import me.Mohamad82.RUoM.utils.ServerVersion;
 import me.Mohamad82.RUoM.vector.Vector3;
 import me.Mohamad82.RUoM.vector.Vector3Utils;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.*;
@@ -19,30 +21,40 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.*;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.CrossbowMeta;
 import org.bukkit.potion.PotionEffectType;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class RecordListeners implements Listener {
+
+    private final Map<UUID, Runnable> chestInteractionRunnables = new HashMap<>();
+    private final Map<UUID, Location> furnaceInteractions = new HashMap<>();
+    private final Set<Location> buttonInteractionCooldowns = new HashSet<>();
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlace(BlockPlaceEvent event) {
         if (event.isCancelled()) return;
         Player player = event.getPlayer();
+        Block block = event.getBlockPlaced();
 
         RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
         if (currentTick == null) return;
 
         if (currentTick.getBlockPlaces() == null)
             currentTick.initializeBlockPlaces();
-        currentTick.getBlockPlaces().put(Vector3.at(event.getBlockPlaced().getLocation().getBlockX(),
-                        event.getBlockPlaced().getLocation().getBlockY(), event.getBlockPlaced().getLocation().getBlockZ()),
-                event.getBlockPlaced().getType());
+        if (currentTick.getBlockData() == null)
+            currentTick.initializeBlockData();
+
+        Vector3 location = Vector3Utils.simplifyToBlock(Vector3Utils.toVector3(block.getLocation()));
+        currentTick.getBlockPlaces().put(location, block.getType());
+        currentTick.getBlockData().put(location, block.getState().getBlockData().getAsString());
         currentTick.swing();
     }
 
@@ -171,6 +183,7 @@ public class RecordListeners implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
+        Block block = event.getClickedBlock();
 
         RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
         if (currentTick == null) return;
@@ -178,8 +191,7 @@ public class RecordListeners implements Listener {
         ItemStack item = null;
         if (player.getInventory().getItem(EquipmentSlot.HAND).getType().isEdible())
             item = player.getInventory().getItem(EquipmentSlot.HAND);
-        else if (ServerVersion.supports(9) &&
-                player.getInventory().getItem(EquipmentSlot.OFF_HAND).getType().isEdible())
+        else if (ServerVersion.supports(9) && player.getInventory().getItem(EquipmentSlot.OFF_HAND).getType().isEdible())
             item = player.getInventory().getItem(EquipmentSlot.OFF_HAND);
 
         if (item != null && (event.getAction().equals(Action.RIGHT_CLICK_BLOCK) || event.getAction().equals(Action.RIGHT_CLICK_AIR))) {
@@ -190,6 +202,96 @@ public class RecordListeners implements Listener {
         }
         if (event.getAction().equals(Action.LEFT_CLICK_AIR) || event.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
             currentTick.swing();
+        }
+        if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK) && block.getType().isInteractable()) {
+            currentTick.swing();
+            Ruom.runSync(() -> {
+                if (currentTick.getBlockData() == null)
+                    currentTick.initializeBlockData();
+                if (!(block.getType().toString().contains("BUTTON") && buttonInteractionCooldowns.contains(block.getLocation()))) {
+                    currentTick.getBlockData().put(Vector3Utils.toVector3(block.getLocation()), block.getBlockData().getAsString());
+                    if (block.getType().toString().contains("BUTTON")) {
+                        buttonInteractionCooldowns.add(block.getLocation());
+                        Ruom.runSync(() -> {
+                            buttonInteractionCooldowns.remove(block.getLocation());
+                        }, 25);
+                    }
+                }
+            }, 1);
+        }
+        if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
+            if (block.getType().equals(XMaterial.FURNACE.parseMaterial()) ||
+                    (ServerVersion.supports(14) && (block.getType().equals(XMaterial.BLAST_FURNACE.parseMaterial()) || block.getType().equals(XMaterial.SMOKER.parseMaterial())))) {
+                furnaceInteractions.put(player.getUniqueId(), block.getLocation());
+            } else if (block.getType().equals(XMaterial.CHEST.parseMaterial()) ||
+                    block.getType().equals(XMaterial.TRAPPED_CHEST.parseMaterial()) ||
+                    block.getType().equals(XMaterial.ENDER_CHEST.parseMaterial()) ||
+                    block.getType().toString().contains("SHULKER_BOX")) {
+                chestInteractionRunnables.put(player.getUniqueId(), new Runnable() {
+                    @Override
+                    public void run() {
+                        Vector3 interactionLocation = Vector3Utils.toVector3(block.getLocation());
+                        currentTick.setBlockInteractionLocation(interactionLocation);
+                        currentTick.setBlockInteractionType(block.getType());
+                        currentTick.setOpenChestInteraction(true);
+
+                        RecordTick lastNonNullTick = RecordManager.getInstance().getPlayerRecorder(player).getLastNonNullTick(player.getUniqueId());
+                        lastNonNullTick.setBlockInteractionLocation(interactionLocation);
+                        lastNonNullTick.setBlockInteractionType(block.getType());
+                        lastNonNullTick.setOpenChestInteraction(true);
+                    }
+                });
+                Ruom.runSync(() -> {
+                    chestInteractionRunnables.remove(player.getUniqueId());
+                }, 2);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        Player player = (Player) event.getPlayer();
+
+        if (event.getInventory().getType().equals(InventoryType.CHEST) || event.getInventory().getType().equals(InventoryType.ENDER_CHEST) || event.getInventory().getType().equals(InventoryType.SHULKER_BOX)) {
+            if (ListUtils.toList("Chest", "Large Chest", "Ender Chest", "Shulker Box").contains(event.getView().getTitle())) {
+                if (chestInteractionRunnables.containsKey(player.getUniqueId())) {
+                    chestInteractionRunnables.get(player.getUniqueId()).run();
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        Player player = (Player) event.getPlayer();
+
+        Recorder recorder = RecordManager.getInstance().getPlayerRecorder(player);
+        if (recorder == null) return;
+        RecordTick lastNonNullTick = recorder.getLastNonNullTick(player.getUniqueId());
+        if (lastNonNullTick == null) return;
+        RecordTick currentTick = recorder.getCurrentTick(player);
+
+        if (furnaceInteractions.containsKey(player.getUniqueId())) {
+            if (event.getInventory().getType().equals(InventoryType.FURNACE) ||
+                    (ServerVersion.supports(14) && (event.getInventory().getType().equals(InventoryType.BLAST_FURNACE)) || event.getInventory().getType().equals(InventoryType.SMOKER))) {
+                Block block = furnaceInteractions.get(player.getUniqueId()).getBlock();
+                if (block.getType().equals(XMaterial.FURNACE.parseMaterial()) ||
+                        (ServerVersion.supports(14) && (block.getType().equals(XMaterial.BLAST_FURNACE.parseMaterial()) || block.getType().equals(XMaterial.SMOKER.parseMaterial())))) {
+                    if (currentTick.getBlockData() == null)
+                        currentTick.initializeBlockData();
+                    currentTick.getBlockData().put(Vector3Utils.toVector3(block.getLocation()), block.getBlockData().getAsString());
+                }
+            }
+            furnaceInteractions.remove(player.getUniqueId());
+        }
+        if (lastNonNullTick.isOpenChestInteraction()) {
+            currentTick.setBlockInteractionLocation(lastNonNullTick.getBlockInteractionLocation());
+            currentTick.setBlockInteractionType(lastNonNullTick.getBlockInteractionType());
+            currentTick.setOpenChestInteraction(false);
+
+            lastNonNullTick.setOpenChestInteraction(false);
+            lastNonNullTick.setBlockInteractionLocation(null);
+            lastNonNullTick.setBlockInteractionType(null);
         }
     }
 

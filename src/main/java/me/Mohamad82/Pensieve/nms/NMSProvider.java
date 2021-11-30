@@ -3,7 +3,7 @@ package me.Mohamad82.Pensieve.nms;
 import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import me.Mohamad82.RUoM.utils.ServerVersion;
 import me.Mohamad82.RUoM.vector.Vector3;
-import net.minecraft.server.v1_16_R3.NBTTagCompound;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -13,12 +13,13 @@ import java.util.Set;
 
 public class NMSProvider {
 
-    private static Class<?> ITEM_STACK, POTION_UTIL, NBT_TAG_COMPOUND, MOJANGSON_PARSER, CRAFT_ITEM_STACK, CRAFT_CHAT_MESSAGE;
+    private static Class<?> ITEM_STACK, POTION_UTIL, NBT_TAG_COMPOUND, MOJANGSON_PARSER, CRAFT_ITEM_STACK, CRAFT_CHAT_MESSAGE, CRAFT_PLAYER;
 
     private static Constructor<?> ITEM_STACK_CONSTRUCTOR, NBT_TAG_COMPOUND_CONSTRUCTOR;
 
     private static Method ITEM_STACK_SAVE_METHOD, ITEM_STACK_A_METHOD, ITEM_STCAK_CREATE_STACK_METHOD, MOJANGSON_PARSER_PARSE_METHOD, CRAFT_ITEM_STACK_AS_NMS_COPY,
-            CRAFT_ITEM_STACK_AS_BUKKIT_COPY, POTION_UTIL_GET_COLOR_METHOD, CRAFT_CHAT_MESSAGE_FROM_STRING_METHOD, NBT_TAG_COMPOUND_TO_STRING_METHOD;
+            CRAFT_ITEM_STACK_AS_BUKKIT_COPY, POTION_UTIL_GET_COLOR_METHOD, CRAFT_CHAT_MESSAGE_FROM_STRING_METHOD, NBT_TAG_COMPOUND_TO_STRING_METHOD,
+            CRAFT_PLAYER_GET_HANDLE_METHOD;
 
     static {
         try {
@@ -29,6 +30,7 @@ public class NMSProvider {
                 NBT_TAG_COMPOUND = ReflectionUtils.getNMSClass("nbt", "NBTTagCompound");
                 CRAFT_ITEM_STACK = ReflectionUtils.getCraftClass("inventory.CraftItemStack");
                 CRAFT_CHAT_MESSAGE = ReflectionUtils.getCraftClass("util.CraftChatMessage");
+                CRAFT_PLAYER = ReflectionUtils.getCraftClass("entity.CraftPlayer");
             }
             {
                 if (!ServerVersion.supports(13))
@@ -47,10 +49,7 @@ public class NMSProvider {
                 POTION_UTIL_GET_COLOR_METHOD = POTION_UTIL.getMethod("c", ITEM_STACK);
                 CRAFT_CHAT_MESSAGE_FROM_STRING_METHOD = CRAFT_CHAT_MESSAGE.getMethod("fromString", String.class);
                 NBT_TAG_COMPOUND_TO_STRING_METHOD = NBT_TAG_COMPOUND.getMethod("toString");
-
-
-                net.minecraft.server.v1_16_R3.ItemStack item = null;
-                item.save(new NBTTagCompound());
+                CRAFT_PLAYER_GET_HANDLE_METHOD = CRAFT_PLAYER.getMethod("getHandle");
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -124,12 +123,46 @@ public class NMSProvider {
         }
     }
 
-    public static void sendBlockBreakAnimation(Set<Player> players, Vector3 location, int stage) {
+    public static Object getNmsPlayer(Player player) {
+        try {
+            return CRAFT_PLAYER_GET_HANDLE_METHOD.invoke(player);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static void sendBlockBreakAnimation(Set<Player> viewers, Vector3 location, int stage) {
         Object packetPlayOutBlockBreakAnimation = PacketProvider.getPacketPlayOutBlockBreakAnimation(location, stage);
 
-        for (Player player : players) {
+        for (Player player : viewers) {
             ReflectionUtils.sendPacket(player,
                     packetPlayOutBlockBreakAnimation);
+        }
+    }
+
+    public static void setPassengers(Set<Player> viewers, int entityId, int... passengers) {
+        Object packetPlayOutMount = PacketProvider.getPacketPlayOutMount(entityId, passengers);
+
+        for (Player player : viewers) {
+            ReflectionUtils.sendPacket(player,
+                    packetPlayOutMount);
+        }
+    }
+
+    /**
+     * Sends a PacketPlayOutBlockAction to show a chest opening or closing animation.
+     * @param viewers The players that are going to see this packet
+     * @param blockLocation The block's location
+     * @param blockMaterial The block's material. It can be chest, trapped_chest, ender_chest or shulker_box. Other values will be ignored
+     * @param open Declear that chest should get opened or closed
+     */
+    public static void sendChestAnimation(Set<Player> viewers, Vector3 blockLocation, Material blockMaterial, boolean open) {
+        Object packetPlayOutBlockAction = PacketProvider.getPacketPlayOutBlockAction(blockLocation, blockMaterial, 1, open ? 1 : 0);
+
+        for (Player player : viewers) {
+            ReflectionUtils.sendPacket(player,
+                    packetPlayOutBlockAction);
         }
     }
 

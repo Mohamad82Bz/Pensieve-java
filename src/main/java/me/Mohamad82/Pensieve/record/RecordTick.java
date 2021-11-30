@@ -14,11 +14,14 @@ public class RecordTick implements Cloneable {
 
     private Map<Vector3, Material> blockPlaces;
     private Map<Vector3, Material> blockBreaks;
+    private Map<Vector3, String> blockData;
 
     private PendingBlockBreak pendingBlockBreak;
     private ItemStack eatingItem;
     private Vector3 location;
     private Vector3 velocity;
+    private Vector3 blockInteractionLocation;
+    private Material blockInteractionType;
     private NPCState state;
     private DamageType takenDamageType;
     private String message;
@@ -26,11 +29,10 @@ public class RecordTick implements Cloneable {
     private boolean swing;
     private boolean eatFood;
     private boolean throwProjectile;
-    private boolean throwSnowball;
-    private boolean throwEnderPearl;
     private boolean drawCrossbow;
     private boolean shootCrossbow;
     private boolean drawBowWithOffHand;
+    private boolean openChestInteraction;
 
     private float yaw = -999;
     private float pitch = -999;
@@ -80,6 +82,18 @@ public class RecordTick implements Cloneable {
         blockBreaks = new HashMap<>();
     }
 
+    public Map<Vector3, String> getBlockData() {
+        return blockData;
+    }
+
+    public void setBlockData(Map<Vector3, String> blockData) {
+        this.blockData = blockData;
+    }
+
+    public void initializeBlockData() {
+        blockData = new HashMap<>();
+    }
+
     public ItemStack getEatingItem() {
         return eatingItem;
     }
@@ -110,6 +124,22 @@ public class RecordTick implements Cloneable {
 
     public void setVelocity(Vector3 velocity) {
         this.velocity = velocity;
+    }
+
+    public Vector3 getBlockInteractionLocation() {
+        return blockInteractionLocation;
+    }
+
+    public void setBlockInteractionLocation(Vector3 blockInteractionLocation) {
+        this.blockInteractionLocation = blockInteractionLocation;
+    }
+
+    public Material getBlockInteractionType() {
+        return blockInteractionType;
+    }
+
+    public void setBlockInteractionType(Material blockInteractionType) {
+        this.blockInteractionType = blockInteractionType;
     }
 
     public NPCState getState() {
@@ -242,6 +272,14 @@ public class RecordTick implements Cloneable {
 
     public void drawBowWithOffHand() {
         this.drawBowWithOffHand = true;
+    }
+
+    public boolean isOpenChestInteraction() {
+        return openChestInteraction;
+    }
+
+    public void setOpenChestInteraction(boolean openChestInteraction) {
+        this.openChestInteraction = openChestInteraction;
     }
 
     public int getDrawBow() {

@@ -8,6 +8,18 @@ import java.util.Set;
 
 public class EntityMetadata {
 
+    public static int getEntityCustomNameId() {
+        return 2;
+    }
+
+    public static int getEntityCustomNameVisibilityId() {
+        return 3;
+    }
+
+    public static int getEntityGravityId() {
+        return 5;
+    }
+
     public static int getPotionMetadataId() { //TODO NMS LOWER VER TESTINGS...
         if (ServerVersion.supports(17)) {
             return 8;
@@ -150,6 +162,44 @@ public class EntityMetadata {
         //TODO NMS LOWER VERSION TESTINGS, 1.8 - 1.17 except 1.16
         public static int getMetadataId() {
             return 7;
+        }
+    }
+
+    public enum ArmorStand {
+        SMALL(0x01),
+        ARMS(0x04),
+        NO_BASE_PLATE(0x08),
+        MARKER(0x10);
+
+        private final byte bitMask;
+
+        ArmorStand(int bitMask) {
+            this.bitMask = (byte) bitMask;
+        }
+
+        public byte getBitMask() {
+            return bitMask;
+        }
+
+        public static byte getBitMasks(ArmorStand... armorStands) {
+            byte bytes = 0;
+            for (ArmorStand armorStand : armorStands) {
+                bytes += armorStand.getBitMask();
+            }
+            return bytes;
+        }
+
+        public static byte getAllBitMasks() {
+            byte bytes = 0;
+            for (ArmorStand armorStand : ArmorStand.values()) {
+                bytes += armorStand.getBitMask();
+            }
+            return bytes;
+        }
+
+        //TODO NMS LOWER VERSION TESTINGS, 1.8 - 1.17 except 1.16
+        public static int getMetadataId() {
+            return ServerVersion.supports(17) ? 15 : 14;
         }
     }
 

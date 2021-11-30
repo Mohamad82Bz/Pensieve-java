@@ -17,7 +17,7 @@ public class EntityNPC extends NPC {
         this.uuid = uuid;
         this.entityType = entityType;
 
-        initialize(uuid.hashCode(), location);
+        initialize(uuid.hashCode(), location.clone());
     }
 
     public void collect(int collectorEntityId, int amount) {

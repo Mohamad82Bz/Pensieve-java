@@ -2,9 +2,7 @@ package me.Mohamad82.Pensieve.replay;
 
 import me.Mohamad82.RUoM.vector.Vector3;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class ReplayCache {
 
@@ -12,6 +10,7 @@ public class ReplayCache {
     private final Map<UUID, Vector3> pendingBlockBreakOffSetLocations = new HashMap<>();
     private final Map<UUID, Integer> pendingBlockBreakSkippedParticleSpawns = new HashMap<>();
     private final Map<UUID, Integer> pendingFoodEatSkippedTicks = new HashMap<>();
+    private final Set<Vector3> blockDataUsedForPlacing = new HashSet<>();
     private Vector3 centersDistance;
     private boolean playing;
 
@@ -29,6 +28,10 @@ public class ReplayCache {
 
     public Map<UUID, Integer> getPendingFoodEatSkippedTicks() {
         return pendingFoodEatSkippedTicks;
+    }
+
+    public Set<Vector3> getBlockDataUsedForPlacing() {
+        return blockDataUsedForPlacing;
     }
 
     public Vector3 getCentersDistance() {

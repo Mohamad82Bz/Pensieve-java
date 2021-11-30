@@ -57,7 +57,10 @@ public abstract class NPC {
         });
     }
 
-    public void move(double x, double y, double z) {
+    public boolean move(double x, double y, double z) {
+        if (x > 8 || y > 8 || z > 8) {
+            return false;
+        }
         Object packetPlayOutRelEntityMove = PacketProvider.getPacketPlayOutRelEntityMove(id, x, y, z);
 
         if (location != null) {
@@ -68,10 +71,11 @@ public abstract class NPC {
             ReflectionUtils.sendPacket(player,
                     packetPlayOutRelEntityMove);
         });
+        return true;
     }
 
-    public void move(Vector3 vector) {
-        move(vector.getX(), vector.getY(), vector.getZ());
+    public boolean move(Vector3 vector) {
+        return move(vector.getX(), vector.getY(), vector.getZ());
     }
 
     public boolean moveAndLook(double x, double y, double z, float yaw, float pitch, boolean onGround) {
@@ -99,25 +103,21 @@ public abstract class NPC {
         return moveAndLook(vector.getX(), vector.getY(), vector.getZ(), yaw, pitch, onGround);
     }
 
-    public void teleport(double x, double y, double z, float yaw, float pitch, boolean onGround) {
+    public void teleport(double x, double y, double z, float yaw, float pitch, boolean onGround, Player... players) {
         Object packetPlayOutEntityTeleport = PacketProvider.getPacketPlayOutEntityTeleport(id, x, y, z, yaw, pitch, onGround);
 
         if (location != null) {
             location = new Location(location.getWorld(), x, y, z, yaw, pitch);
         }
 
-        viewers.forEach(player -> {
+        for (Player player : players) {
             ReflectionUtils.sendPacket(player,
                     packetPlayOutEntityTeleport);
-        });
+        }
     }
 
-    public void teleport(Vector3 vector, float yaw, float pitch, boolean onGround) {
-        teleport(vector.getX(), vector.getY(), vector.getZ(), yaw, pitch, onGround);
-    }
-
-    public void teleport(Location location, boolean onGround) {
-        teleport(location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch(), onGround);
+    public void teleport(double x, double y, double z, float yaw, float pitch, boolean onGround) {
+        teleport(x, y, z, yaw, pitch, onGround, viewers.toArray(new Player[0]));
     }
 
     public void velocity(double x, double y, double z) {
@@ -160,12 +160,16 @@ public abstract class NPC {
         });
     }
 
-    public void setMetadata(int metadataId, Object value) {
+    public void setMetadata(int metadataId, Object value, Player... viewers) {
         Object packetPlayOutEntityMetadata = PacketProvider.getPacketPlayOutEntityMetadata(id, metadataId, value);
 
-        viewers.forEach(player -> {
+        for (Player player : viewers) {
             ReflectionUtils.sendPacket(player, packetPlayOutEntityMetadata);
-        });
+        }
+    }
+
+    public void setMetadata(int metadataId, Object value) {
+        setMetadata(metadataId, value, getViewers().toArray(new Player[0]));
     }
 
     public int getId() {

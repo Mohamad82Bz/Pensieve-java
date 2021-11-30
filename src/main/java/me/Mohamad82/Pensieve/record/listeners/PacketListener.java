@@ -237,7 +237,7 @@ public class PacketListener implements Listener {
                     }
                 } else {
                     if (player.hasPermission("pensieve.debug"))
-                        if (true) //TODO CONFIGURATION (debug feature)
+                        if (false) //TODO CONFIGURATION (debug feature)
                             try {
                                 int entityId = (int) PACKET_PLAY_OUT_ENTITY_METADATA_ID_FIELD.get(packet);
                                 Ruom.log("--------------  " + i + "  --------------");
