@@ -1,6 +1,6 @@
 name: Pensieve
 version: ${project.version}
-main: me.Mohamad82.Pensieve.Pensieve
+main: me.mohamad82.pensieve.Pensieve
 api-version: 1.13
 authors: [ Mohamad82 ]
 description: A well-supported record and replay system in Minecraft!
