@@ -1,7 +1,8 @@
-package me.mohamad82.pensieve.recording;
+package me.mohamad82.pensieve.recording.record;
 
 import com.google.common.collect.ImmutableList;
 import me.Mohamad82.RUoM.vector.Vector3;
+import me.mohamad82.pensieve.recording.RecordTick;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +40,7 @@ public abstract class Record {
         return startLocation;
     }
 
-    protected void setStartLocation(Vector3 startLocation) {
+    public void setStartLocation(Vector3 startLocation) {
         this.startLocation = startLocation;
     }
 

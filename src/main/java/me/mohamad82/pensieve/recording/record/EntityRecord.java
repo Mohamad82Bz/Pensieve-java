@@ -1,4 +1,4 @@
-package me.mohamad82.pensieve.recording;
+package me.mohamad82.pensieve.recording.record;
 
 import me.mohamad82.pensieve.nms.npc.enums.EntityNPCType;
 import me.Mohamad82.RUoM.vector.Vector3;

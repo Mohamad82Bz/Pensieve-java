@@ -411,6 +411,8 @@ public class RecordTick implements Cloneable {
                 tick.setBlockPlaces(new HashMap<>(this.getBlockPlaces()));
             if (this.getBlockBreaks() != null)
                 tick.setBlockBreaks(new HashMap<>(this.getBlockBreaks()));
+            if (tick.getBlockData() != null)
+                tick.setBlockData(new HashMap<>(this.getBlockData()));
             if (this.getLocation() != null)
                 tick.setLocation(this.getLocation().clone());
             if (this.getHelmet() != null)

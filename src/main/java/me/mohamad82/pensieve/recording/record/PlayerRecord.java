@@ -1,4 +1,4 @@
-package me.mohamad82.pensieve.recording;
+package me.mohamad82.pensieve.recording.record;
 
 import me.Mohamad82.RUoM.translators.skin.MinecraftSkin;
 import me.Mohamad82.RUoM.translators.skin.SkinBuilder;

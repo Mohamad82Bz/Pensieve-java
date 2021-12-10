@@ -4,8 +4,6 @@ import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.XSeries.XMaterial;
 import me.Mohamad82.RUoM.XSeries.XSound;
 import me.Mohamad82.RUoM.adventureapi.ComponentUtils;
-import me.Mohamad82.RUoM.adventureapi.adventure.platform.bukkit.MinecraftComponentSerializer;
-import me.Mohamad82.RUoM.adventureapi.adventure.text.Component;
 import me.Mohamad82.RUoM.utils.BlockUtils;
 import me.Mohamad82.RUoM.utils.ListUtils;
 import me.Mohamad82.RUoM.utils.PlayerUtils;
@@ -20,10 +18,10 @@ import me.mohamad82.pensieve.nms.npc.NPC;
 import me.mohamad82.pensieve.nms.npc.PlayerNPC;
 import me.mohamad82.pensieve.nms.npc.enums.EntityNPCType;
 import me.mohamad82.pensieve.nms.npc.enums.NPCAnimation;
-import me.mohamad82.pensieve.recording.EntityRecord;
-import me.mohamad82.pensieve.recording.PlayerRecord;
 import me.mohamad82.pensieve.recording.RecordTick;
-import me.mohamad82.pensieve.recording.enums.DamageType;
+import me.mohamad82.pensieve.recording.record.EntityRecord;
+import me.mohamad82.pensieve.recording.record.PlayerRecord;
+import me.mohamad82.pensieve.recording.record.Record;
 import me.mohamad82.pensieve.utils.BlockSoundUtils;
 import me.mohamad82.pensieve.utils.SoundContainer;
 import net.md_5.bungee.api.ChatColor;
@@ -49,6 +47,7 @@ public class Replay {
 
     private final Map<PlayerRecord, PlayerNPC> playerRecords = new HashMap<>();
     private final Map<EntityRecord, EntityNPC> entityRecords = new HashMap<>();
+    private final Map<UUID, List<RecordTick>> preparedLastNonNullTicks = new HashMap<>();
     private final Map<UUID, RecordTick> lastNonNullTicks = new HashMap<>();
     private final Map<UUID, ReplayCache> replayCache = new HashMap<>();
     private final Map<UUID, Hologram> playerHolograms = new HashMap<>();
@@ -59,6 +58,65 @@ public class Replay {
 
     private BukkitTask replayRunnable;
     private final Random random = new Random();
+
+    private void prepareLastNonNullTicks() {
+        Set<Record> records = new HashSet<>();
+        records.addAll(playerRecords.keySet());
+        records.addAll(entityRecords.keySet());
+
+        for (Record record : records) {
+            List<RecordTick> lastNonNullTicks = new ArrayList<>();
+            RecordTick lastNonNullTick = null;
+            boolean firstLoop = true;
+            for (RecordTick tick : record.getRecordTicks()) {
+                if (firstLoop) {
+                    lastNonNullTick = tick.clone();
+                    firstLoop = false;
+                } else {
+                    if (tick.getLocation() != null)
+                        lastNonNullTick.setLocation(tick.getLocation());
+                    if (tick.getYaw() != -1)
+                        lastNonNullTick.setYaw(tick.getYaw());
+                    if (tick.getPitch() != -1)
+                        lastNonNullTick.setPitch(tick.getPitch());
+                    if (tick.getHealth() != -1)
+                        lastNonNullTick.setHealth(tick.getHealth());
+                    if (tick.getHunger() != -1)
+                        lastNonNullTick.setHunger(tick.getHunger());
+                    if (tick.getState() != null)
+                        lastNonNullTick.setState(tick.getState());
+                    if (tick.getHand() != null)
+                        lastNonNullTick.setHand(tick.getHand());
+                    if (tick.getOffHand() != null)
+                        lastNonNullTick.setOffHand(tick.getOffHand());
+                    if (tick.getHelmet() != null)
+                        lastNonNullTick.setHelmet(tick.getHelmet());
+                    if (tick.getChestplate() != null)
+                        lastNonNullTick.setChestplate(tick.getChestplate());
+                    if (tick.getLeggings() != null)
+                        lastNonNullTick.setLeggings(tick.getLeggings());
+                    if (tick.getBoots() != null)
+                        lastNonNullTick.setBoots(tick.getBoots());
+
+                    if (tick.getItemAmount() != -1)
+                        lastNonNullTick.setItemAmount(tick.getItemAmount());
+                }
+
+                lastNonNullTicks.add(lastNonNullTick.clone());
+            }
+
+            preparedLastNonNullTicks.put(record.getUuid(), lastNonNullTicks);
+        }
+    }
+
+    private void setSpeed(PlayBackControl.Speed speed) {
+        for (EntityRecord record : entityRecords.keySet()) {
+            if (replayCache.containsKey(record.getUuid()) && replayCache.get(record.getUuid()).isPlaying()) {
+                boolean noGravity = speed.equals(PlayBackControl.Speed.x050) || speed.equals(PlayBackControl.Speed.x025);
+                entityRecords.get(record).setMetadata(EntityMetadata.getEntityGravityId(), noGravity);
+            }
+        }
+    }
 
     public Replay(Set<PlayerRecord> playerRecords, Set<EntityRecord> entityRecords, World world, Vector3 center) {
         this.world = world;
@@ -98,6 +156,8 @@ public class Replay {
                     record.getEntityType()
             ));
         }
+
+        prepareLastNonNullTicks();
     }
 
     public Replay(Set<PlayerRecord> playerRecords, Set<EntityRecord> entityRecords, World world) {
@@ -106,7 +166,7 @@ public class Replay {
 
     public PlayBackControl start() {
         PlayBackControl playbackControl = new PlayBackControl();
-        playbackControl.setSpeed(PlayBackControl.Speed.x050);
+        playbackControl.setSpeed(PlayBackControl.Speed.x1);
 
         int maxTicks = 0;
 
@@ -116,9 +176,9 @@ public class Replay {
             npc.getViewers().addAll(Ruom.getOnlinePlayers());
             npc.addNPCPacket();
             npc.removeNPCTabList();
-            npc.setMetadata(EntityMetadata.getEntityCustomNameVisibilityId(), false);
-            //noinspection UnstableApiUsage
-            npc.setMetadata(EntityMetadata.getEntityCustomNameId(), Optional.of(MinecraftComponentSerializer.get().serialize(Component.text(record.getName()))));
+            Ruom.runSync(() -> {
+                npc.setMetadata(EntityMetadata.getEntityCustomNameVisibilityId(), false);
+            }, 20);
 
             if (record.getRecordTicks().size() > maxTicks)
                 maxTicks = record.getRecordTicks().size();
@@ -177,6 +237,8 @@ public class Replay {
                             if (lowSpeedHelpIndex % 4 == 0) {
                                 shouldPlayThisTick = true;
                                 lowSpeedHelpIndex = 0;
+                            } else {
+                                shouldPlayThisTick = false;
                             }
                             break;
                         }
@@ -187,25 +249,27 @@ public class Replay {
                         if (replayCache.containsKey(uuid) && !replayCache.get(uuid).isPlaying()) continue;
                         if (tickIndex < record.getStartingTick()) continue;
                         EntityNPC npc = entityRecords.get(record);
-                        if (!lastNonNullTicks.containsKey(uuid)) {
-                            ReplayCache cache = new ReplayCache();
-                            cache.setPlaying(true);
-                            replayCache.put(uuid, cache);
+                        if (replayCache.containsKey(uuid)) {
+                            if (shouldPlayThisTick) {
+                                ReplayCache cache = new ReplayCache();
+                                cache.setPlaying(true);
+                                replayCache.put(uuid, cache);
 
-                            npc.addViewers(Ruom.getOnlinePlayers());
-                            npc.addNPCPacket();
-                            if (record.getItem() != null) {
-                                if (record.getItem().getType().equals(XMaterial.SPLASH_POTION.parseMaterial())) {
-                                    npc.setMetadata(EntityMetadata.getPotionMetadataId(), NMSProvider.getNmsItemStack(record.getItem()));
+                                npc.addViewers(Ruom.getOnlinePlayers());
+                                npc.addNPCPacket();
+                                if (playbackControl.getSpeed().equals(PlayBackControl.Speed.x050) || playbackControl.getSpeed().equals(PlayBackControl.Speed.x025))
+                                    npc.setMetadata(EntityMetadata.getEntityGravityId(), true);
+                                if (record.getItem() != null) {
+                                    if (record.getItem().getType().equals(XMaterial.SPLASH_POTION.parseMaterial())) {
+                                        npc.setMetadata(EntityMetadata.getPotionMetadataId(), NMSProvider.getNmsItemStack(record.getItem()));
+                                    }
+                                }
+                                if (record.getDroppedItem() != null) {
+                                    npc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSProvider.getNmsItemStack(record.getDroppedItem()));
                                 }
                             }
-                            if (record.getDroppedItem() != null) {
-                                npc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSProvider.getNmsItemStack(record.getDroppedItem()));
-                            }
-
-                            lastNonNullTicks.put(uuid, record.getRecordTicks().get(0).clone());
                         } else {
-                            int entityTickIndex = tickIndex - (record.getStartingTick() + 1);
+                            int entityTickIndex = tickIndex - (record.getStartingTick());
                             if (entityTickIndex >= record.getRecordTicks().size()) {
                                 if (record.getPickedUpBy() != null) {
                                     int collector = getEntityId(record.getPickedUpBy());
@@ -217,7 +281,7 @@ public class Replay {
                                 npc.removeNPCPacket();
                             } else {
                                 RecordTick tick = record.getRecordTicks().get(entityTickIndex);
-                                RecordTick lastNonNullTick = lastNonNullTicks.get(uuid);
+                                RecordTick lastNonNullTick = preparedLastNonNullTicks.get(record.getUuid()).get(entityTickIndex);
 
                                 if (tick.getLocation() != null) {
                                     moveNPC(tick, lastNonNullTick, npc, null, record.getCenter(), shouldPlayThisTick, lowSpeedHelpIndex, playbackControl.getSpeed(), false);
@@ -311,12 +375,12 @@ public class Replay {
                                 npc.setEquipment(EquipmentSlot.LEGS, tick.getLeggings());
                                 npc.setEquipment(EquipmentSlot.FEET, tick.getBoots());
 
-                                lastNonNullTicks.put(record.getUuid(), tick.clone());
-                                lastNonNullTick = lastNonNullTicks.get(record.getUuid());
+                                //lastNonNullTicks.put(record.getUuid(), tick.clone());
+                                lastNonNullTick = tick.clone();
 
                                 hologram.addViewer(Ruom.getOnlinePlayers().toArray(new Player[0]));
                             } else {
-                                lastNonNullTick = lastNonNullTicks.get(record.getUuid());
+                                lastNonNullTick = preparedLastNonNullTicks.get(record.getUuid()).get(tickIndex - 1);
 
                                 moveNPC(tick, lastNonNullTick, npc, hologram, record.getCenter(), shouldPlayThisTick, lowSpeedHelpIndex, playbackControl.getSpeed(), true);
 
@@ -337,7 +401,7 @@ public class Replay {
                                 if (tick.getBoots() != null)
                                     npc.setEquipment(EquipmentSlot.FEET, tick.getBoots());
 
-                                if (tick.getHealth() != -1)
+                                /*if (tick.getHealth() != -1)
                                     lastNonNullTick.setHealth(tick.getHealth());
                                 if (tick.getHunger() != -1)
                                     lastNonNullTick.setHunger(tick.getHunger());
@@ -354,7 +418,7 @@ public class Replay {
                                 if (tick.getLeggings() != null)
                                     lastNonNullTick.setLeggings(tick.getLeggings());
                                 if (tick.getBoots() != null)
-                                    lastNonNullTick.setBoots(tick.getBoots());
+                                    lastNonNullTick.setBoots(tick.getBoots());*/
                             }
 
                             if (!shouldPlayThisTick) continue;
@@ -680,49 +744,47 @@ public class Replay {
             Vector3 lastPoint = lastNonNullTick.getLocation().clone().add(centerOffSet);
             Vector3 newPoint = tick.getLocation().clone().add(centerOffSet);
 
-            if (!shouldPlayThisTick) {
-                travelDistance = getCalculatedLowSpeedTravelDistance(lastNonNullTick, lastPoint, newPoint, centerOffSet, speed, lowSpeedHelpIndex);
+            travelDistance = getCalculatedTravelDistance(lastPoint, newPoint, centerOffSet, speed, lowSpeedHelpIndex);
+
+            /*if (!shouldPlayThisTick) {
+                travelDistance = getCalculatedTravelDistance(lastNonNullTick, lastPoint, newPoint, centerOffSet, speed, lowSpeedHelpIndex);
             } else {
                 travelDistance = Vector3Utils.getTravelDistance(lastPoint, newPoint);
                 lastNonNullTick.setLocation(tick.getLocation());
-            }
+            }*/
         }
 
-        if (lastNonNullTick.getYaw() == -1 && tick.getYaw() != -1)
+        /*if (lastNonNullTick.getYaw() == -1 && tick.getYaw() != -1)
             lastNonNullTick.setYaw(tick.getYaw());
         if (lastNonNullTick.getPitch() == -1 && tick.getPitch() != -1)
-            lastNonNullTick.setPitch(tick.getPitch());
+            lastNonNullTick.setPitch(tick.getPitch());*/
 
         float newYaw = tick.getYaw();
         float newPitch = tick.getPitch();
         float lastYaw = lastNonNullTick.getYaw();
         float lastPitch = lastNonNullTick.getPitch();
-        float yaw = getCalculatedLookAngle(lastYaw, newYaw, speed, lowSpeedHelpIndex);
-        float pitch = getCalculatedLookAngle(lastPitch, newPitch, speed, lowSpeedHelpIndex);
-        if (!shouldPlayThisTick) {
-            if (speed.equals(PlayBackControl.Speed.x025) && lowSpeedHelpIndex == 3) {
-                if (yaw != -1) {
-                    lastNonNullTick.setYaw(yaw);
-                }
-                if (pitch != -1) {
-                    lastNonNullTick.setPitch(pitch);
-                }
-            }
+
+        float yaw;
+        float pitch;
+
+        if (shouldPlayThisTick) {
+            yaw = newYaw;
+            pitch = newPitch;
+
         } else {
-            if (yaw != -1)
-                lastNonNullTick.setYaw(yaw);
-            if (pitch != -1)
-                lastNonNullTick.setPitch(pitch);
+            yaw = getCalculatedLookAngle(lastYaw, newYaw, speed, lowSpeedHelpIndex);
+            pitch = getCalculatedLookAngle(lastPitch, newPitch, speed, lowSpeedHelpIndex);
         }
+
         if (yaw == -1) {
             yaw = lastYaw;
         }
         if (pitch == -1) {
             pitch = lastPitch;
         }
-        //(String.format("yaw: '%s' pitch: '%s' newYaw: '%s' newPich '%s' lastYaw: '%s' lastPitch: '%s'", yaw, pitch, newYaw, newPitch, lastYaw, lastPitch));
 
         //TravelDistance will be null if player don't move
+        npc.setMetadata(EntityMetadata.getEntityGravityId(), false);
         if (travelDistance != null && !travelDistance.equals(Vector3.at(0, 0, 0))) {
             //Returns false if distance was more than 8 blocks, Move packet does not support more than 8 blocks.
             if (!npc.moveAndLook(travelDistance.getX(), travelDistance.getY(), travelDistance.getZ(), yaw, pitch, onGround)) {
@@ -738,30 +800,49 @@ public class Replay {
         }
     }
 
-    private Vector3 getCalculatedLowSpeedTravelDistance(RecordTick lastNonNullTick, Vector3 from, Vector3 to, Vector3 centerOffSet, PlayBackControl.Speed speed, int lowSpeedHelpIndex) {
+    private Vector3 getCalculatedTravelDistance(Vector3 from, Vector3 to, Vector3 centerOffSet, PlayBackControl.Speed speed, int lowSpeedHelpIndex) {
         Vector3 travelDistance = null;
         Vector3 centerPoint = Vector3Utils.getCenter(from, to);
-        if (speed.equals(PlayBackControl.Speed.x050)) {
-            travelDistance = Vector3Utils.getTravelDistance(from, centerPoint);
-            lastNonNullTick.setLocation(centerPoint.clone().add(-centerOffSet.getX(), -centerOffSet.getY(), -centerOffSet.getZ()));
-        } else if (speed.equals(PlayBackControl.Speed.x025)) {
-            switch (lowSpeedHelpIndex) {
-                case 1: {
-                    Vector3 centerOfCenterPoint = Vector3Utils.getCenter(from, centerPoint);
-                    travelDistance = Vector3Utils.getTravelDistance(from, centerOfCenterPoint);
-                    break;
+
+        switch (speed) {
+            case x1: {
+                travelDistance = Vector3Utils.getTravelDistance(from, to);
+                break;
+            }
+            case x050: {
+                if (lowSpeedHelpIndex == 0) {
+                    travelDistance = Vector3Utils.getTravelDistance(centerPoint, to);
+                } else {
+                    travelDistance = Vector3Utils.getTravelDistance(from, centerPoint);
                 }
-                case 2: {
-                    Vector3 centerOfCenterPoint = Vector3Utils.getCenter(from, centerPoint);
-                    travelDistance = Vector3Utils.getTravelDistance(centerOfCenterPoint, centerPoint);
-                    break;
+                //lastNonNullTick.setLocation(centerPoint.clone().add(-centerOffSet.getX(), -centerOffSet.getY(), -centerOffSet.getZ()));
+                break;
+            }
+            case x025: {
+                switch (lowSpeedHelpIndex) {
+                    case 0: {
+                        Vector3 centerOfCenterPoint = Vector3Utils.getCenter(centerPoint, to);
+                        travelDistance = Vector3Utils.getTravelDistance(centerOfCenterPoint, to);
+                        break;
+                    }
+                    case 1: {
+                        Vector3 centerOfCenterPoint = Vector3Utils.getCenter(from, centerPoint);
+                        travelDistance = Vector3Utils.getTravelDistance(from, centerOfCenterPoint);
+                        break;
+                    }
+                    case 2: {
+                        Vector3 centerOfCenterPoint = Vector3Utils.getCenter(from, centerPoint);
+                        travelDistance = Vector3Utils.getTravelDistance(centerOfCenterPoint, centerPoint);
+                        break;
+                    }
+                    case 3: {
+                        Vector3 centerOfCenterPoint = Vector3Utils.getCenter(centerPoint, to);
+                        travelDistance = Vector3Utils.getTravelDistance(centerPoint, centerOfCenterPoint);
+                        //lastNonNullTick.setLocation(centerOfCenterPoint.clone().add(-centerOffSet.getX(), -centerOffSet.getY(), -centerOffSet.getZ()));
+                        break;
+                    }
                 }
-                case 3: {
-                    Vector3 centerOfCenterPoint = Vector3Utils.getCenter(centerPoint, to);
-                    travelDistance = Vector3Utils.getTravelDistance(centerPoint, centerOfCenterPoint);
-                    lastNonNullTick.setLocation(centerOfCenterPoint);
-                    break;
-                }
+                break;
             }
         }
 
@@ -771,12 +852,9 @@ public class Replay {
     private float getCalculatedLookAngle(float oldAngle, float newAngle, PlayBackControl.Speed speed, int lowSpeedHelpIndex) {
         float angle = -1;
 
-        float centerAngle = (360 + newAngle + (((oldAngle - newAngle + 180 + 360) % 360) - 180) / 2) % 360;
-        //float centerAngle = (oldAngle + newAngle) / 2;
+        float centerAngle = getCenterAngle(oldAngle, newAngle);
 
-        if (speed.equals(PlayBackControl.Speed.x1)) {
-            angle = newAngle;
-        } else if (speed.equals(PlayBackControl.Speed.x050)) {
+        if (speed.equals(PlayBackControl.Speed.x050)) {
             if (newAngle != -1) {
                 angle = centerAngle;
             }
@@ -784,7 +862,7 @@ public class Replay {
             switch (lowSpeedHelpIndex) {
                 case 1: {
                     if (newAngle != -1)
-                        angle = (oldAngle + centerAngle) / 2;
+                        angle = getCenterAngle(oldAngle, centerAngle);
                     break;
                 }
                 case 2: {
@@ -794,13 +872,17 @@ public class Replay {
                 }
                 case 3: {
                     if (newAngle != -1) {
-                        angle = (centerAngle + newAngle) / 2;
+                        angle = getCenterAngle(centerAngle, newAngle);
                     }
                     break;
                 }
             }
         }
         return angle;
+    }
+
+    private float getCenterAngle(float a1, float a2) {
+        return (360 + a2 + (((a1 - a2 + 180 + 360) % 360) - 180) / 2) % 360;
     }
 
     private void placeDoor(Location location, BlockData blockData) {

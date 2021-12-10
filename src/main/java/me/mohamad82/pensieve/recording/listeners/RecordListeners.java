@@ -8,6 +8,8 @@ import me.Mohamad82.RUoM.vector.Vector3;
 import me.Mohamad82.RUoM.vector.Vector3Utils;
 import me.mohamad82.pensieve.recording.*;
 import me.mohamad82.pensieve.recording.enums.DamageType;
+import me.mohamad82.pensieve.recording.record.EntityRecord;
+import me.mohamad82.pensieve.recording.record.PlayerRecord;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;

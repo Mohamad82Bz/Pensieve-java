@@ -10,6 +10,8 @@ import me.Mohamad82.RUoM.utils.ServerVersion;
 import me.Mohamad82.RUoM.utils.StringUtils;
 import me.Mohamad82.RUoM.vector.Vector3;
 import me.Mohamad82.RUoM.vector.Vector3Utils;
+import me.mohamad82.pensieve.recording.record.EntityRecord;
+import me.mohamad82.pensieve.recording.record.PlayerRecord;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;

@@ -8,7 +8,7 @@ import me.mohamad82.pensieve.nms.hologram.HologramLine;
 import me.mohamad82.pensieve.nms.npc.EntityNPC;
 import me.mohamad82.pensieve.nms.npc.PlayerNPC;
 import me.mohamad82.pensieve.nms.npc.enums.EntityNPCType;
-import me.mohamad82.pensieve.recording.EntityRecord;
+import me.mohamad82.pensieve.recording.record.EntityRecord;
 import me.mohamad82.pensieve.recording.RecordTick;
 import me.mohamad82.pensieve.recording.Recorder;
 import me.mohamad82.pensieve.replaying.Replay;
@@ -46,11 +46,23 @@ public class TestRecordCommand implements CommandExecutor {
     EntityNPC eNpc;
     Object nmsItem = null;
     Hologram hologram;
+    EntityNPC arrow;
 
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         Player player = (Player) sender;
 
         switch (args[0].toLowerCase()) {
+            case "arrownog": {
+                arrow = new EntityNPC(UUID.randomUUID(), player.getLocation(), EntityNPCType.ARROW);
+                arrow.addViewers(Ruom.getOnlinePlayers());
+                arrow.addNPCPacket();
+                arrow.setMetadata(EntityMetadata.getEntityGravityId(), true);
+                break;
+            }
+            case "movearrow": {
+                arrow.moveAndLook(Vector3.at(Integer.parseInt(args[1]), Integer.parseInt(args[2]), Integer.parseInt(args[3])), player.getLocation().getYaw(), player.getLocation().getPitch(), false);
+                break;
+            }
             case "mounttroll": {
                 Entity previousEntity = null;
                 for (Entity entity : player.getNearbyEntities(30, 30, 30)) {
