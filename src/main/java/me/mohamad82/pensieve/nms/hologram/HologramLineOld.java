@@ -1,38 +1,36 @@
 package me.mohamad82.pensieve.nms.hologram;
 
+import me.mohamad82.pensieve.nms.znpcold.EntityNPCOld;
 import me.Mohamad82.RUoM.adventureapi.ComponentUtils;
 import me.Mohamad82.RUoM.adventureapi.adventure.text.Component;
-import me.mohamad82.pensieve.nms.npc.entity.ArmorStandNPC;
-import org.bukkit.Location;
 
 import java.util.List;
 
-public class HologramLine {
+public class HologramLineOld {
 
     private Component component;
     private List<String> components;
-    private ArmorStandNPC armorstand;
+    private EntityNPCOld armorstand;
     private final float distance;
     private int refresh;
-    protected Location location;
 
-    private HologramLine(Component component, float distance) {
+    private HologramLineOld(Component component, float distance) {
         this.component = component;
         this.distance = distance;
     }
 
-    public HologramLine(List<String> components, float distance, int refresh) {
+    public HologramLineOld(List<String> components, float distance, int refresh) {
         this.components = components;
         this.distance = distance;
         this.refresh = refresh;
     }
 
-    public static HologramLine hologramLine(Component component, float distance) {
-        return new HologramLine(component, distance);
+    public static HologramLineOld hologramLine(Component component, float distance) {
+        return new HologramLineOld(component, distance);
     }
 
-    private static HologramLine hologramLine(List<String> components, float distance, int refresh) {
-        return new HologramLine(components, distance, refresh);
+    private static HologramLineOld hologramLine(List<String> components, float distance, int refresh) {
+        return new HologramLineOld(components, distance, refresh);
     }
 
     public Component getComponent() {
@@ -53,11 +51,11 @@ public class HologramLine {
         return components;
     }
 
-    public void setArmorstand(ArmorStandNPC armorstand) {
+    public void setArmorstand(EntityNPCOld armorstand) {
         this.armorstand = armorstand;
     }
 
-    public ArmorStandNPC getArmorstand() {
+    public EntityNPCOld getArmorstand() {
         return armorstand;
     }
 
@@ -68,6 +66,5 @@ public class HologramLine {
     public int getRefresh() {
         return refresh;
     }
-
 
 }

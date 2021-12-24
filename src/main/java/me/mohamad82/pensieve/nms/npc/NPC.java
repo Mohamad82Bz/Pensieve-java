@@ -1,204 +1,259 @@
 package me.mohamad82.pensieve.nms.npc;
 
-import me.mohamad82.pensieve.nms.PacketProvider;
-import me.mohamad82.pensieve.nms.npc.enums.NPCState;
-import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
+import me.Mohamad82.RUoM.Ruom;
+import me.Mohamad82.RUoM.adventureapi.adventure.platform.bukkit.MinecraftComponentSerializer;
+import me.Mohamad82.RUoM.adventureapi.adventure.text.Component;
+import me.Mohamad82.RUoM.utils.ServerVersion;
 import me.Mohamad82.RUoM.vector.Vector3;
+import me.mohamad82.pensieve.nms.NMSUtils;
+import me.mohamad82.pensieve.nms.PacketUtils;
+import me.mohamad82.pensieve.nms.Viewered;
+import me.mohamad82.pensieve.nms.accessors.EntityAccessor;
+import me.mohamad82.pensieve.nms.accessors.EquipmentSlotAccessor;
+import me.mohamad82.pensieve.nms.accessors.PoseAccessor;
+import me.mohamad82.pensieve.nms.accessors.Vec3Accessor;
+import me.mohamad82.pensieve.utils.Utils;
 import org.bukkit.Location;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.UUID;
 
-public abstract class NPC {
+public abstract class NPC extends Viewered {
 
-    private final Set<Player> viewers = new HashSet<>();
-
+    protected Object entity;
     protected int id;
     protected Location location;
 
-    protected NPC() {
-
-    }
-
-    public void initialize(int id, Location location) {
-        this.id = id;
-        this.location = location;
-    }
-
-    public abstract void addNPCPacket(Player... players);
-
-    public void addNPCPacket() {
-        addNPCPacket(viewers.toArray(new Player[0]));
-    }
-
-    public abstract void removeNPCPacket(Player... players);
-
-    public void removeNPCPacket() {
-        removeNPCPacket(viewers.toArray(new Player[0]));
+    protected void initialize(Object entity) {
+        this.entity = entity;
+        Utils.ignoreExcRun(() -> this.id = (int) EntityAccessor.getMethodGetId1().invoke(entity));
     }
 
     public void look(float yaw, float pitch) {
-        Object packetPlayOutEntityHeadRotation = PacketProvider.getPacketPlayOutEntityHeadRotation(id, yaw);
-        Object packetPlayOutEntityLook = PacketProvider.getPacketPlayOutEntityLook(id, yaw, pitch);
-
-        if (location != null) {
-            location.setYaw(yaw);
-            location.setPitch(pitch);
-        }
-
-        viewers.forEach(player -> {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutEntityHeadRotation,
-                    packetPlayOutEntityLook);
-        });
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetRot1().invoke(entity, yaw, pitch));
+        NMSUtils.sendPacket(getViewers(), PacketUtils.getEntityRotPacket(id, yaw, pitch));
     }
 
-    public boolean move(double x, double y, double z) {
-        if (x > 8 || y > 8 || z > 8) {
-            return false;
-        }
-        Object packetPlayOutRelEntityMove = PacketProvider.getPacketPlayOutRelEntityMove(id, x, y, z);
-
-        if (location != null) {
-            location.add(x, y, z);
-        }
-
-        viewers.forEach(player -> {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutRelEntityMove);
-        });
+    public boolean move(Vector3 vector3) {
+        if (vector3.getX() > 8 || vector3.getY() > 8 || vector3.getZ() > 8) return false;
+        setPosition(getPosition().add(vector3));
+        NMSUtils.sendPacket(getViewers(), PacketUtils.getEntityPosPacket(id, vector3.getX(), vector3.getY(), vector3.getZ()));
         return true;
     }
 
-    public boolean move(Vector3 vector) {
-        return move(vector.getX(), vector.getY(), vector.getZ());
+    public BukkitTask move(Vector3 vector3, final int inTicks) {
+        return new BukkitRunnable() {
+            int i = 0;
+            public void run() {
+                if (i >= inTicks) {
+                    cancel();
+                    return;
+                }
+                move(Vector3.at(
+                        vector3.getX() / inTicks,
+                        vector3.getY() / inTicks,
+                        vector3.getZ() / inTicks
+                ));
+                i++;
+            }
+        }.runTaskTimer(Ruom.getPlugin(), 0, 1);
     }
 
-    public boolean moveAndLook(double x, double y, double z, float yaw, float pitch, boolean onGround) {
-        if (x > 8 || y > 8 || z > 8)
-            return false;
-
-        Object packetPlayOutEntityHeadRotation = PacketProvider.getPacketPlayOutEntityHeadRotation(id, yaw);
-        Object packetPlayOutRelEntityMoveLook = PacketProvider.getPacketPlayOutRelEntityMoveLook(id, x, y, z, yaw, pitch, onGround);
-
-        if (location != null) {
-            location.add(x, y, z);
-            location.setYaw(yaw);
-            location.setPitch(pitch);
-        }
-
-        viewers.forEach(player -> {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutEntityHeadRotation,
-                    packetPlayOutRelEntityMoveLook);
-        });
+    public boolean moveAndLook(Vector3 vector3, float yaw, float pitch) {
+        if (vector3.getX() > 8 || vector3.getY() > 8 || vector3.getZ() > 8) return false;
+        setPosition(getPosition().add(vector3));
+        NMSUtils.sendPacket(getViewers(), PacketUtils.getEntityPosRotPacket(id, vector3.getX(), vector3.getY(), vector3.getZ(), yaw, pitch, true));
         return true;
     }
 
-    public boolean moveAndLook(Vector3 vector, float yaw, float pitch, boolean onGround) {
-        return moveAndLook(vector.getX(), vector.getY(), vector.getZ(), yaw, pitch, onGround);
-    }
-
-    public void teleport(double x, double y, double z, float yaw, float pitch, boolean onGround, Player... players) {
-        Object packetPlayOutEntityTeleport = PacketProvider.getPacketPlayOutEntityTeleport(id, x, y, z, yaw, pitch, onGround);
-
-        if (location != null) {
-            location = new Location(location.getWorld(), x, y, z, yaw, pitch);
-        }
-
-        for (Player player : players) {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutEntityTeleport);
-        }
-    }
-
-    public void teleport(double x, double y, double z, float yaw, float pitch, boolean onGround) {
-        teleport(x, y, z, yaw, pitch, onGround, viewers.toArray(new Player[0]));
-    }
-
-    public void velocity(double x, double y, double z) {
-        Object packetPlayOutEntityVelocity = PacketProvider.getPacketPlayOutEntityVelocity(id, x, y, z);
-
-        viewers.forEach(player -> {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutEntityVelocity);
+    public void teleport(Vector3 vector3, float yaw, float pitch) {
+        Utils.ignoreExcRun(() -> {
+            EntityAccessor.getMethodSetPos1().invoke(entity, vector3.getX(), vector3.getY(), vector3.getZ());
+            EntityAccessor.getMethodSetRot1().invoke(entity, yaw, pitch);
         });
+        NMSUtils.sendPacket(getViewers(), PacketUtils.getTeleportEntityPacket(entity));
     }
 
-    public void velocity(Vector3 vector) {
-        velocity(vector.getX(), vector.getY(), vector.getZ());
-    }
-
-    public void setEquipment(EquipmentSlot slot, ItemStack item) {
-        Object packetPlayOutEntityEquipment = PacketProvider.getPacketPlayOutEntityEquipment(id, slot, item);
-
-        viewers.forEach(player -> {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutEntityEquipment);
-        });
+    public void animate(Animation animation) {
+        NMSUtils.sendPacket(getViewers(), PacketUtils.getAnimatePacket(entity, animation.getAction()));
     }
 
     protected void collect(int collectedEntityId, int collectorEntityId, int amount) {
-        Object packetPlayOutCollect = PacketProvider.getPacketPlayOutCollect(collectedEntityId, collectorEntityId, amount);
-
-        viewers.forEach(player -> {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutCollect);
-        });
+        NMSUtils.sendPacket(getViewers(), PacketUtils.getCollectItemPacket(collectedEntityId, collectorEntityId, amount));
     }
 
-    public void setState(NPCState npcState) {
-        Object packetPlayOutEntityMetadata = PacketProvider.getPacketPlayOutEntityMetadata(id, npcState);
-
-        viewers.forEach(player -> {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutEntityMetadata);
-        });
+    public void setVelocity(Vector3 vector3) {
+        NMSUtils.sendPacket(getViewers(), PacketUtils.getEntityVelocityPacket(id, vector3.getX(), vector3.getY(), vector3.getZ()));
     }
 
-    public void setMetadata(int metadataId, Object value, Player... viewers) {
-        Object packetPlayOutEntityMetadata = PacketProvider.getPacketPlayOutEntityMetadata(id, metadataId, value);
+    public void setEquipment(EquipmentSlot slot, ItemStack item) {
+        NMSUtils.sendPacket(getViewers(), PacketUtils.getEntityEquipmentPacket(id, slot, item));
+    }
 
-        for (Player player : viewers) {
-            ReflectionUtils.sendPacket(player, packetPlayOutEntityMetadata);
-        }
+    public void setPose(Pose pose) {
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetPose1().invoke(entity, pose.getNmsPose()));
+        sendEntityData();
+    }
+
+    public void setGlowing(boolean glowing) {
+        Utils.ignoreExcRun(() -> {
+            if (ServerVersion.supports(17)) {
+                EntityAccessor.getMethodSetGlowingTag1().invoke(entity, glowing);
+            } else {
+                EntityAccessor.getMethodSetGlowing1().invoke(entity, glowing);
+            }
+        });
+        sendEntityData();
+    }
+
+    public void setCustomName(Component component) {
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetCustomName1().invoke(entity, MinecraftComponentSerializer.get().serialize(component)));
+        sendEntityData();
+    }
+
+    public void setCustomNameVisible(boolean customNameVisible) {
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetCustomNameVisible1().invoke(entity, customNameVisible));
+        sendEntityData();
+    }
+
+    public void setInvisible(boolean invisible) {
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetInvisible1().invoke(entity, invisible));
+        sendEntityData();
+    }
+
+    public void setIsInPowderSnow(boolean isInPowderSnow) {
+        if (!ServerVersion.supports(17)) return;
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetIsInPowderSnow1().invoke(entity, isInPowderSnow));
+        sendEntityData();
+    }
+
+    public void setNoGravity(boolean noGravity) {
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetNoGravity1().invoke(entity, noGravity));
+        sendEntityData();
+    }
+
+    public void setRemainingFireTicks(int remainingFireTicks) {
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetRemainingFireTicks1().invoke(entity, remainingFireTicks));
+        sendEntityData();
+    }
+
+    public void setSecondsOnFire(int secondsOnFire) {
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetSecondsOnFire1().invoke(entity, secondsOnFire));
+        sendEntityData();
+    }
+
+    public void setSprinting(boolean sprinting) {
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetSprinting1().invoke(entity, sprinting));
+        sendEntityData();
+    }
+
+    public void setTicksFrozen(int ticksFrozen) {
+        if (!ServerVersion.supports(17)) return;
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetTicksFrozen1().invoke(entity, ticksFrozen));
+        sendEntityData();
     }
 
     public void setMetadata(int metadataId, Object value) {
-        setMetadata(metadataId, value, getViewers().toArray(new Player[0]));
+        NMSUtils.sendPacket(getViewers(),
+                PacketUtils.getEntityDataPacket(id, metadataId, value));
+    }
+
+    public void addPassenger(int... passengerIds) {
+
+        NMSUtils.sendPacket(getViewers(),
+                PacketUtils.getEntityPassengersPacket(entity));
+    }
+
+    public void setUuid(UUID uuid) {
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetUUID1().invoke(entity, uuid));
+        sendEntityData();
     }
 
     public int getId() {
         return id;
     }
 
-    public Location getLocation() {
-        return location.clone();
+    protected void sendEntityData() {
+        Utils.ignoreExcRun(() -> NMSUtils.sendPacket(getViewers(), PacketUtils.getEntityDataPacket(entity)));
     }
 
-    public boolean addViewers(Set<Player> players) {
-        return viewers.addAll(players);
+    protected void setPosition(Vector3 position) {
+        Utils.ignoreExcRun(() -> EntityAccessor.getMethodSetPos1().invoke(entity, position.getX(), position.getY(), position.getZ()));
     }
 
-    public boolean addViewers(Player... players) {
-        return viewers.addAll(Arrays.asList(players));
+    protected Vector3 getPosition() {
+        try {
+            Object vec3 = EntityAccessor.getFieldPosition().get(entity);
+            return Vector3.at(
+                    (double) Vec3Accessor.getMethodX1().invoke(vec3),
+                    (double) Vec3Accessor.getMethodY1().invoke(vec3),
+                    (double) Vec3Accessor.getMethodZ1().invoke(vec3)
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
-    public boolean addViewer(Player player) {
-        return viewers.add(player);
+    public enum EquipmentSlot {
+        MAINHAND(EquipmentSlotAccessor.getFieldMAINHAND()),
+        OFFHAND(EquipmentSlotAccessor.getFieldOFFHAND()),
+        HEAD(EquipmentSlotAccessor.getFieldHEAD()),
+        CHEST(EquipmentSlotAccessor.getFieldCHEST()),
+        FEET(EquipmentSlotAccessor.getFieldFEET()),
+        LEGS(EquipmentSlotAccessor.getFieldLEGS());
+
+        private final Object nmsSlot;
+
+        EquipmentSlot(Object nmsSlot) {
+            this.nmsSlot = nmsSlot;
+        }
+
+        public Object getNmsSlot() {
+            return nmsSlot;
+        }
     }
 
-    public boolean removeViewer(Player player) {
-        removeNPCPacket(player);
-        return viewers.remove(player);
+    public enum Pose {
+        STANDING(PoseAccessor.getFieldSTANDING()),
+        FALL_FLYING(PoseAccessor.getFieldFALL_FLYING()),
+        SLEEPING(PoseAccessor.getFieldSLEEPING()),
+        SWIMMING(PoseAccessor.getFieldSWIMMING()),
+        SPIN_ATTACK(PoseAccessor.getFieldSPIN_ATTACK()),
+        CROUCHING(PoseAccessor.getFieldCROUCHING()),
+        LONG_JUMPING(PoseAccessor.getFieldLONG_JUMPING()),
+        DYING(PoseAccessor.getFieldDYING());
+
+        private final Object nmsPose;
+
+        Pose(Object nmsPose) {
+            this.nmsPose = nmsPose;
+        }
+
+        public Object getNmsPose() {
+            return nmsPose;
+        }
     }
 
-    public Set<Player> getViewers() {
-        return viewers;
+    public enum Animation {
+        SWING_MAIN_ARM(0),
+        TAKE_DAMAGE(1),
+        LEAVE_BED(2),
+        SWING_OFFHAND(3),
+        CRITICAL_EFFECT(4),
+        MAGIC_CRITICAL_EFFECT(5);
+
+        private final int action;
+
+        Animation(final int action) {
+            this.action = action;
+        }
+
+        public int getAction() {
+            return action;
+        }
     }
 
 }

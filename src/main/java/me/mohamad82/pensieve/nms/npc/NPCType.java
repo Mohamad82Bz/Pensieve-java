@@ -1,8 +1,10 @@
-package me.mohamad82.pensieve.nms.npc.enums;
+package me.mohamad82.pensieve.nms.npc;
 
+import me.mohamad82.pensieve.nms.accessors.EntityTypeAccessor;
+import me.mohamad82.pensieve.utils.Utils;
 import org.bukkit.entity.EntityType;
 
-public enum EntityNPCType {
+public enum NPCType {
     ARMOR_STAND,
     ARROW,
     BAT,
@@ -105,7 +107,17 @@ public enum EntityNPCType {
     ZOMBIE_VILLAGER,
     ZOMBIFIED_PIGLIN;
 
-    public static EntityNPCType getByEntityType(EntityType entityType) {
+    private Object nmsEntityType;
+
+    NPCType() {
+        Utils.ignoreExcRun(() -> nmsEntityType = EntityTypeAccessor.getType().getField(toString().toUpperCase()).get(null));
+    }
+
+    public Object getNmsEntityType() {
+        return nmsEntityType;
+    }
+
+    public static NPCType getByEntityType(EntityType entityType) {
         switch (entityType) {
             case SPLASH_POTION: return POTION;
             case DROPPED_ITEM: return ITEM;

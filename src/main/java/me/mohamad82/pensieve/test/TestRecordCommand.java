@@ -1,17 +1,5 @@
 package me.mohamad82.pensieve.test;
 
-import me.mohamad82.pensieve.nms.EntityMetadata;
-import me.mohamad82.pensieve.nms.NMSProvider;
-import me.mohamad82.pensieve.nms.PacketProvider;
-import me.mohamad82.pensieve.nms.hologram.Hologram;
-import me.mohamad82.pensieve.nms.hologram.HologramLine;
-import me.mohamad82.pensieve.nms.npc.EntityNPC;
-import me.mohamad82.pensieve.nms.npc.PlayerNPC;
-import me.mohamad82.pensieve.nms.npc.enums.EntityNPCType;
-import me.mohamad82.pensieve.recording.record.EntityRecord;
-import me.mohamad82.pensieve.recording.RecordTick;
-import me.mohamad82.pensieve.recording.Recorder;
-import me.mohamad82.pensieve.replaying.Replay;
 import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import me.Mohamad82.RUoM.XSeries.XMaterial;
@@ -22,6 +10,23 @@ import me.Mohamad82.RUoM.translators.skin.exceptions.NoSuchAccountNameException;
 import me.Mohamad82.RUoM.utils.StringUtils;
 import me.Mohamad82.RUoM.vector.Vector3;
 import me.Mohamad82.RUoM.vector.Vector3Utils;
+import me.mohamad82.pensieve.nms.EntityMetadata;
+import me.mohamad82.pensieve.nms.NMSUtils;
+import me.mohamad82.pensieve.nms.PacketUtils;
+import me.mohamad82.pensieve.nms.accessors.ClientboundAddEntityPacketAccessor;
+import me.mohamad82.pensieve.nms.accessors.Vec3Accessor;
+import me.mohamad82.pensieve.nms.hologram.HologramOld;
+import me.mohamad82.pensieve.nms.hologram.HologramLineOld;
+import me.mohamad82.pensieve.nms.npc.*;
+import me.mohamad82.pensieve.nms.npc.entity.*;
+import me.mohamad82.pensieve.nms.znpcold.EntityNPCOld;
+import me.mohamad82.pensieve.nms.znpcold.PlayerNPCOld;
+import me.mohamad82.pensieve.recording.RecordTick;
+import me.mohamad82.pensieve.recording.Recorder;
+import me.mohamad82.pensieve.recording.record.EntityRecord;
+import me.mohamad82.pensieve.replaying.Replay;
+import me.mohamad82.pensieve.utils.Rotations;
+import me.mohamad82.pensieve.utils.Utils;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -42,18 +47,253 @@ import java.util.UUID;
 public class TestRecordCommand implements CommandExecutor {
 
     Recorder recorder;
-    PlayerNPC pNpc;
-    EntityNPC eNpc;
+    PlayerNPCOld pNpc;
+    EntityNPCOld eNpc;
     Object nmsItem = null;
-    Hologram hologram;
-    EntityNPC arrow;
+    HologramOld hologram;
+    EntityNPCOld arrow;
+
+    ArmorStandNPC armorStandNPC;
+    ArrowNPC arrowNPC;
+    FallingBlockNPC fallingBlockNPC;
+    ItemNPC itemNPC;
+    ThrowableProjectileNPC throwableProjectileNPC;
+    PlayerNPC playerNPC;
+    TablistComponent tablist;
 
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         Player player = (Player) sender;
 
         switch (args[0].toLowerCase()) {
+            case "tablist": {
+                tablist = TablistComponent.tablistComponent(ComponentUtils.parse(args[1]), args[2]);
+                tablist.addViewers(Ruom.getOnlinePlayers());
+                break;
+            }
+            case "tablistchange": {
+                tablist.setComponent(ComponentUtils.parse(args[1]));
+                break;
+            }
+            case "ignorerun": {
+                Utils.ignoreExcRun(() -> {
+                    Ruom.broadcast("Hello");
+                });
+                break;
+            }
+            case "newplayer": {
+                if (args.length == 1) {
+                    playerNPC = PlayerNPC.playerNPC("Test NPC", player.getLocation(), Optional.of(SkinBuilder.getInstance().getSkin(player)));
+                    playerNPC.addViewers(Ruom.getOnlinePlayers());
+                } else {
+                    switch (args[1].toLowerCase()) {
+                        case "name": {
+                            playerNPC.setCustomNameVisible(true);
+                            playerNPC.setCustomName(ComponentUtils.parse(args[2]));
+                            break;
+                        }
+                        case "glow": {
+                            playerNPC.setGlowing(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+            case "newprojectile": {
+                if (args.length == 1) {
+                    throwableProjectileNPC = ThrowableProjectileNPC.throwableProjectileNPC(player.getLocation(), player.getInventory().getItemInMainHand());
+                    throwableProjectileNPC.addViewers(Ruom.getOnlinePlayers());
+                } else {
+                    switch (args[1].toLowerCase()) {
+                        case "glow": {
+                            throwableProjectileNPC.setGlowing(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        case "item": {
+                            throwableProjectileNPC.setItem(player.getInventory().getItemInMainHand());
+                            break;
+                        }
+                        case "gravity": {
+                            throwableProjectileNPC.setNoGravity(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        default: {
+                            Ruom.broadcast("unknown argument");
+                        }
+                    }
+                }
+                break;
+            }
+            case "newitem2": {
+                try {
+                    int id = UUID.randomUUID().hashCode();
+
+                    /*ReflectionUtils.sendPacket(player,
+                            new PacketPlayOutSpawnEntity(id, UUID.randomUUID(), player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ(),
+                                    0f, 0f, EntityTypes.ITEM, 0, new Vec3D(0, 0, 0)));
+                    Ruom.runSync(() -> {
+                        Object packetPlayOutEntityMetadata = PacketUtils.getPacketPlayOutEntityMetadata(id, EntityMetadata.getDroppedItemMetadataId(), NMSUtils.getNmsItemStack(player.getInventory().getItemInMainHand()));
+                        ReflectionUtils.sendPacket(Bukkit.getPlayerExact("Mohamad82"), packetPlayOutEntityMetadata);
+                    }, 1);*/
+
+                    NMSUtils.sendPacket(player,
+                            ClientboundAddEntityPacketAccessor.getConstructor0().newInstance(id, UUID.randomUUID(),
+                                    player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ(), 0f, 0f, NPCType.ITEM.getNmsEntityType(),
+                                    Integer.parseInt(args[1]), Vec3Accessor.getConstructor0().newInstance(0, 0, 0)),
+                            PacketUtils.getEntityDataPacket(id, EntityMetadata.getDroppedItemMetadataId(), NMSUtils.getNmsItemStack(player.getInventory().getItemInMainHand())));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                break;
+            }
+            case "olditem": {
+                EntityNPCOld item = new EntityNPCOld(UUID.randomUUID(), player.getLocation(), NPCType.ITEM);
+                item.addViewers(Ruom.getOnlinePlayers());
+                item.addNPCPacket();
+                item.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSUtils.getNmsItemStack(player.getInventory().getItemInMainHand()));
+                break;
+            }
+            case "newitem": {
+                if (args.length == 1) {
+                    itemNPC = ItemNPC.itemNPC(player.getLocation(), player.getInventory().getItemInMainHand());
+                    itemNPC.addViewers(Ruom.getOnlinePlayers());
+                } else {
+                    switch (args[1].toLowerCase()) {
+                        case "item": {
+                            itemNPC.setItem(player.getInventory().getItemInMainHand());
+                            break;
+                        }
+                        case "glow": {
+                            itemNPC.setGlowing(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        case "teleport": {
+                            itemNPC.teleport(Vector3Utils.toVector3(player.getLocation()), 0, 0);
+                            break;
+                        }
+                        default: {
+                            Ruom.broadcast("unknown argument");
+                        }
+                    }
+                }
+                break;
+            }
+            case "newarmorstand": {
+                if (args.length == 1) {
+                    armorStandNPC = ArmorStandNPC.armorStandNPC(player.getLocation());
+                    armorStandNPC.addViewers(Ruom.getOnlinePlayers());
+                } else {
+                    switch (args[1].toLowerCase()) {
+                        case "nobaseplate": {
+                            armorStandNPC.setNoBasePlate(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        case "small": {
+                            armorStandNPC.setSmall(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        case "marker": {
+                            armorStandNPC.setMarker(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        case "equipment": {
+                            armorStandNPC.setEquipment(NPC.EquipmentSlot.valueOf(args[2]), player.getInventory().getItemInMainHand());
+                            break;
+                        }
+                        case "invisible": {
+                            armorStandNPC.setInvisible(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        case "showarms": {
+                            armorStandNPC.setShowArms(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        case "rotation": {
+                            armorStandNPC.setRightArmPose(Rotations.rotations(Float.parseFloat(args[2]), Float.parseFloat(args[3]), Float.parseFloat(args[4])));
+                            break;
+                        }
+                        case "name": {
+                            armorStandNPC.setCustomNameVisible(true);
+                            armorStandNPC.setCustomName(ComponentUtils.parse(args[2]));
+                            break;
+                        }
+                        case "gravity": {
+                            armorStandNPC.setNoGravity(true);
+                            break;
+                        }
+                        case "glowing": {
+                            armorStandNPC.setGlowing(true);
+                            break;
+                        }
+                        default: {
+                            Ruom.broadcast("unknown argument");
+                        }
+                    }
+                }
+                break;
+            }
+            case "fallingblock": {
+                if (args.length == 1) {
+                    fallingBlockNPC = FallingBlockNPC.fallingBlockNPC(player.getLocation(), player.getInventory().getItemInMainHand().getType());
+                    fallingBlockNPC.addViewers(Ruom.getOnlinePlayers());
+                } else {
+                    switch (args[1].toLowerCase()) {
+                        case "glow": {
+                            fallingBlockNPC.setGlowing(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        case "move": {
+                            fallingBlockNPC.move(Vector3.at(Double.parseDouble(args[2]), Double.parseDouble(args[3]), Double.parseDouble(args[4])));
+                            break;
+                        }
+                        case "gravity": {
+                            fallingBlockNPC.setNoGravity(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        default: {
+                            Ruom.broadcast("unknown argument");
+                        }
+                    }
+                }
+                break;
+            }
+            case "newarrow": {
+                if (args.length == 1) {
+                    arrowNPC = ArrowNPC.arrowNPC(player.getLocation());
+                    arrowNPC.addViewers(Ruom.getOnlinePlayers());
+                } else {
+                    switch (args[1].toLowerCase()) {
+                        case "invisible": {
+                            arrowNPC.setInvisible(Boolean.parseBoolean(args[2]));
+                            break;
+                        }
+                        case "name": {
+                            arrowNPC.setCustomNameVisible(true);
+                            arrowNPC.setCustomName(ComponentUtils.parse(args[2]));
+                            break;
+                        }
+                        case "color": {
+                            arrowNPC.setEffectsFromItem(player.getInventory().getItemInMainHand());
+                            Ruom.broadcast("Color: " + arrowNPC.getColor());
+                            break;
+                        }
+                        case "gravity": {
+                            arrowNPC.setNoGravity(true);
+                            break;
+                        }
+                        case "glowing": {
+                            arrowNPC.setGlowing(true);
+                            break;
+                        }
+                        default: {
+                            Ruom.broadcast("unknown argument");
+                        }
+                    }
+                }
+                break;
+            }
             case "arrownog": {
-                arrow = new EntityNPC(UUID.randomUUID(), player.getLocation(), EntityNPCType.ARROW);
+                arrow = new EntityNPCOld(UUID.randomUUID(), player.getLocation(), NPCType.ARROW);
                 arrow.addViewers(Ruom.getOnlinePlayers());
                 arrow.addNPCPacket();
                 arrow.setMetadata(EntityMetadata.getEntityGravityId(), true);
@@ -67,16 +307,16 @@ public class TestRecordCommand implements CommandExecutor {
                 Entity previousEntity = null;
                 for (Entity entity : player.getNearbyEntities(30, 30, 30)) {
                     if (previousEntity != null)
-                        NMSProvider.setPassengers(Ruom.getOnlinePlayers(), entity.getEntityId(), previousEntity.getEntityId());
+                        NMSUtils.setPassengers(Ruom.getOnlinePlayers(), entity.getEntityId(), previousEntity.getEntityId());
                     previousEntity = entity;
                 }
                 break;
             }
             case "mount": {
-                PlayerNPC entity = new PlayerNPC("Koobs", player.getLocation(), Optional.empty());
-                EntityNPC entity1 = new EntityNPC(UUID.randomUUID(), player.getLocation(), EntityNPCType.ARMOR_STAND);
-                EntityNPC entity2 = new EntityNPC(UUID.randomUUID(), player.getLocation(), EntityNPCType.ARMOR_STAND);
-                EntityNPC entity3 = new EntityNPC(UUID.randomUUID(), player.getLocation(), EntityNPCType.ARMOR_STAND);
+                PlayerNPCOld entity = new PlayerNPCOld("Koobs", player.getLocation(), Optional.empty());
+                EntityNPCOld entity1 = new EntityNPCOld(UUID.randomUUID(), player.getLocation(), NPCType.ARMOR_STAND);
+                EntityNPCOld entity2 = new EntityNPCOld(UUID.randomUUID(), player.getLocation(), NPCType.ARMOR_STAND);
+                EntityNPCOld entity3 = new EntityNPCOld(UUID.randomUUID(), player.getLocation(), NPCType.ARMOR_STAND);
                 entity.addViewers(Ruom.getOnlinePlayers());
                 entity1.addViewers(Ruom.getOnlinePlayers());
                 entity2.addViewers(Ruom.getOnlinePlayers());
@@ -101,18 +341,18 @@ public class TestRecordCommand implements CommandExecutor {
                 entity3.setMetadata(EntityMetadata.ArmorStand.getMetadataId(), EntityMetadata.ArmorStand.getBitMasks(
                         EntityMetadata.ArmorStand.SMALL, EntityMetadata.ArmorStand.NO_BASE_PLATE));
 
-                NMSProvider.setPassengers(Ruom.getOnlinePlayers(), entity.getId(), entity1.getId());
-                NMSProvider.setPassengers(Ruom.getOnlinePlayers(), entity1.getId(), entity2.getId());
-                NMSProvider.setPassengers(Ruom.getOnlinePlayers(), entity2.getId(), entity3.getId());
+                NMSUtils.setPassengers(Ruom.getOnlinePlayers(), entity.getId(), entity1.getId());
+                NMSUtils.setPassengers(Ruom.getOnlinePlayers(), entity1.getId(), entity2.getId());
+                NMSUtils.setPassengers(Ruom.getOnlinePlayers(), entity2.getId(), entity3.getId());
                 break;
             }
             case "holo": {
-                List<HologramLine> lines = new ArrayList<>();
-                lines.add(HologramLine.hologramLine(ComponentUtils.parse("<blue> Test Hologram"), 0));
-                lines.add(HologramLine.hologramLine(ComponentUtils.parse("<gradient:blue:red> Test Gradient Colors"), 0.3f));
-                lines.add(HologramLine.hologramLine(ComponentUtils.parse("<rainbow>|||||||||||||||||||||||||||"), 0.5f));
+                List<HologramLineOld> lines = new ArrayList<>();
+                lines.add(HologramLineOld.hologramLine(ComponentUtils.parse("<blue> Test Hologram"), 0));
+                lines.add(HologramLineOld.hologramLine(ComponentUtils.parse("<gradient:blue:red> Test Gradient Colors"), 0.3f));
+                lines.add(HologramLineOld.hologramLine(ComponentUtils.parse("<rainbow>|||||||||||||||||||||||||||"), 0.5f));
 
-                hologram = Hologram.hologram(lines, player.getLocation(), Ruom.getOnlinePlayers().toArray(new Player[0]));
+                hologram = HologramOld.hologram(lines, player.getLocation(), Ruom.getOnlinePlayers().toArray(new Player[0]));
                 break;
             }
             case "addline": {
@@ -126,7 +366,7 @@ public class TestRecordCommand implements CommandExecutor {
                 }
                 String lineString = stringBuilder.substring(0, stringBuilder.length() - 1);
 
-                hologram.addLine(HologramLine.hologramLine(ComponentUtils.parse(lineString), 0.3f));
+                hologram.addLine(HologramLineOld.hologramLine(ComponentUtils.parse(lineString), 0.3f));
                 break;
             }
             case "removeline": {
@@ -143,7 +383,7 @@ public class TestRecordCommand implements CommandExecutor {
             }
             case "shield": {
                 try {
-                    pNpc = new PlayerNPC("Koobs", player.getLocation(), Optional.of(SkinBuilder.getInstance().getSkin(player.getName(), true)));
+                    pNpc = new PlayerNPCOld("Koobs", player.getLocation(), Optional.of(SkinBuilder.getInstance().getSkin(player.getName(), true)));
                     pNpc.addViewers(Ruom.getOnlinePlayers());
                     pNpc.addNPCPacket();
                     pNpc.setEquipment(EquipmentSlot.OFF_HAND, XMaterial.SHIELD.parseItem());
@@ -178,21 +418,21 @@ public class TestRecordCommand implements CommandExecutor {
                 break;
             }
             case "itype": {
-                eNpc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSProvider.getNmsItemStack(player.getInventory().getItemInMainHand()));
+                eNpc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSUtils.getNmsItemStack(player.getInventory().getItemInMainHand()));
                 break;
             }
             case "create": {
                 if (nmsItem == null) {
-                    nmsItem = NMSProvider.getNmsItemStack(player.getInventory().getItemInMainHand());
+                    nmsItem = NMSUtils.getNmsItemStack(player.getInventory().getItemInMainHand());
                 }
-                eNpc = new EntityNPC(UUID.randomUUID(), player.getLocation(), EntityNPCType.valueOf(args[1].toUpperCase()));
+                eNpc = new EntityNPCOld(UUID.randomUUID(), player.getLocation(), NPCType.valueOf(args[1].toUpperCase()));
                 eNpc.addViewers(Ruom.getOnlinePlayers());
                 eNpc.addNPCPacket();
                 eNpc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), nmsItem);
                 break;
             }
             case "pcreate": {
-                pNpc = new PlayerNPC("TestName", player.getLocation(), Optional.of(SkinBuilder.getInstance().getSkin(player)));
+                pNpc = new PlayerNPCOld("TestName", player.getLocation(), Optional.of(SkinBuilder.getInstance().getSkin(player)));
                 pNpc.addViewer(player);
                 pNpc.addNPCPacket();
                 pNpc.setEquipment(EquipmentSlot.HAND, new ItemStack(Material.BOW));
@@ -200,14 +440,14 @@ public class TestRecordCommand implements CommandExecutor {
                 break;
             }
             case "tcreate": {
-                pNpc = new PlayerNPC("TestName", player.getLocation(), Optional.of(SkinBuilder.getInstance().getSkin(player)));
+                pNpc = new PlayerNPCOld("TestName", player.getLocation(), Optional.of(SkinBuilder.getInstance().getSkin(player)));
                 pNpc.addViewers(Ruom.getOnlinePlayers());
                 pNpc.addNPCTabList();
                 break;
             }
             case "data": {
                 ReflectionUtils.sendPacket(player,
-                        PacketProvider.getPacketPlayOutEntityMetadata(pNpc.getId(), Integer.parseInt(args[1]), Byte.parseByte(args[2].toUpperCase())));
+                        PacketUtils.getPacketPlayOutEntityMetadata(pNpc.getId(), Integer.parseInt(args[1]), Byte.parseByte(args[2].toUpperCase())));
                 break;
             }
             case "start": {

@@ -1,47 +1,51 @@
 package me.mohamad82.pensieve.nms.npc;
 
-import me.mohamad82.pensieve.nms.PacketProvider;
-import me.mohamad82.pensieve.nms.npc.enums.EntityNPCType;
-import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
+import me.mohamad82.pensieve.nms.NMSUtils;
+import me.mohamad82.pensieve.nms.PacketUtils;
+import me.mohamad82.pensieve.nms.accessors.EntityAccessor;
+import me.mohamad82.pensieve.utils.Utils;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
-import java.util.UUID;
+public abstract class EntityNPC extends NPC {
 
-public class EntityNPC extends NPC {
-
-    private final UUID uuid;
-    private final EntityNPCType entityType;
-
-    public EntityNPC(UUID uuid, Location location, EntityNPCType entityType) {
-        this.uuid = uuid;
-        this.entityType = entityType;
-
-        initialize(uuid.hashCode(), location.clone());
-    }
-
-    public void collect(int collectorEntityId, int amount) {
-        collect(id, collectorEntityId, amount);
-    }
-
-    @Override
-    public void addNPCPacket(Player... players) {
-        Object packetPlayOutSpawnEntity = PacketProvider.getPacketPlayOutSpawnEntity(uuid, location, entityType.toString().toUpperCase());
-
-        for (Player player : players) {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutSpawnEntity);
+    public static Object createEntityObject(Class<?> accessor, Object... parameters) {
+        try {
+            return accessor.getMethod("getConstructor0").invoke(null, parameters);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 
-    @Override
-    public void removeNPCPacket(Player... players) {
-        Object packetPlayOutEntityDestroy = PacketProvider.getPacketPlayOutEntityDestroy(id);
+    private final NPCType npcType;
 
-        for (Player player : players) {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutEntityDestroy);
-        }
+    protected EntityNPC(Object entity, Location location, NPCType npcType) {
+        initialize(entity);
+        this.npcType = npcType;
+
+        Utils.ignoreExcRun(() -> {
+            EntityAccessor.getMethodSetPos1().invoke(entity, location.getX(), location.getY(), location.getZ());
+            EntityAccessor.getMethodSetRot1().invoke(entity, location.getYaw(), location.getPitch());
+            initialize(entity);
+        });
+    }
+
+    public NPCType getType() {
+        return npcType;
+    }
+
+    @Override
+    protected void addViewer(Player player) {
+        NMSUtils.sendPacket(player,
+                PacketUtils.getAddEntityPacket(entity),
+                PacketUtils.getEntityDataPacket(entity));
+    }
+
+    @Override
+    protected void removeViewer(Player player) {
+        NMSUtils.sendPacket(player,
+                PacketUtils.getRemoveEntitiesPacket(id));
     }
 
 }

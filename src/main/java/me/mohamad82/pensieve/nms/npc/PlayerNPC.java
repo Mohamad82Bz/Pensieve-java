@@ -1,171 +1,86 @@
 package me.mohamad82.pensieve.nms.npc;
 
 import com.mojang.authlib.GameProfile;
-import me.mohamad82.pensieve.nms.EntityMetadata;
-import me.mohamad82.pensieve.nms.PacketProvider;
-import me.mohamad82.pensieve.nms.npc.enums.NPCAnimation;
 import me.Mohamad82.RUoM.Ruom;
-import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
 import me.Mohamad82.RUoM.translators.skin.MinecraftSkin;
 import me.Mohamad82.RUoM.utils.ServerVersion;
-import org.bukkit.Bukkit;
+import me.mohamad82.pensieve.nms.NMSUtils;
+import me.mohamad82.pensieve.nms.PacketUtils;
+import me.mohamad82.pensieve.nms.accessors.EntityAccessor;
+import me.mohamad82.pensieve.nms.accessors.ServerPlayerAccessor;
+import me.mohamad82.pensieve.nms.accessors.ServerPlayerGameModeAccessor;
+import me.mohamad82.pensieve.utils.Utils;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.Nullable;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.Optional;
 import java.util.UUID;
 
 public class PlayerNPC extends NPC {
 
-    private static Class<?> CRAFT_SERVER, CRAFT_WORLD, ENTITY_PLAYER, MINECRAFT_SERVER, PLAYER_INTERACT_MANAGER, WORLD_SERVER;
-    private static Constructor<?> ENTITY_PLAYER_CONSTRUCTOR, INTERACT_MANAGER_CONSTRUCTOR;
-    private static Method SET_LOCATION_METHOD, GET_SERVER_METHOD, CRAFT_WORLD_GET_HANDLE_METHOD;
-
-    static {
-        try {
-            {
-                CRAFT_SERVER = ReflectionUtils.getCraftClass("CraftServer");
-                CRAFT_WORLD = ReflectionUtils.getCraftClass("CraftWorld");
-                ENTITY_PLAYER = ReflectionUtils.getNMSClass("server.level", "EntityPlayer");
-                MINECRAFT_SERVER = ReflectionUtils.getNMSClass("server", "MinecraftServer");
-                PLAYER_INTERACT_MANAGER = ReflectionUtils.getNMSClass("server.level", "PlayerInteractManager");
-                WORLD_SERVER = ReflectionUtils.getNMSClass("server.level", "WorldServer");
-            }
-            {
-                if (ServerVersion.supports(17))
-                    ENTITY_PLAYER_CONSTRUCTOR = ENTITY_PLAYER.getConstructor(MINECRAFT_SERVER, WORLD_SERVER, GameProfile.class);
-                else
-                    ENTITY_PLAYER_CONSTRUCTOR = ENTITY_PLAYER.getConstructor(MINECRAFT_SERVER, WORLD_SERVER, GameProfile.class, PLAYER_INTERACT_MANAGER);
-                INTERACT_MANAGER_CONSTRUCTOR = PLAYER_INTERACT_MANAGER.getConstructor(WORLD_SERVER);
-            }
-            {
-                SET_LOCATION_METHOD = ENTITY_PLAYER.getMethod("setLocation", double.class, double.class, double.class, float.class, float.class);
-                GET_SERVER_METHOD = CRAFT_SERVER.getMethod("getServer");
-                CRAFT_WORLD_GET_HANDLE_METHOD = CRAFT_WORLD.getMethod("getHandle");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private final Object npc; //EntityPlayer
-    private final GameProfile profile;
     private final float yaw;
-    private boolean tabListVisibility = true;
 
-    public PlayerNPC(String name, Location location, Optional<MinecraftSkin> skin) {
-        try {
-            Object server = GET_SERVER_METHOD.invoke(Bukkit.getServer());
-            Object world = CRAFT_WORLD_GET_HANDLE_METHOD.invoke(location.getWorld());
-            this.profile = new GameProfile(UUID.randomUUID(), name);
+    protected PlayerNPC(String name, Location location, Optional<MinecraftSkin> skin) {
+        this.yaw = location.getYaw();
 
-            npc = ENTITY_PLAYER_CONSTRUCTOR.newInstance(server, world, profile, INTERACT_MANAGER_CONSTRUCTOR.newInstance(world));
-            SET_LOCATION_METHOD.invoke(npc, location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
-
-            this.yaw = location.getYaw();
-
-            initialize(PacketProvider.getEntityId(npc), location);
-
+        Utils.ignoreExcRun(() -> {
+            GameProfile profile = new GameProfile(UUID.randomUUID(), name);
+            Object entity;
+            if (ServerVersion.supports(17)) {
+                entity = ServerPlayerAccessor.getConstructor0().newInstance(
+                        NMSUtils.getDedicatedServer(),
+                        NMSUtils.getServerLevel(location.getWorld()),
+                        profile
+                );
+            } else {
+                entity = ServerPlayerAccessor.getConstructor1().newInstance(
+                        NMSUtils.getDedicatedServer(),
+                        NMSUtils.getServerLevel(location.getWorld()),
+                        profile,
+                        ServerPlayerGameModeAccessor.getConstructor0().newInstance(NMSUtils.getServerLevel(location.getWorld()))
+                );
+            }
+            EntityAccessor.getMethodSetPos1().invoke(entity, location.getX(), location.getY(), location.getZ());
+            initialize(entity);
             if (skin.isPresent())
-                skin.get().apply(npc);
-        } catch (Exception e) {
-            throw new Error(e);
-        }
+                skin.get().apply(entity);
+        });
     }
 
-    public void animate(NPCAnimation npcAnimation) {
-        Object packetPlayOutAnimation = PacketProvider.getPacketPlayOutAnimation(npc, npcAnimation);
-
-        getViewers().forEach(player -> {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutAnimation);
-        });
+    public static PlayerNPC playerNPC(String name, Location location, Optional<MinecraftSkin> skin) {
+        return new PlayerNPC(name, location, skin);
     }
 
     public void collect(int collectedEntityId, int amount) {
         collect(collectedEntityId, id, amount);
     }
 
-    public void setTabList(String newName, Player... players) {
-        Object packetPlayOutPlayerInfo = PacketProvider.getPacketPlayOutPlayerInfoTabListUpdate(npc, profile, newName);
-
-        for (Player player : players) {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutPlayerInfo);
-        }
-    }
-
-    public void setTabList(String newName) {
-        setTabList(newName, getViewers().toArray(new Player[0]));
-    }
-
-    public void addNPCTabList(Player... players) {
-        tabListVisibility = true;
-        Object packetPlayOutPlayerInfo = PacketProvider.getPacketPlayOutPlayerInfo(npc, "ADD_PLAYER");
-
-        for (Player player : players) {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutPlayerInfo);
-        }
-    }
-
-    public void addNPCTabList() {
-        addNPCTabList(getViewers().toArray(new Player[0]));
-    }
-
-    public void removeNPCTabList(Player... players) {
-        tabListVisibility = false;
-        Object packetPlayOutPlayerInfo = PacketProvider.getPacketPlayOutPlayerInfo(npc, "REMOVE_PLAYER");
-
+    public void setTabList(@Nullable String name) {
         Ruom.runSync(() -> {
-            for (Player player : players) {
-                ReflectionUtils.sendPacket(player,
-                        packetPlayOutPlayerInfo);
+            NMSUtils.sendPacket(getViewers(),
+                    PacketUtils.getPlayerInfoPacket(entity, "REMOVE_PLAYER"));
+            if (name != null) {
+                //TODO: modify listName here.
+                NMSUtils.sendPacket(getViewers(),
+                        PacketUtils.getPlayerInfoPacket(entity, "ADD_PLAYER"));
             }
-        }, 3);
-    }
-
-    public void removeNPCTabList() {
-        removeNPCTabList(getViewers().toArray(new Player[0]));
-    }
-
-    public boolean isTabListVisible() {
-        return tabListVisibility;
-    }
-
-    public Object getNpc() {
-        return npc;
+        }, 1);
     }
 
     @Override
-    public void addNPCPacket(Player... players) {
-        Object packetPlayOutPlayerInfo = PacketProvider.getPacketPlayOutPlayerInfo(npc, "ADD_PLAYER");
-        Object packetPlayOutNamedEntitySpawn = PacketProvider.getPacketPlayOutNamedEntitySpawn(npc);
-        Object packetPlayOutEntityHeadRotation = PacketProvider.getPacketPlayOutEntityHeadRotation(npc, yaw);
-        Object packetPlayOutEntityMetadata = PacketProvider.getPacketPlayOutEntityMetadata(id,
-                EntityMetadata.PlayerSkin.getMetadataId(), EntityMetadata.PlayerSkin.getAllBitMasks());
-
-        for (Player player : players) {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutPlayerInfo,
-                    packetPlayOutNamedEntitySpawn,
-                    packetPlayOutEntityHeadRotation,
-                    packetPlayOutEntityMetadata);
-        }
+    protected void addViewer(Player player) {
+        NMSUtils.sendPacket(player,
+                PacketUtils.getPlayerInfoPacket(entity, "ADD_PLAYER"),
+                PacketUtils.getAddPlayerPacket(entity),
+                PacketUtils.getHeadRotatePacket(entity, this.yaw));
     }
 
     @Override
-    public void removeNPCPacket(Player... players) {
-        Object packetPlayOutPlayerInfo = PacketProvider.getPacketPlayOutPlayerInfo(npc, "REMOVE_PLAYER");
-        Object packetPlayOutEntityDestroy = PacketProvider.getPacketPlayOutEntityDestroy(PacketProvider.getEntityId(npc));
-
-        for (Player player : players) {
-            ReflectionUtils.sendPacket(player,
-                    packetPlayOutPlayerInfo,
-                    packetPlayOutEntityDestroy);
-        }
+    protected void removeViewer(Player player) {
+        NMSUtils.sendPacket(player,
+                PacketUtils.getPlayerInfoPacket(entity, "REMOVE_PLAYER"),
+                PacketUtils.getRemoveEntitiesPacket(id));
     }
 
 }

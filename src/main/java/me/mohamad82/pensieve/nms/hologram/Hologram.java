@@ -1,44 +1,42 @@
 package me.mohamad82.pensieve.nms.hologram;
 
-import com.google.common.collect.ImmutableSet;
 import me.Mohamad82.RUoM.Ruom;
-import me.Mohamad82.RUoM.adventureapi.adventure.platform.bukkit.MinecraftComponentSerializer;
 import me.Mohamad82.RUoM.adventureapi.adventure.text.Component;
 import me.Mohamad82.RUoM.vector.Vector3;
 import me.Mohamad82.RUoM.vector.Vector3Utils;
-import me.mohamad82.pensieve.nms.EntityMetadata;
-import me.mohamad82.pensieve.nms.npc.EntityNPC;
-import me.mohamad82.pensieve.nms.npc.enums.EntityNPCType;
+import me.mohamad82.pensieve.nms.Viewered;
+import me.mohamad82.pensieve.nms.npc.entity.ArmorStandNPC;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-@SuppressWarnings("UnstableApiUsage")
-public class Hologram {
+public class Hologram extends Viewered {
 
     private List<HologramLine> lines = new ArrayList<>();
-    private final Set<Player> viewers = new HashSet<>();
 
     private final Map<HologramLine, Integer> displayedLines = new HashMap<>();
     private Location location;
-    private BukkitTask bukkitTask;
+    private BukkitTask refreshTask;
 
-    private Hologram(List<HologramLine> lines, Location location, Player... viewers) {
+    private Hologram(List<HologramLine> lines, Location location) {
         this.location = location;
-        this.viewers.addAll(Arrays.asList(viewers));
         reload(lines, location);
     }
 
-    public static Hologram hologram(List<HologramLine> lines, Location location, Player... viewers) {
-        return new Hologram(new ArrayList<>(lines), location, viewers);
+    public static Hologram hologram(List<HologramLine> lines, Location location) {
+        return new Hologram(lines, location);
     }
 
     private void reload(List<HologramLine> lines, Location location) {
         unload();
         List<HologramLine> newLines = new ArrayList<>(lines);
         this.lines.clear();
+        this.refreshTask.cancel();
         this.displayedLines.clear();
 
         int lineIndex = 0;
@@ -47,17 +45,19 @@ public class Hologram {
             if (lineIndex > 0) {
                 suitableLocation.add(0, -line.getDistance(), 0);
             }
-            EntityNPC armorstand = new EntityNPC(UUID.randomUUID(), suitableLocation, EntityNPCType.ARMOR_STAND);
-            armorstand.addViewers(viewers);
-            armorstand.addNPCPacket();
-            armorstand.setMetadata(EntityMetadata.getEntityGravityId(), false);
-            Ruom.runSync(() -> {
-                armorstand.setMetadata(EntityMetadata.EntityStatus.getMetadataId(), EntityMetadata.EntityStatus.INVISIBLE.getBitMask());
-                armorstand.setMetadata(EntityMetadata.getEntityCustomNameVisibilityId(), true);
-                armorstand.setMetadata(EntityMetadata.getEntityCustomNameId(), Optional.of(MinecraftComponentSerializer.get().serialize(line.getComponent())));
-                armorstand.setMetadata(EntityMetadata.ArmorStand.getMetadataId(), EntityMetadata.ArmorStand.getBitMasks(
-                        EntityMetadata.ArmorStand.SMALL, EntityMetadata.ArmorStand.MARKER, EntityMetadata.ArmorStand.NO_BASE_PLATE));
-            }, 1);
+            ArmorStandNPC armorstand = ArmorStandNPC.armorStandNPC(suitableLocation);
+
+            armorstand.setCustomNameVisible(true);
+            armorstand.setCustomName(line.getComponent());
+            armorstand.setNoGravity(true);
+            armorstand.setInvisible(true);
+            armorstand.setSmall(true);
+            armorstand.setMarker(true);
+            armorstand.setNoBasePlate(true);
+
+            armorstand.addViewers(getViewers());
+
+            line.location = suitableLocation;
             line.setArmorstand(armorstand);
 
             this.lines.add(line);
@@ -65,22 +65,25 @@ public class Hologram {
             lineIndex++;
         }
 
-        bukkitTask = Ruom.runSync(new Runnable() {
+        refreshTask = Ruom.runAsync(new Runnable() {
             int tickIndex = 0;
             public void run() {
                 for (HologramLine line : lines) {
-                    if (line.getComponents() != null) {
-                        int displayedLine = displayedLines.get(line);
-                        if (line.getComponents().size() > displayedLine + 1) {
-                            line.getArmorstand().setMetadata(EntityMetadata.getEntityCustomNameId(),
-                                    Optional.of(MinecraftComponentSerializer.get().serialize(line.getComponent(displayedLine + 1))));
-                            displayedLines.put(line, displayedLine + 1);
-                        }
+                    if (line.getComponents() == null) continue;
+                    if (tickIndex % line.getRefresh() != 0) continue;
+
+                    int displayedLine = displayedLines.get(line);
+                    int shouldDisplay = displayedLine + 1;
+                    if (!(line.getComponents().size() > shouldDisplay)) {
+                        shouldDisplay = 0;
                     }
+                    line.getArmorstand().setCustomName(line.getComponent(shouldDisplay));
+                    displayedLines.put(line, shouldDisplay);
                 }
+
                 tickIndex++;
             }
-        }, 1);
+        }, 0, 1);
     }
 
     public void reload() {
@@ -88,22 +91,21 @@ public class Hologram {
     }
 
     public void unload() {
-        lines.forEach(line -> {
-            if (line.getArmorstand() != null)
-                line.getArmorstand().removeNPCPacket();
-        });
-        if (bukkitTask != null)
-            bukkitTask.cancel();
+        for (HologramLine line : lines) {
+            if (line.getArmorstand() != null) {
+                line.getArmorstand().removeViewers(line.getArmorstand().getViewers());
+            }
+        }
     }
 
-    public void move(Vector3 vector) {
-        location.add(vector.getX(), vector.getY(), vector.getZ());
-        lines.forEach(line -> {
-            if (!line.getArmorstand().move(vector)) {
-                Location location = line.getArmorstand().getLocation().add(vector.getX(), vector.getY(), vector.getZ());
-                line.getArmorstand().teleport(location.getX(), location.getY(), location.getZ(), 0, 0, false);
+    public void move(Vector3 vector3) {
+        location.add(vector3.getX(), vector3.getY(), vector3.getZ());
+        for (HologramLine line : lines) {
+            if (!line.getArmorstand().move(vector3)) {
+                line.location.add(vector3.getX(), vector3.getY(), vector3.getZ());
+                line.getArmorstand().teleport(Vector3Utils.toVector3(line.location), 0, 0);
             }
-        });
+        }
     }
 
     public void teleport(Location location) {
@@ -112,28 +114,21 @@ public class Hologram {
         reload();
     }
 
-    public void teleport(Vector3 location) {
-        this.location = Vector3Utils.toLocation(this.location.getWorld(), location);
-
-        reload();
-    }
-
     public void setLines(List<HologramLine> lines) {
         this.lines = lines;
 
-        reload(lines, location);
+        reload();
     }
 
     public void setLine(int index, HologramLine line) {
-        this.lines.set(index, line);
+        lines.set(index, line);
 
         reload();
     }
 
-    public void editLine(int index, Component newComponent) {
-        this.lines.get(index).getArmorstand().setMetadata(EntityMetadata.getEntityCustomNameId(),
-                Optional.of(MinecraftComponentSerializer.get().serialize(newComponent)));
-        this.lines.get(index).setComponent(newComponent);
+    public void editLine(int index, Component component) {
+        lines.get(index).getArmorstand().setCustomName(component);
+        lines.get(index).setComponent(component);
     }
 
     public void addLine(HologramLine line) {
@@ -142,46 +137,29 @@ public class Hologram {
         reload();
     }
 
-    public boolean removeLine(int index) {
-        if (index < 1 || index > lines.size()) return false;
-        lines.get(index - 1).getArmorstand().removeNPCPacket();
-        lines.remove(index - 1);
+    public boolean removeLine(int nonZeroBasedIndex) {
+        if (nonZeroBasedIndex < 1 || nonZeroBasedIndex > lines.size()) return false;
+        lines.get(nonZeroBasedIndex - 1).getArmorstand().removeViewers(lines.get(nonZeroBasedIndex - 1).getArmorstand().getViewers());
+        lines.remove(nonZeroBasedIndex - 1);
 
         reload();
         return true;
     }
 
-    public void addViewer(Player... players) {
-        for (Player player : players) {
-            for (HologramLine line : lines) {
-                EntityNPC armorstand = line.getArmorstand();
-                armorstand.addViewer(player);
-                armorstand.addNPCPacket(player);
-                armorstand.setMetadata(EntityMetadata.getEntityGravityId(), false, player);
-                Ruom.runSync(() -> {
-                    armorstand.setMetadata(EntityMetadata.EntityStatus.getMetadataId(), EntityMetadata.EntityStatus.INVISIBLE.getBitMask(), player);
-                    armorstand.setMetadata(EntityMetadata.getEntityCustomNameVisibilityId(), true, player);
-                    armorstand.setMetadata(EntityMetadata.getEntityCustomNameId(), Optional.of(MinecraftComponentSerializer.get().serialize(line.getComponent())), player);
-                    armorstand.setMetadata(EntityMetadata.ArmorStand.getMetadataId(), EntityMetadata.ArmorStand.getBitMasks(
-                            EntityMetadata.ArmorStand.SMALL, EntityMetadata.ArmorStand.MARKER, EntityMetadata.ArmorStand.NO_BASE_PLATE), player);
-                }, 1);
-            }
-            viewers.add(player);
+    @Override
+    protected void addViewer(Player player) {
+        for (HologramLine line : lines) {
+            if (line.getArmorstand() != null)
+                line.getArmorstand().addViewers(player);
         }
     }
 
-    public void removeViewer(Player... players) {
-        for (Player player : players) {
-            lines.forEach(line -> {
-                line.getArmorstand().removeViewer(player);
-                line.getArmorstand().removeNPCPacket(player);
-            });
-            viewers.remove(player);
+    @Override
+    protected void removeViewer(Player player) {
+        for (HologramLine line : lines) {
+            if (line.getArmorstand() != null)
+                line.getArmorstand().removeViewers(player);
         }
-    }
-
-    public Set<Player> getViewers() {
-        return ImmutableSet.copyOf(viewers);
     }
 
 }

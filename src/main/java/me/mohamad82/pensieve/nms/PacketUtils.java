@@ -2,14 +2,16 @@ package me.mohamad82.pensieve.nms;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.datafixers.util.Pair;
-import me.mohamad82.pensieve.nms.npc.enums.NPCAnimation;
-import me.mohamad82.pensieve.nms.npc.enums.NPCState;
 import me.Mohamad82.RUoM.XSeries.ReflectionUtils;
+import me.Mohamad82.RUoM.adventureapi.ComponentUtils;
+import me.Mohamad82.RUoM.adventureapi.adventure.platform.bukkit.MinecraftComponentSerializer;
 import me.Mohamad82.RUoM.utils.ServerVersion;
 import me.Mohamad82.RUoM.vector.Vector3;
+import me.mohamad82.pensieve.nms.accessors.*;
+import me.mohamad82.pensieve.nms.npc.NPC;
+import me.mohamad82.pensieve.nms.npc.enums.NPCState;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import java.lang.reflect.Array;
@@ -20,27 +22,23 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class PacketProvider {
+public class PacketUtils {
 
-    private static Class<?> ENTITY_PLAYER, ENTITY_HUMAN, ENTITY_POSE, ENTITY, ENTITY_TYPES, ENUM_PLAYER_INFO_ACTION, PLAYER_INFO_DATA, ENUM_ITEM_SLOT,
-            BLOCK_POSITION, BLOCKS, BLOCK, CRAFT_ITEM_STACK, PACKET_PLAY_OUT_PLAYER_INFO, PACKET_PLAY_OUT_NAMED_ENTITY_SPAWN, PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION,
+    private static Class<?> ENTITY_PLAYER, ENTITY_HUMAN, ENTITY_POSE, ENTITY, ENTITY_TYPES, ENUM_PLAYER_INFO_ACTION, PLAYER_INFO_DATA,
+            BLOCK_POSITION, BLOCK, CRAFT_ITEM_STACK, PACKET_PLAY_OUT_PLAYER_INFO, PACKET_PLAY_OUT_NAMED_ENTITY_SPAWN, PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION,
             PACKET_PLAY_OUT_ENTITY_DESTROY, PACKET_PLAY_OUT_ENTITY_LOOK, PACKET_PLAY_OUT_REL_ENTITY_MOVE, PACKET_PLAY_OUT_REL_ENTITY_MOVE_LOOK,
             PACKET_PLAY_OUT_ANIMATION, PACKET_PLAY_OUT_BLOCK_BREAK_ANIMATION, PACKET_PLAY_OUT_ENTITY_METADATA, PACKET_PLAY_OUT_ENTITY_EQUIPMENT,
             PACKET_PLAY_OUT_ENTITY_TELEPORT, PACKET_PLAY_OUT_SPAWN_ENTITY, PACKET_PLAY_OUT_ENTITY_VELOCITY, PACKET_PLAY_OUT_COLLECT, PACKET_PLAY_OUT_BLOCK_ACTION,
-            PACKET_PLAY_OUT_MOUNT, VEC_3D, DATAWATCHER, DATAWATCHER_OBJECT, DATAWATCHER_SERIALIZER, DATAWATCHER_REGISTRY, ENUM_GAMEMODE, ICHAT_BASE_COMPONENT, CRAFT_PLAYER;
+            PACKET_PLAY_OUT_MOUNT, VEC_3D, DATAWATCHER, DATAWATCHER_OBJECT, DATAWATCHER_SERIALIZER, DATAWATCHER_REGISTRY, ENUM_GAMEMODE, ICHAT_BASE_COMPONENT;
 
-    private static Constructor<?> PACKET_PLAY_OUT_PLAYER_INFO_CONSTRUCTOR, PACKET_PLAY_OUT_PLAYER_INFO_EMPTY_CONSTRUCTOR, PLAYER_INFO_DATA_CONSTRUCTOR,
-            PACKET_NAMED_ENTITY_SPAWN_CONSTRUCTOR, PACKET_ENTITY_HEAD_ROTATION_CONSTRUCTOR, PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_EMPTY_CONSTRUCTOR,
-            PACKET_PLAY_OUT_ENTITY_DESTROY_CONSTRUCTOR, PACKET_PLAY_OUT_ENTITY_LOOK_CONSTRUCTOR, PACKET_PLAY_OUT_REL_ENTITY_MOVE_CONSTRUCTOR,
-            PACKET_PLAY_OUT_REL_ENTITY_MOVE_LOOK_CONSTRUCTOR, PACKET_PLAY_OUT_ANIMATION_CONSTRUCTOR, PACKET_PLAY_OUT_BLOCK_BREAK_ANIMATION_CONSTRUCTOR,
-            PACKET_PLAY_OUT_ENTITY_EQUIPMENT_CONSTRUCTOR, PACKET_PLAY_OUT_ENTITY_METADATA_CONSTRUCTOR, PACKET_PLAY_OUT_ENTITY_TELEPORT_CONSTRUCTOR,
-            PACKET_PLAY_OUT_ENTITY_TELEPORT_EMPTY_CONSTRUCTOR, PACKET_PLAY_OUT_SPAWN_ENTITY_CONSTRUCTOR, PACKET_PLAY_OUT_ENTITY_VELOCITY_CONSTRUCTOR,
-            PACKET_PLAY_OUT_COLLECT_CONSTRUCTOR, PACKET_PLAY_OUT_BLOCK_ACTION_CONSTRUCTOR, PACKET_PLAY_OUT_MOUNT_EMPTY_CONSTRUCTOR, VEC_3D_CONSTRUCTOR,
+    private static Constructor<?> PACKET_PLAY_OUT_PLAYER_INFO_EMPTY_CONSTRUCTOR, PLAYER_INFO_DATA_CONSTRUCTOR, PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_EMPTY_CONSTRUCTOR,
+            PACKET_PLAY_OUT_BLOCK_BREAK_ANIMATION_CONSTRUCTOR, PACKET_PLAY_OUT_ENTITY_METADATA_CONSTRUCTOR,
+            PACKET_PLAY_OUT_ENTITY_TELEPORT_EMPTY_CONSTRUCTOR, PACKET_PLAY_OUT_SPAWN_ENTITY_CONSTRUCTOR, PACKET_PLAY_OUT_MOUNT_EMPTY_CONSTRUCTOR, VEC_3D_CONSTRUCTOR,
             DATAWATCHER_CONSTRUCTOR, DATAWATCHER_OBJECT_CONSTRUCTOR, BLOCK_POSITION_CONSTRUCTOR;
 
-    private static Method CRAFT_ITEM_STACK_AS_NMS_COPY_METHOD, DATAWATCHER_REGISTER_METHOD, ENTITY_PLAYER_GETID_METHOD, ENTITY_SET_LOCATION_METHOD;
+    private static Method DATAWATCHER_REGISTER_METHOD, ENTITY_PLAYER_GETID_METHOD;
 
-    private static Field ENTITY_ON_GROUND_FIELD, PACKET_PLAY_OUT_PLAYER_INFO_A_FIELD, PACKET_PLAY_OUT_PLAYER_INFO_B_FIELD,
+    private static Field PACKET_PLAY_OUT_PLAYER_INFO_A_FIELD, PACKET_PLAY_OUT_PLAYER_INFO_B_FIELD,
             PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_ID_FIELD, PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_BYTE_FIELD, PACKET_PLAY_OUT_ENTITY_TELEPORT_ID_FIELD,
             PACKET_PLAY_OUT_ENTITY_TELEPORT_X_FIELD, PACKET_PLAY_OUT_ENTITY_TELEPORT_Y_FIELD, PACKET_PLAY_OUT_ENTITY_TELEPORT_Z_FIELD,
             PACKET_PLAY_OUT_ENTITY_TELEPORT_YAW_FIELD, PACKET_PLAY_OUT_ENTITY_TELEPORT_PITCH_FIELD, PACKET_PLAY_OUT_ENTITY_TELEPORT_ON_GROUND_FIELD,
@@ -59,9 +57,7 @@ public class PacketProvider {
                 ENTITY_TYPES = ReflectionUtils.getNMSClass("world.entity", "EntityTypes");
                 ENUM_PLAYER_INFO_ACTION = ReflectionUtils.getNMSClass("network.protocol.game", "PacketPlayOutPlayerInfo$EnumPlayerInfoAction");
                 PLAYER_INFO_DATA = ReflectionUtils.getNMSClass("network.protocol.game", "PacketPlayOutPlayerInfo$PlayerInfoData");
-                ENUM_ITEM_SLOT = ReflectionUtils.getNMSClass("world.entity", "EnumItemSlot");
                 BLOCK_POSITION = ReflectionUtils.getNMSClass("core", "BlockPosition");
-                BLOCKS = ReflectionUtils.getNMSClass("world.level.block", "Blocks");
                 BLOCK = ReflectionUtils.getNMSClass("world.level.block", "Block");
                 CRAFT_ITEM_STACK = ReflectionUtils.getCraftClass("inventory.CraftItemStack");
                 PACKET_PLAY_OUT_PLAYER_INFO = ReflectionUtils.getNMSClass("network.protocol.game", "PacketPlayOutPlayerInfo");
@@ -88,53 +84,28 @@ public class PacketProvider {
                 DATAWATCHER_REGISTRY = ReflectionUtils.getNMSClass("network.syncher", "DataWatcherRegistry");
                 ENUM_GAMEMODE = ReflectionUtils.getNMSClass("world.level", ServerVersion.supports(9) ? "EnumGamemode" : "WorldSettings$EnumGamemode");
                 ICHAT_BASE_COMPONENT = ReflectionUtils.getNMSClass("network.chat", "IChatBaseComponent");
-                CRAFT_PLAYER = ReflectionUtils.getCraftClass("entity.CraftPlayer");
             }
             {
-                PACKET_PLAY_OUT_PLAYER_INFO_CONSTRUCTOR = PACKET_PLAY_OUT_PLAYER_INFO.getConstructor(ENUM_PLAYER_INFO_ACTION, Array.newInstance(ENTITY_PLAYER, 1).getClass());
                 PACKET_PLAY_OUT_PLAYER_INFO_EMPTY_CONSTRUCTOR = PACKET_PLAY_OUT_PLAYER_INFO.getConstructor();
                 PLAYER_INFO_DATA_CONSTRUCTOR = PLAYER_INFO_DATA.getConstructor(PACKET_PLAY_OUT_PLAYER_INFO, GameProfile.class, int.class, ENUM_GAMEMODE, ICHAT_BASE_COMPONENT);
-                PACKET_NAMED_ENTITY_SPAWN_CONSTRUCTOR = PACKET_PLAY_OUT_NAMED_ENTITY_SPAWN.getConstructor(ENTITY_HUMAN);
-                PACKET_ENTITY_HEAD_ROTATION_CONSTRUCTOR = PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION.getConstructor(ENTITY, byte.class);
                 PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_EMPTY_CONSTRUCTOR = PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION.getConstructor();
-                PACKET_PLAY_OUT_ENTITY_DESTROY_CONSTRUCTOR = PACKET_PLAY_OUT_ENTITY_DESTROY.getConstructor(int[].class);
-                PACKET_PLAY_OUT_ENTITY_LOOK_CONSTRUCTOR = PACKET_PLAY_OUT_ENTITY_LOOK.getConstructor(int.class, byte.class, byte.class, boolean.class);
-                PACKET_PLAY_OUT_REL_ENTITY_MOVE_CONSTRUCTOR = PACKET_PLAY_OUT_REL_ENTITY_MOVE.getConstructor(int.class, short.class, short.class, short.class, boolean.class);
-                PACKET_PLAY_OUT_REL_ENTITY_MOVE_LOOK_CONSTRUCTOR = PACKET_PLAY_OUT_REL_ENTITY_MOVE_LOOK.getConstructor(int.class, short.class, short.class, short.class, byte.class, byte.class, boolean.class);
-                PACKET_PLAY_OUT_ANIMATION_CONSTRUCTOR = PACKET_PLAY_OUT_ANIMATION.getConstructor(ENTITY, int.class);
                 PACKET_PLAY_OUT_BLOCK_BREAK_ANIMATION_CONSTRUCTOR = PACKET_PLAY_OUT_BLOCK_BREAK_ANIMATION.getConstructor(int.class, BLOCK_POSITION, int.class);
-                PACKET_PLAY_OUT_ENTITY_EQUIPMENT_CONSTRUCTOR = PACKET_PLAY_OUT_ENTITY_EQUIPMENT.getConstructor(int.class, List.class);
                 PACKET_PLAY_OUT_ENTITY_METADATA_CONSTRUCTOR = PACKET_PLAY_OUT_ENTITY_METADATA.getConstructor(int.class, DATAWATCHER, boolean.class);
-                PACKET_PLAY_OUT_ENTITY_TELEPORT_CONSTRUCTOR = PACKET_PLAY_OUT_ENTITY_TELEPORT.getConstructor(ENTITY);
                 PACKET_PLAY_OUT_ENTITY_TELEPORT_EMPTY_CONSTRUCTOR = PACKET_PLAY_OUT_ENTITY_TELEPORT.getConstructor();
                 if (ServerVersion.supports(13)) {
                     PACKET_PLAY_OUT_SPAWN_ENTITY_CONSTRUCTOR = PACKET_PLAY_OUT_SPAWN_ENTITY.getConstructor(int.class, UUID.class, double.class, double.class, double.class, float.class, float.class, ENTITY_TYPES, int.class, VEC_3D);
                     VEC_3D_CONSTRUCTOR = VEC_3D.getConstructor(double.class, double.class, double.class);
                 }
-                if (ServerVersion.supports(14)) {
-                    PACKET_PLAY_OUT_ENTITY_VELOCITY_CONSTRUCTOR = PACKET_PLAY_OUT_ENTITY_VELOCITY.getConstructor(int.class, VEC_3D);
-                } else {
-                    PACKET_PLAY_OUT_ENTITY_VELOCITY_CONSTRUCTOR = PACKET_PLAY_OUT_ENTITY_VELOCITY.getConstructor(int.class, double.class, double.class, double.class);
-                }
-                if (ServerVersion.supports(9)) {
-                    PACKET_PLAY_OUT_COLLECT_CONSTRUCTOR = PACKET_PLAY_OUT_COLLECT.getConstructor(int.class, int.class, int.class);
-                } else {
-                    PACKET_PLAY_OUT_COLLECT_CONSTRUCTOR = PACKET_PLAY_OUT_COLLECT.getConstructor(int.class, int.class);
-                }
-                PACKET_PLAY_OUT_BLOCK_ACTION_CONSTRUCTOR = PACKET_PLAY_OUT_BLOCK_ACTION.getConstructor(BLOCK_POSITION, BLOCK, int.class, int.class);
                 PACKET_PLAY_OUT_MOUNT_EMPTY_CONSTRUCTOR = PACKET_PLAY_OUT_MOUNT.getConstructor();
                 DATAWATCHER_CONSTRUCTOR = DATAWATCHER.getConstructor(ENTITY);
                 DATAWATCHER_OBJECT_CONSTRUCTOR = DATAWATCHER_OBJECT.getConstructor(int.class, DATAWATCHER_SERIALIZER);
                 BLOCK_POSITION_CONSTRUCTOR = BLOCK_POSITION.getConstructor(int.class, int.class, int.class);
             }
             {
-                CRAFT_ITEM_STACK_AS_NMS_COPY_METHOD = CRAFT_ITEM_STACK.getMethod("asNMSCopy", ItemStack.class);
                 DATAWATCHER_REGISTER_METHOD = DATAWATCHER.getMethod("register", DATAWATCHER_OBJECT, Object.class);
                 ENTITY_PLAYER_GETID_METHOD = ENTITY.getMethod("getId");
-                ENTITY_SET_LOCATION_METHOD = ENTITY.getMethod("setLocation", double.class, double.class, double.class, float.class, float.class);
             }
             {
-                ENTITY_ON_GROUND_FIELD  = ENTITY.getField("onGround");
                 PACKET_PLAY_OUT_PLAYER_INFO_A_FIELD = PACKET_PLAY_OUT_PLAYER_INFO.getDeclaredField("a");
                 PACKET_PLAY_OUT_PLAYER_INFO_B_FIELD = PACKET_PLAY_OUT_PLAYER_INFO.getDeclaredField("b");
                 PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_ID_FIELD = PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION.getDeclaredField("a");
@@ -179,24 +150,101 @@ public class PacketProvider {
         }
     }
 
-    public static Object getPacketPlayOutPlayerInfo(Object entityPlayer, String action) {
+    @Deprecated
+    public static Object getPacketPlayOutEntityMetadata(int id, NPCState npcState) {
         try {
-            Object addPlayerEnum = ENUM_PLAYER_INFO_ACTION.getField(action.toUpperCase()).get(null);
-            Object entityPlayerArray = Array.newInstance(ENTITY_PLAYER, 1);
-            Array.set(entityPlayerArray, 0, entityPlayer);
+            Object entityPose = ENTITY_POSE.getField(npcState.toString().toUpperCase()).get(null);
+            Object dataWatcher = DATAWATCHER_CONSTRUCTOR.newInstance((Object) null);
+            DATAWATCHER_REGISTER_METHOD.invoke(dataWatcher, DATAWATCHER_OBJECT_CONSTRUCTOR.newInstance(6, DATAWATCHER_REGISTRY.getField("s").get(null)), entityPose);
 
-            return PACKET_PLAY_OUT_PLAYER_INFO_CONSTRUCTOR.newInstance(addPlayerEnum, entityPlayerArray);
+            return PACKET_PLAY_OUT_ENTITY_METADATA_CONSTRUCTOR.newInstance(id, dataWatcher, true);
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
+    @Deprecated
+    public static Object getPacketPlayOutEntityMetadata(int id, int metadataId, Object value) {
+        try {
+            Object dataWatcher = DATAWATCHER_CONSTRUCTOR.newInstance((Object) null);
+            Object dataWatcherRegistry = getDataWatcherRegistry(value);
+            DATAWATCHER_REGISTER_METHOD.invoke(dataWatcher, DATAWATCHER_OBJECT_CONSTRUCTOR.newInstance(metadataId, dataWatcherRegistry), value);
+
+            return PACKET_PLAY_OUT_ENTITY_METADATA_CONSTRUCTOR.newInstance(id, dataWatcher, true);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Error(e);
+        }
+    }
+
+    @Deprecated
+    public static Object getPacketPlayOutBlockBreakAnimation(Vector3 location, int stage) {
+        //TODO: WRONG PACKET
+        try {
+            Object blockPosition = BLOCK_POSITION_CONSTRUCTOR.newInstance(location.getBlockX(), location.getBlockY(), location.getBlockZ());
+
+            return PACKET_PLAY_OUT_BLOCK_BREAK_ANIMATION_CONSTRUCTOR.newInstance(location.getBlockX() + location.getBlockY() + location.getBlockZ(),
+                    blockPosition, stage);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Error(e);
+        }
+    }
+
+    @Deprecated
+    public static Object getPacketPlayOutEntityTeleport(int id, double x, double y, double z, float yaw, float pitch, boolean onGround) {
+        try {
+            Object packetPlytOutEntityTeleport = PACKET_PLAY_OUT_ENTITY_TELEPORT_EMPTY_CONSTRUCTOR.newInstance();
+            PACKET_PLAY_OUT_ENTITY_TELEPORT_ID_FIELD.set(packetPlytOutEntityTeleport, id);
+            PACKET_PLAY_OUT_ENTITY_TELEPORT_X_FIELD.set(packetPlytOutEntityTeleport, x);
+            PACKET_PLAY_OUT_ENTITY_TELEPORT_Y_FIELD.set(packetPlytOutEntityTeleport, y);
+            PACKET_PLAY_OUT_ENTITY_TELEPORT_Z_FIELD.set(packetPlytOutEntityTeleport, z);
+            PACKET_PLAY_OUT_ENTITY_TELEPORT_YAW_FIELD.set(packetPlytOutEntityTeleport, NMSUtils.getAngle(yaw));
+            PACKET_PLAY_OUT_ENTITY_TELEPORT_PITCH_FIELD.set(packetPlytOutEntityTeleport, NMSUtils.getAngle(pitch));
+            PACKET_PLAY_OUT_ENTITY_TELEPORT_ON_GROUND_FIELD.set(packetPlytOutEntityTeleport, onGround);
+            return packetPlytOutEntityTeleport;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Error(e);
+        }
+    }
+
+    @Deprecated
+    public static Object getPacketPlayOutEntityHeadRotation(int id, float yaw) {
+        try {
+            Object packetEntityHeadRotation = PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_EMPTY_CONSTRUCTOR.newInstance();
+            PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_ID_FIELD.set(packetEntityHeadRotation, id);
+            PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_BYTE_FIELD.set(packetEntityHeadRotation, NMSUtils.getAngle(yaw));
+
+            return packetEntityHeadRotation;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Error(e);
+        }
+    }
+
+    @Deprecated
+    public static Object getPacketPlayOutMount(int id, int... passengerIds) {
+        try {
+            Object packet = PACKET_PLAY_OUT_MOUNT_EMPTY_CONSTRUCTOR.newInstance();
+
+            PACKET_PLAY_OUT_MOUNT_ENTITY_ID_FIELD.set(packet, id);
+            PACKET_PLAY_OUT_MOUNT_PASSENGERS_INT_ARRAY_FIELD.set(packet, passengerIds);
+
+            return packet;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Error(e);
+        }
+    }
+
+    @Deprecated
     @SuppressWarnings("unchecked")
     public static Object getPacketPlayOutPlayerInfoTabListUpdate(Object entityPlayer, GameProfile profile, String newName) {
         try {
             Object packet = PACKET_PLAY_OUT_PLAYER_INFO_EMPTY_CONSTRUCTOR.newInstance();
-            Object data = PLAYER_INFO_DATA_CONSTRUCTOR.newInstance(packet, profile, 0, ENUM_GAMEMODE.getField("NOT_SET").get(null), NMSProvider.getIChatBaseComponent(newName)[0]);
+            Object data = PLAYER_INFO_DATA_CONSTRUCTOR.newInstance(packet, profile, 0, ENUM_GAMEMODE.getField("NOT_SET").get(null), MinecraftComponentSerializer.get().serialize(ComponentUtils.parse(newName)));
             List<Object> players = (List<Object>) PACKET_PLAY_OUT_PLAYER_INFO_B_FIELD.get(packet);
             players.add(data);
             PACKET_PLAY_OUT_PLAYER_INFO_A_FIELD.set(packet, ENUM_PLAYER_INFO_ACTION.getField("ADD_PLAYER").get(null));
@@ -209,16 +257,29 @@ public class PacketProvider {
         }
     }
 
-    public static Object getPacketPlayOutNamedEntitySpawn(Object entityPlayer) {
+    public static Object getPlayerInfoPacket(Object serverPlayer, String action) {
         try {
-            return PACKET_NAMED_ENTITY_SPAWN_CONSTRUCTOR.newInstance(entityPlayer);
+            Object playerInfoAction = ClientboundPlayerInfoPacket_i_ActionAccessor.getType().getField(action.toUpperCase()).get(null);
+            Object serverPlayerArray = Array.newInstance(ServerPlayerAccessor.getType(), 1);
+            Array.set(serverPlayerArray, 0, serverPlayer);
+
+            return ClientboundPlayerInfoPacketAccessor.getConstructor0().newInstance(playerInfoAction, serverPlayerArray);
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutSpawnEntity(UUID uuid, Location location, String entityTypeName) {
+    public static Object getAddPlayerPacket(Object player) {
+        try {
+            return ClientboundAddPlayerPacketAccessor.getConstructor0().newInstance(player);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Error(e);
+        }
+    }
+
+    public static Object getAddEntityPacket(UUID uuid, Location location, String entityTypeName) {
         try {
             if (ServerVersion.supports(13)) {
                 Object entityType = ENTITY_TYPES.getField(entityTypeName).get(null);
@@ -242,52 +303,54 @@ public class PacketProvider {
         return null;
     }
 
-    public static Object getPacketPlayOutEntityHeadRotation(int id, float yaw) {
+    public static Object getAddEntityPacket(Object entity, int data) {
         try {
-            Object packetEntityHeadRotation = PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_EMPTY_CONSTRUCTOR.newInstance();
-            PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_ID_FIELD.set(packetEntityHeadRotation, id);
-            PACKET_PLAY_OUT_ENTITY_HEAD_ROTATION_BYTE_FIELD.set(packetEntityHeadRotation, getAngle(yaw));
-
-            return packetEntityHeadRotation;
+            return ClientboundAddEntityPacketAccessor.getConstructor1().newInstance(entity, data);
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutEntityHeadRotation(Object entity, float yaw) {
+    public static Object getAddEntityPacket(Object entity) {
+        return getAddEntityPacket(entity, 0);
+    }
+
+    public static Object getHeadRotatePacket(Object entity, float yaw) {
         try {
-            return PACKET_ENTITY_HEAD_ROTATION_CONSTRUCTOR.newInstance(entity, getAngle(yaw));
+            return ClientboundRotateHeadPacketAccessor.getConstructor0().newInstance(entity, NMSUtils.getAngle(yaw));
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutEntityDestroy(int id) {
+    public static Object getRemoveEntitiesPacket(int... ids) {
         try {
-            Object ids = Array.newInstance(int.class, 1);
-            Array.set(ids, 0, id);
+            Object idArray = Array.newInstance(int.class, ids.length);
+            for (int i = 0; i < ids.length; i++) {
+                Array.set(idArray, i, ids[i]);
+            }
 
-            return PACKET_PLAY_OUT_ENTITY_DESTROY_CONSTRUCTOR.newInstance(ids);
+            return ClientboundRemoveEntitiesPacketAccessor.getConstructor0().newInstance(idArray);
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutEntityLook(int id, float yaw, float pitch) {
+    public static Object getEntityRotPacket(int id, float yaw, float pitch) {
         try {
-            return PACKET_PLAY_OUT_ENTITY_LOOK_CONSTRUCTOR.newInstance(id, getAngle(yaw), getAngle(pitch), true);
+            return ClientboundMoveEntityPacket_i_RotAccessor.getConstructor0().newInstance(id, NMSUtils.getAngle(yaw), NMSUtils.getAngle(pitch), true);
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutRelEntityMove(int id, double x, double y, double z) {
+    public static Object getEntityPosPacket(int id, double x, double y, double z) {
         try {
-            return PACKET_PLAY_OUT_REL_ENTITY_MOVE_CONSTRUCTOR.newInstance(id,
+            return ClientboundMoveEntityPacket_i_PosAccessor.getConstructor0().newInstance(id,
                     (short) (x * 4096), (short) (y * 4096), (short) (z * 4096), true);
         } catch (Exception e) {
             e.printStackTrace();
@@ -295,51 +358,32 @@ public class PacketProvider {
         }
     }
 
-    public static Object getPacketPlayOutRelEntityMoveLook(int id, double x, double y, double z, float yaw, float pitch, boolean onGround) {
+    public static Object getEntityPosRotPacket(int id, double x, double y, double z, float yaw, float pitch, boolean onGround) {
         try {
-            return PACKET_PLAY_OUT_REL_ENTITY_MOVE_LOOK_CONSTRUCTOR.newInstance(id,
+            return ClientboundMoveEntityPacket_i_PosRotAccessor.getConstructor0().newInstance(id,
                     (short) (x * 4096), (short) (y * 4096), (short) (z * 4096),
-                    getAngle(yaw), getAngle(pitch), onGround);
+                    NMSUtils.getAngle(yaw), NMSUtils.getAngle(pitch), onGround);
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutEntityTeleport(Object entity, double x, double y, double z, float yaw, float pitch, boolean onGround) {
+    public static Object getTeleportEntityPacket(Object entity) {
         try {
-            ENTITY_ON_GROUND_FIELD.set(entity, onGround);
-            ENTITY_SET_LOCATION_METHOD.invoke(entity, x, y, z, yaw, pitch);
-            return PACKET_PLAY_OUT_ENTITY_TELEPORT_CONSTRUCTOR.newInstance(entity);
+            return ClientboundTeleportEntityPacketAccessor.getConstructor0().newInstance(entity);
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutEntityTeleport(int id, double x, double y, double z, float yaw, float pitch, boolean onGround) {
-        try {
-            Object packetPlytOutEntityTeleport = PACKET_PLAY_OUT_ENTITY_TELEPORT_EMPTY_CONSTRUCTOR.newInstance();
-            PACKET_PLAY_OUT_ENTITY_TELEPORT_ID_FIELD.set(packetPlytOutEntityTeleport, id);
-            PACKET_PLAY_OUT_ENTITY_TELEPORT_X_FIELD.set(packetPlytOutEntityTeleport, x);
-            PACKET_PLAY_OUT_ENTITY_TELEPORT_Y_FIELD.set(packetPlytOutEntityTeleport, y);
-            PACKET_PLAY_OUT_ENTITY_TELEPORT_Z_FIELD.set(packetPlytOutEntityTeleport, z);
-            PACKET_PLAY_OUT_ENTITY_TELEPORT_YAW_FIELD.set(packetPlytOutEntityTeleport, getAngle(yaw));
-            PACKET_PLAY_OUT_ENTITY_TELEPORT_PITCH_FIELD.set(packetPlytOutEntityTeleport, getAngle(pitch));
-            PACKET_PLAY_OUT_ENTITY_TELEPORT_ON_GROUND_FIELD.set(packetPlytOutEntityTeleport, onGround);
-            return packetPlytOutEntityTeleport;
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new Error(e);
-        }
-    }
-
-    public static Object getPacketPlayOutEntityVelocity(int id, double x, double y, double z) {
+    public static Object getEntityVelocityPacket(int id, double x, double y, double z) {
         try {
             if (ServerVersion.supports(14)) {
-                return PACKET_PLAY_OUT_ENTITY_VELOCITY_CONSTRUCTOR.newInstance(id, VEC_3D_CONSTRUCTOR.newInstance(x, y, z));
+                return ClientboundSetEntityMotionPacketAccessor.getConstructor0().newInstance(id, Vec3Accessor.getConstructor0().newInstance(x, y, z));
             } else {
-                return PACKET_PLAY_OUT_ENTITY_VELOCITY_CONSTRUCTOR.newInstance(id, x, y, z);
+                return ClientboundSetEntityMotionPacketAccessor.getConstructor1().newInstance(id, x, y, z);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -347,56 +391,47 @@ public class PacketProvider {
         }
     }
 
-    public static Object getPacketPlayOutAnimation(Object entityPlayer, NPCAnimation npcAnimation) {
+    public static Object getAnimatePacket(Object entity, int action) {
         try {
-            return PACKET_PLAY_OUT_ANIMATION_CONSTRUCTOR.newInstance(entityPlayer, npcAnimation.getValue());
+            return ClientboundAnimatePacketAccessor.getConstructor0().newInstance(entity, action);
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutBlockBreakAnimation(Vector3 location, int stage) {
+    public static Object getBlockDestructionPacket(Vector3 location, int stage) {
         try {
-            Object blockPosition = BLOCK_POSITION_CONSTRUCTOR.newInstance(location.getBlockX(), location.getBlockY(), location.getBlockZ());
-
-            return PACKET_PLAY_OUT_BLOCK_BREAK_ANIMATION_CONSTRUCTOR.newInstance(location.getBlockX() + location.getBlockY() + location.getBlockZ(),
-                    blockPosition, stage);
+            return ClientboundBlockDestructionPacketAccessor.getConstructor0().newInstance(
+                    BlockPosAccessor.getConstructor0().newInstance(location.getBlockX(), location.getBlockY(), location.getBlockZ()),
+                    stage
+            );
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutEntityEquipment(int id, EquipmentSlot slot, ItemStack item) {
+    public static Object getEntityEquipmentPacket(int id, NPC.EquipmentSlot slot, ItemStack item) {
         try {
-            String itemSlot;
-            if (slot.equals(EquipmentSlot.HAND))
-                itemSlot = "MAINHAND";
-            else if (slot.equals(EquipmentSlot.OFF_HAND))
-                itemSlot = "OFFHAND";
-            else itemSlot = slot.toString().toUpperCase();
-
-            Object enumItemSlot = ENUM_ITEM_SLOT.getField(itemSlot).get(null);
-            Object nmsItem = CRAFT_ITEM_STACK_AS_NMS_COPY_METHOD.invoke(null, item);
-
-            Pair<Object, Object> pair = new Pair<>(enumItemSlot, nmsItem);
+            Object nmsItem = NMSUtils.getNmsItemStack(item);
+            Pair<Object, Object> pair = new Pair<>(slot.getNmsSlot(), nmsItem);
             List<Pair<Object, Object>> pairList = new ArrayList<>();
             pairList.add(pair);
 
-            return PACKET_PLAY_OUT_ENTITY_EQUIPMENT_CONSTRUCTOR.newInstance(id, pairList);
+            return ClientboundSetEquipmentPacketAccessor.getConstructor0().newInstance(id, pairList);
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutCollect(int id, int collectorId, int itemAmount) {
+    public static Object getCollectItemPacket(int id, int collectorId, int itemAmount) {
         try {
             if (ServerVersion.supports(9)) {
-                return PACKET_PLAY_OUT_COLLECT_CONSTRUCTOR.newInstance(id, collectorId, itemAmount);
+                return ClientboundTakeItemEntityPacketAccessor.getConstructor0().newInstance(id, collectorId, itemAmount);
             } else {
-                return PACKET_PLAY_OUT_COLLECT_CONSTRUCTOR.newInstance(id, collectorId);
+                return ClientboundTakeItemEntityPacketAccessor.getConstructor1().newInstance(id, collectorId);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -404,24 +439,23 @@ public class PacketProvider {
         }
     }
 
-    public static Object getPacketPlayOutBlockAction(Vector3 location, Material blockMaterial, int actionId, int actionParam) {
+    public static Object getBlockEventPacket(Vector3 location, Material blockMaterial, int actionId, int actionParam) {
         try {
-            Object blockPosition = BLOCK_POSITION_CONSTRUCTOR.newInstance(location.getBlockX(), location.getBlockY(), location.getBlockZ());
-            Object block = BLOCKS.getField(blockMaterial.toString().toUpperCase()).get(null);
-
-            return PACKET_PLAY_OUT_BLOCK_ACTION_CONSTRUCTOR.newInstance(blockPosition, block, actionId, actionParam);
+            return ClientboundBlockEventPacketAccessor.getConstructor0().newInstance(
+                    BlockPosAccessor.getConstructor0().newInstance(location.getBlockX(), location.getBlockY(), location.getBlockZ()),
+                    BlocksAccessor.getType().getField(blockMaterial.toString().toUpperCase()).get(null),
+                    actionId, actionParam
+            );
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutMount(int id, int... passengerIds) {
+    public static Object getEntityPassengersPacket(Object entity, int... passengerIds) {
         try {
-            Object packet = PACKET_PLAY_OUT_MOUNT_EMPTY_CONSTRUCTOR.newInstance();
-
-            PACKET_PLAY_OUT_MOUNT_ENTITY_ID_FIELD.set(packet, id);
-            PACKET_PLAY_OUT_MOUNT_PASSENGERS_INT_ARRAY_FIELD.set(packet, passengerIds);
+            Object packet = ClientboundSetPassengersPacketAccessor.getConstructor0().newInstance(entity);
+            ClientboundSetPassengersPacketAccessor.getFieldPassengers().set(packet, passengerIds);
 
             return packet;
         } catch (Exception e) {
@@ -430,32 +464,66 @@ public class PacketProvider {
         }
     }
 
-    public static Object getPacketPlayOutEntityMetadata(int id, NPCState npcState) {
+    public static Object getEntityDataPacket(Object entity) {
         try {
-            Object entityPose = ENTITY_POSE.getField(npcState.toString().toUpperCase()).get(null);
-            Object dataWatcher = DATAWATCHER_CONSTRUCTOR.newInstance((Object) null);
-            DATAWATCHER_REGISTER_METHOD.invoke(dataWatcher, DATAWATCHER_OBJECT_CONSTRUCTOR.newInstance(6, DATAWATCHER_REGISTRY.getField("s").get(null)), entityPose);
-
-            return PACKET_PLAY_OUT_ENTITY_METADATA_CONSTRUCTOR.newInstance(id, dataWatcher, true);
+            return ClientboundSetEntityDataPacketAccessor.getConstructor0().newInstance(
+                    EntityAccessor.getMethodGetId1().invoke(entity),
+                    EntityAccessor.getMethodGetEntityData1().invoke(entity),
+                    true
+            );
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
-    public static Object getPacketPlayOutEntityMetadata(int id, int metadataId, Object value) {
+    public static Object getEntityDataPacket(int id, int metadataId, Object value) {
         try {
-            Object dataWatcher = DATAWATCHER_CONSTRUCTOR.newInstance((Object) null);
-            Object dataWatcherRegistry = getDataWatcherRegistry(value);
-            DATAWATCHER_REGISTER_METHOD.invoke(dataWatcher, DATAWATCHER_OBJECT_CONSTRUCTOR.newInstance(metadataId, dataWatcherRegistry), value);
+            Object entityData = SynchedEntityDataAccessor.getConstructor0().newInstance((Object) null);
+            Object entityDataSerializer = getEntityDataSerializer(value);
+            SynchedEntityDataAccessor.getMethodDefine1().invoke(entityData, EntityDataSerializerAccessor.getMethodCreateAccessor1().invoke(entityDataSerializer, metadataId), value);
 
-            return PACKET_PLAY_OUT_ENTITY_METADATA_CONSTRUCTOR.newInstance(id, dataWatcher, true);
+            return ClientboundSetEntityDataPacketAccessor.getConstructor0().newInstance(id, entityData, true);
         } catch (Exception e) {
             e.printStackTrace();
             throw new Error(e);
         }
     }
 
+    public static Object getEntityDataSerializer(Object object) {
+        try {
+            switch (object.getClass().getSimpleName()) {
+                case "Byte":
+                    return EntityDataSerializersAccessor.getFieldBYTE().get(null);
+                case "Integer":
+                    return EntityDataSerializersAccessor.getFieldINT().get(null);
+                case "Float":
+                    return EntityDataSerializersAccessor.getFieldFLOAT().get(null);
+                case "String":
+                    return EntityDataSerializersAccessor.getFieldSTRING().get(null);
+                case "Optional":
+                    return EntityDataSerializersAccessor.getFieldOPTIONAL_COMPONENT().get(null);
+                case "ItemStack":
+                    return EntityDataSerializersAccessor.getFieldITEM_STACK().get(null);
+                case "Boolean":
+                    return EntityDataSerializersAccessor.getFieldBOOLEAN().get(null);
+                default: {
+                    if (object.getClass().equals(ComponentAccessor.getType())) {
+                        return EntityDataSerializersAccessor.getFieldCOMPONENT();
+                    } else if (object.getClass().equals(PoseAccessor.getType())) {
+                        return EntityDataSerializersAccessor.getFieldPOSE();
+                    } else {
+                        return null;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Error(e);
+        }
+    }
+
+    @Deprecated
     public static Object getDataWatcherRegistry(Object object) {
         try {
             switch (object.getClass().getSimpleName()) {
@@ -488,6 +556,7 @@ public class PacketProvider {
         }
     }
 
+    @Deprecated
     public static int getEntityId(Object entity) {
         try {
             return (int) ENTITY_PLAYER_GETID_METHOD.invoke(entity);
@@ -495,10 +564,6 @@ public class PacketProvider {
             e.printStackTrace();
             return UUID.randomUUID().hashCode();
         }
-    }
-
-    private static byte getAngle(float yawOrPitch) {
-        return (byte) (yawOrPitch * 256 / 360);
     }
 
 }

@@ -1,6 +1,6 @@
 package me.mohamad82.pensieve.recording.record;
 
-import me.mohamad82.pensieve.nms.npc.enums.EntityNPCType;
+import me.mohamad82.pensieve.nms.npc.NPCType;
 import me.Mohamad82.RUoM.vector.Vector3;
 import org.bukkit.inventory.ItemStack;
 
@@ -8,19 +8,19 @@ import java.util.UUID;
 
 public class EntityRecord extends Record {
 
-    private final EntityNPCType entityType;
+    private final NPCType entityType;
     private final int startingTick;
     private UUID pickedUpBy; //Used for dropped items
     private ItemStack item; //Used for projectiles like splash potions
     private ItemStack droppedItem; //Used for dropped items
 
-    public EntityRecord(UUID uuid, Vector3 center, EntityNPCType entityType, int startingTick) {
+    public EntityRecord(UUID uuid, Vector3 center, NPCType entityType, int startingTick) {
         super(uuid, center);
         this.entityType = entityType;
         this.startingTick = startingTick;
     }
 
-    public EntityNPCType getEntityType() {
+    public NPCType getEntityType() {
         return entityType;
     }
 

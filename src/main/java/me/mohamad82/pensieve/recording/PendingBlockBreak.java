@@ -1,6 +1,6 @@
 package me.mohamad82.pensieve.recording;
 
-import me.mohamad82.pensieve.nms.NMSProvider;
+import me.mohamad82.pensieve.nms.NMSUtils;
 import me.mohamad82.pensieve.nms.enums.BlockDirection;
 import me.Mohamad82.RUoM.vector.Vector3;
 import org.bukkit.Location;
@@ -109,9 +109,9 @@ public class PendingBlockBreak implements Cloneable {
         if (animationStages == null || animationStages.isEmpty()) return;
 
         if (stage >= animationStages.size())
-            NMSProvider.sendBlockBreakAnimation(players, location, 9);
+            NMSUtils.sendBlockDestruction(players, location, 9);
         else
-            NMSProvider.sendBlockBreakAnimation(players, location, animationStages.get(stage));
+            NMSUtils.sendBlockDestruction(players, location, animationStages.get(stage));
     }
 
     @Override

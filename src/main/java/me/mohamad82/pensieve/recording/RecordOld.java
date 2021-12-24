@@ -1,5 +1,6 @@
 package me.mohamad82.pensieve.recording;
 
+import com.mojang.authlib.GameProfile;
 import me.Mohamad82.RUoM.translators.skin.MinecraftSkin;
 import me.Mohamad82.RUoM.translators.skin.SkinBuilder;
 import me.Mohamad82.RUoM.vector.Vector3;
@@ -13,6 +14,7 @@ import java.util.UUID;
 /**
  * @deprecated Replaced with new Record abstract class.
  */
+@Deprecated
 public class RecordOld {
 
     private List<RecordTick> recordTicks = new ArrayList<>();

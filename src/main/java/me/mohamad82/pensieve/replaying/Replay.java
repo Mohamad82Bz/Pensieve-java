@@ -10,13 +10,13 @@ import me.Mohamad82.RUoM.utils.PlayerUtils;
 import me.Mohamad82.RUoM.vector.Vector3;
 import me.Mohamad82.RUoM.vector.Vector3Utils;
 import me.mohamad82.pensieve.nms.EntityMetadata;
-import me.mohamad82.pensieve.nms.NMSProvider;
-import me.mohamad82.pensieve.nms.hologram.Hologram;
-import me.mohamad82.pensieve.nms.hologram.HologramLine;
-import me.mohamad82.pensieve.nms.npc.EntityNPC;
-import me.mohamad82.pensieve.nms.npc.NPC;
-import me.mohamad82.pensieve.nms.npc.PlayerNPC;
-import me.mohamad82.pensieve.nms.npc.enums.EntityNPCType;
+import me.mohamad82.pensieve.nms.NMSUtils;
+import me.mohamad82.pensieve.nms.hologram.HologramOld;
+import me.mohamad82.pensieve.nms.hologram.HologramLineOld;
+import me.mohamad82.pensieve.nms.znpcold.EntityNPCOld;
+import me.mohamad82.pensieve.nms.znpcold.NPCOld;
+import me.mohamad82.pensieve.nms.znpcold.PlayerNPCOld;
+import me.mohamad82.pensieve.nms.npc.NPCType;
 import me.mohamad82.pensieve.nms.npc.enums.NPCAnimation;
 import me.mohamad82.pensieve.recording.RecordTick;
 import me.mohamad82.pensieve.recording.record.EntityRecord;
@@ -45,12 +45,12 @@ public class Replay {
     private static final String HOLOGRAM_LINE_PING = String.format("<gradient:aqua:blue>Ping: <gradient:blue:aqua>%s", 0);
     private static final String HOLOGRAM_LINE_CPS = String.format("<gradient:aqua:blue>CPS: <gradient:blue:aqua>%s", 0);
 
-    private final Map<PlayerRecord, PlayerNPC> playerRecords = new HashMap<>();
-    private final Map<EntityRecord, EntityNPC> entityRecords = new HashMap<>();
+    private final Map<PlayerRecord, PlayerNPCOld> playerRecords = new HashMap<>();
+    private final Map<EntityRecord, EntityNPCOld> entityRecords = new HashMap<>();
     private final Map<UUID, List<RecordTick>> preparedLastNonNullTicks = new HashMap<>();
     private final Map<UUID, RecordTick> lastNonNullTicks = new HashMap<>();
     private final Map<UUID, ReplayCache> replayCache = new HashMap<>();
-    private final Map<UUID, Hologram> playerHolograms = new HashMap<>();
+    private final Map<UUID, HologramOld> playerHolograms = new HashMap<>();
     private final Map<UUID, UUID> modifiedUuids = new HashMap<>();
 
     private final World world;
@@ -125,7 +125,7 @@ public class Replay {
         for (PlayerRecord record : playerRecords) {
             Vector3 centerOffSetDistance = Vector3Utils.getTravelDistance(record.getCenter(), record.getStartLocation());
             Vector3 centerOffSet = center.clone().add(centerOffSetDistance).add(0.5, 0, 0.5);
-            this.playerRecords.put(record, new PlayerNPC(
+            this.playerRecords.put(record, new PlayerNPCOld(
                     record.getName(),
                     Vector3Utils.toLocation(world, centerOffSet),
                     record.getSkin()
@@ -134,11 +134,11 @@ public class Replay {
             replayCache.put(record.getUuid(), cache);
             cache.setCentersDistance(Vector3Utils.getTravelDistance(record.getCenter(), center));
 
-            Hologram hologram = Hologram.hologram(
+            HologramOld hologram = HologramOld.hologram(
                     ListUtils.toList(
-                            HologramLine.hologramLine(ComponentUtils.parse(String.format("<gold>%s", record.getName())), 0),
-                            HologramLine.hologramLine(ComponentUtils.parse(HOLOGRAM_LINE_PING), 0.3f),
-                            HologramLine.hologramLine(ComponentUtils.parse(HOLOGRAM_LINE_CPS), 0.225f)
+                            HologramLineOld.hologramLine(ComponentUtils.parse(String.format("<gold>%s", record.getName())), 0),
+                            HologramLineOld.hologramLine(ComponentUtils.parse(HOLOGRAM_LINE_PING), 0.3f),
+                            HologramLineOld.hologramLine(ComponentUtils.parse(HOLOGRAM_LINE_CPS), 0.225f)
                     ),
                     Vector3Utils.toLocation(world, record.getStartLocation()).add(0, 2.5, 0)
             );
@@ -150,7 +150,7 @@ public class Replay {
             Vector3 centerOffSet = center.clone().add(centerOffSetDistance).add(0.5, 0, 0.5);
             UUID uuid = UUID.randomUUID();
             modifiedUuids.put(record.getUuid(), uuid);
-            this.entityRecords.put(record, new EntityNPC(
+            this.entityRecords.put(record, new EntityNPCOld(
                     uuid,
                     Vector3Utils.toLocation(world, centerOffSet),
                     record.getEntityType()
@@ -172,7 +172,7 @@ public class Replay {
 
         for (PlayerRecord record : playerRecords.keySet()) {
             replayCache.get(record.getUuid()).setPlaying(true);
-            PlayerNPC npc = playerRecords.get(record);
+            PlayerNPCOld npc = playerRecords.get(record);
             npc.getViewers().addAll(Ruom.getOnlinePlayers());
             npc.addNPCPacket();
             npc.removeNPCTabList();
@@ -248,7 +248,7 @@ public class Replay {
                         UUID uuid = modifiedUuids.get(record.getUuid());
                         if (replayCache.containsKey(uuid) && !replayCache.get(uuid).isPlaying()) continue;
                         if (tickIndex < record.getStartingTick()) continue;
-                        EntityNPC npc = entityRecords.get(record);
+                        EntityNPCOld npc = entityRecords.get(record);
                         if (replayCache.containsKey(uuid)) {
                             if (shouldPlayThisTick) {
                                 ReplayCache cache = new ReplayCache();
@@ -261,11 +261,11 @@ public class Replay {
                                     npc.setMetadata(EntityMetadata.getEntityGravityId(), true);
                                 if (record.getItem() != null) {
                                     if (record.getItem().getType().equals(XMaterial.SPLASH_POTION.parseMaterial())) {
-                                        npc.setMetadata(EntityMetadata.getPotionMetadataId(), NMSProvider.getNmsItemStack(record.getItem()));
+                                        npc.setMetadata(EntityMetadata.getPotionMetadataId(), NMSUtils.getNmsItemStack(record.getItem()));
                                     }
                                 }
                                 if (record.getDroppedItem() != null) {
-                                    npc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSProvider.getNmsItemStack(record.getDroppedItem()));
+                                    npc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSUtils.getNmsItemStack(record.getDroppedItem()));
                                 }
                             }
                         } else {
@@ -297,7 +297,7 @@ public class Replay {
 
                                     if (lastNonNullTick.getLocation() != null) {
                                         if (entityTickIndex != 0) {
-                                            if (record.getEntityType().equals(EntityNPCType.ARROW)) {
+                                            if (record.getEntityType().equals(NPCType.ARROW)) {
                                                 float soundPitch = (float) (1.1 + (random.nextInt(2) / 10));
                                                 for (Player player : npc.getViewers()) {
                                                     player.playSound(location, XSound.ENTITY_ARROW_HIT.parseSound(), playbackControl.getVolume(), soundPitch);
@@ -312,7 +312,7 @@ public class Replay {
                                             for (Player player : npc.getViewers()) {
                                                 player.playSound(location, XSound.ENTITY_SPLASH_POTION_BREAK.parseSound(), playbackControl.getVolume() - 0.3f, 1);
                                                 //noinspection deprecation
-                                                player.playEffect(location, Effect.POTION_BREAK, NMSProvider.getPotionColor(record.getItem()));
+                                                player.playEffect(location, Effect.POTION_BREAK, NMSUtils.getPotionColor(record.getItem()));
                                             }
                                             break;
                                         }
@@ -328,7 +328,7 @@ public class Replay {
                                     ItemStack droppedItem = new ItemStack(record.getDroppedItem().getType());
                                     droppedItem.setItemMeta(record.getDroppedItem().getItemMeta());
                                     droppedItem.setAmount(tick.getItemAmount());
-                                    npc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSProvider.getNmsItemStack(droppedItem));
+                                    npc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSUtils.getNmsItemStack(droppedItem));
                                     lastNonNullTick.setItemAmount(tick.getItemAmount());
                                 }
                             }
@@ -337,7 +337,7 @@ public class Replay {
 
                     for (PlayerRecord record : playerRecords.keySet()) {
                         if (replayCache.get(record.getUuid()).isPlaying()) {
-                            PlayerNPC npc = playerRecords.get(record);
+                            PlayerNPCOld npc = playerRecords.get(record);
                             if (tickIndex == record.getTotalTicks()) {
                                 //This record is finished
                                 npc.removeNPCPacket();
@@ -353,7 +353,7 @@ public class Replay {
                                 }
                                 continue;
                             }
-                            Hologram hologram = playerHolograms.get(record.getUuid());
+                            HologramOld hologram = playerHolograms.get(record.getUuid());
                             ReplayCache cache = replayCache.get(record.getUuid());
                             RecordTick tick = record.getRecordTicks().get(tickIndex);
                             RecordTick lastNonNullTick;
@@ -585,7 +585,7 @@ public class Replay {
                                         player.playSound(blockLocation,
                                                 BlockSoundUtils.getBlockSound(BlockSoundUtils.SoundType.BREAK, blockMaterial), playbackControl.getVolume(), 0.8f);
                                     }
-                                    NMSProvider.sendBlockBreakAnimation(npc.getViewers(), blockLocFinal, -1);
+                                    NMSUtils.sendBlockDestruction(npc.getViewers(), blockLocFinal, -1);
                                     BlockUtils.spawnBlockBreakParticles(blockLocation, tick.getBlockBreaks().get(blockLoc));
                                 }
                             }
@@ -593,7 +593,7 @@ public class Replay {
                             if (tick.getBlockInteractionLocation() != null) {
                                 Vector3 blockLocFinal = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), tick.getBlockInteractionLocation()));
                                 Location blockLocation = Vector3Utils.toLocation(world, blockLocFinal);
-                                NMSProvider.sendChestAnimation(npc.getViewers(), blockLocFinal, tick.getBlockInteractionType(), tick.isOpenChestInteraction());
+                                NMSUtils.sendChestAnimation(npc.getViewers(), blockLocFinal, tick.getBlockInteractionType(), tick.isOpenChestInteraction());
 
                                 float pitch = 0.9f + (random.nextBoolean() ? 0.1f : 0);
                                 boolean shouldDelaySound = false;
@@ -717,7 +717,7 @@ public class Replay {
                     for (EntityRecord record : entityRecords.keySet()) {
                         entityRecords.get(record).removeNPCPacket();
                     }
-                    for (Hologram hologram : playerHolograms.values()) {
+                    for (HologramOld hologram : playerHolograms.values()) {
                         hologram.unload();
                     }
                     playerHolograms.clear();
@@ -732,12 +732,12 @@ public class Replay {
     public void suspend() {
         replayRunnable.cancel();
         for (PlayerRecord record : playerRecords.keySet()) {
-            PlayerNPC npc = playerRecords.get(record);
+            PlayerNPCOld npc = playerRecords.get(record);
             npc.removeNPCPacket();
         }
     }
 
-    private void moveNPC(RecordTick tick, RecordTick lastNonNullTick, NPC npc, @Nullable Hologram hologram, Vector3 recordCenter, boolean shouldPlayThisTick, int lowSpeedHelpIndex, PlayBackControl.Speed speed, boolean onGround) {
+    private void moveNPC(RecordTick tick, RecordTick lastNonNullTick, NPCOld npc, @Nullable HologramOld hologram, Vector3 recordCenter, boolean shouldPlayThisTick, int lowSpeedHelpIndex, PlayBackControl.Speed speed, boolean onGround) {
         Vector3 travelDistance = null;
         if (tick.getLocation() != null) {
             Vector3 centerOffSet = Vector3Utils.getTravelDistance(recordCenter, tick.getLocation());
@@ -815,7 +815,6 @@ public class Replay {
                 } else {
                     travelDistance = Vector3Utils.getTravelDistance(from, centerPoint);
                 }
-                //lastNonNullTick.setLocation(centerPoint.clone().add(-centerOffSet.getX(), -centerOffSet.getY(), -centerOffSet.getZ()));
                 break;
             }
             case x025: {

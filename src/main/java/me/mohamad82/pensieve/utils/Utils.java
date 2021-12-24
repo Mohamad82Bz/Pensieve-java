@@ -31,6 +31,19 @@ public class Utils {
         }
     }
 
+    public static void ignoreExcRun(RunnableExc runnable) {
+        try {
+            runnable.run();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Error(e);
+        }
+    }
+
+    @FunctionalInterface public interface RunnableExc {
+        void run() throws Exception;
+    }
+
     public static void removeUsedLocation(Vector3 location) {
         usedLocations.remove(location);
     }

@@ -8,18 +8,22 @@ import java.util.Set;
 
 public class EntityMetadata {
 
+    @Deprecated
     public static int getEntityCustomNameId() {
         return 2;
     }
 
+    @Deprecated
     public static int getEntityCustomNameVisibilityId() {
         return 3;
     }
 
+    @Deprecated
     public static int getEntityGravityId() {
         return 5;
     }
 
+    @Deprecated
     public static int getPotionMetadataId() { //TODO NMS LOWER VER TESTINGS...
         if (ServerVersion.supports(17)) {
             return 8;
@@ -52,6 +56,7 @@ public class EntityMetadata {
         }
     }
 
+    @Deprecated
     public static int getBodyArrowsMetadataId() {
         if (ServerVersion.supports(17)) {
             return 12;

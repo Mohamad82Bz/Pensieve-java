@@ -1,8 +1,8 @@
 package me.mohamad82.pensieve.recording;
 
-import me.mohamad82.pensieve.nms.NMSProvider;
+import me.mohamad82.pensieve.nms.NMSUtils;
 import me.mohamad82.pensieve.nms.EntityMetadata;
-import me.mohamad82.pensieve.nms.npc.enums.EntityNPCType;
+import me.mohamad82.pensieve.nms.npc.NPCType;
 import me.mohamad82.pensieve.nms.npc.enums.NPCState;
 import me.Mohamad82.RUoM.Ruom;
 import me.Mohamad82.RUoM.XSeries.XMaterial;
@@ -198,7 +198,7 @@ public class Recorder implements Listener {
                                 PotionMeta potionMeta = (PotionMeta) potionItem.getItemMeta();
                                 potionMeta.addCustomEffect(potionEffect, true);
                                 potionItem.setItemMeta(potionMeta);
-                                int potionColor = NMSProvider.getPotionColor(potionItem);
+                                int potionColor = NMSUtils.getPotionColor(potionItem);
                                 if (lastNonNullTick.getPotionColor() != potionColor) {
                                     tick.setPotionColor(potionColor);
                                     lastNonNullTick.setPotionColor(potionColor);
@@ -217,7 +217,7 @@ public class Recorder implements Listener {
                     Set<Entity> entitiesToRemove = new HashSet<>();
                     for (Entity entity : entities) {
                         if (getEntityRecord(entity) == null) {
-                            EntityRecord record = new EntityRecord(entity.getUniqueId(), center, EntityNPCType.getByEntityType(entity.getType()), currentTickIndex);
+                            EntityRecord record = new EntityRecord(entity.getUniqueId(), center, NPCType.getByEntityType(entity.getType()), currentTickIndex);
                             record.setStartLocation(Vector3Utils.toVector3(entity.getLocation()));
                             if (entity instanceof ThrownPotion) {
                                 record.setItem(((ThrownPotion) entity).getItem());
