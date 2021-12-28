@@ -1,20 +1,20 @@
 package me.mohamad82.pensieve.replaying;
 
-import me.mohamad82.pensieve.nms.hologram.HologramOld;
+import me.mohamad82.ruom.hologram.Hologram;
 
 public class ReplaySettings {
 
-    private final HologramOld hologram;
+    private final Hologram hologram;
 
-    private ReplaySettings(HologramOld hologram) {
+    private ReplaySettings(Hologram hologram) {
         this.hologram = hologram;
     }
 
     public static class Builder {
 
-        private HologramOld hologram = null;
+        private Hologram hologram = null;
 
-        public Builder withHologram(HologramOld hologram) {
+        public Builder withHologram(Hologram hologram) {
             this.hologram = hologram;
             return this;
         }

@@ -1,8 +1,7 @@
 package me.mohamad82.pensieve.recording;
 
-import me.mohamad82.pensieve.nms.NMSUtils;
-import me.mohamad82.pensieve.nms.enums.BlockDirection;
-import me.Mohamad82.RUoM.vector.Vector3;
+import me.mohamad82.ruom.utils.NMSUtils;
+import me.mohamad82.ruom.vector.Vector3;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -19,40 +18,28 @@ public class PendingBlockBreak implements Cloneable {
     private BlockDirection blockDirection;
     private List<Integer> animationStages;
 
-    public PendingBlockBreak() {
+    public PendingBlockBreak(Vector3 location, BlockDirection blockDirection, Material material) {
         this.uuid = UUID.randomUUID();
+
+        this.location = location;
+        this.blockDirection = blockDirection;
+        this.material = material;
     }
 
     public UUID getUuid() {
         return uuid;
     }
 
-    public void setUuid(UUID uuid) {
-        this.uuid = uuid;
-    }
-
     public Vector3 getLocation() {
         return location;
-    }
-
-    public void setLocation(Vector3 location) {
-        this.location = location;
     }
 
     public Material getMaterial() {
         return material;
     }
 
-    public void setMaterial(Material material) {
-        this.material = material;
-    }
-
     public BlockDirection getBlockDirection() {
         return blockDirection;
-    }
-
-    public void setBlockDirection(BlockDirection blockDirection) {
-        this.blockDirection = blockDirection;
     }
 
     public List<Integer> getAnimationStages() {
@@ -121,6 +108,15 @@ public class PendingBlockBreak implements Cloneable {
         } catch (CloneNotSupportedException e) {
             throw new Error(e);
         }
+    }
+
+    public enum BlockDirection {
+        UP,
+        DOWN,
+        NORTH,
+        SOUTH,
+        EAST,
+        WEST
     }
 
 }

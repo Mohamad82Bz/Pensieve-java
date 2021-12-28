@@ -1,17 +1,15 @@
 package me.mohamad82.pensieve;
 
-import me.mohamad82.pensieve.commands.PensieveCommand;
-import me.mohamad82.pensieve.core.ReplayArenaManager;
-import me.mohamad82.pensieve.data.DataManager;
 import me.mohamad82.pensieve.recording.RecordManager;
-import me.mohamad82.pensieve.recording.listeners.PacketListener;
+import me.mohamad82.pensieve.recording.listeners.PlayerActionListener;
+import me.mohamad82.pensieve.recording.listeners.PlayerUseItemListener;
 import me.mohamad82.pensieve.recording.listeners.RecordListeners;
 import me.mohamad82.pensieve.test.TestRecordCommand;
 import me.mohamad82.pensieve.world.WorldManager;
-import me.Mohamad82.RUoM.RUoMPlugin;
-import me.Mohamad82.RUoM.Ruom;
-import me.Mohamad82.RUoM.areaselection.AreaSelectionListener;
-import me.Mohamad82.RUoM.utils.StringUtils;
+import me.mohamad82.ruom.RUoMPlugin;
+import me.mohamad82.ruom.Ruom;
+import me.mohamad82.ruom.areaselection.AreaSelectionListener;
+import me.mohamad82.ruom.utils.StringUtils;
 import org.bukkit.Bukkit;
 
 import java.util.ArrayList;
@@ -38,23 +36,20 @@ public final class Pensieve extends RUoMPlugin {
     }
 
     public void initializeCommands() {
-        getCommand("pensieve").setExecutor(new PensieveCommand());
-
-        //TODO: Remove
+        //TODO: Debug command, Remove in future
         getCommand("record").setExecutor(new TestRecordCommand());
     }
 
     public void initializeEvents() {
         Ruom.registerListener(new RecordListeners());
         Ruom.registerListener(new AreaSelectionListener());
+        new PlayerActionListener();
+        new PlayerUseItemListener();
     }
 
     public void initializeInstances() {
         new WorldManager();
         new RecordManager();
-        new DataManager();
-        new ReplayArenaManager();
-        PacketListener.initialize();
         Ruom.initializeAreaSelection();
         Ruom.initializeSkinBuilder();
         Ruom.initializePacketListener();

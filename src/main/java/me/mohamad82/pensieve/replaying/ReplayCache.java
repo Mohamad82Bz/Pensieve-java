@@ -1,6 +1,6 @@
 package me.mohamad82.pensieve.replaying;
 
-import me.Mohamad82.RUoM.vector.Vector3;
+import me.mohamad82.ruom.vector.Vector3;
 
 import java.util.*;
 

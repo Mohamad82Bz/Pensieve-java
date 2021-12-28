@@ -1,6 +1,6 @@
 package me.mohamad82.pensieve.world;
 
-import me.Mohamad82.RUoM.utils.ServerVersion;
+import me.mohamad82.ruom.utils.ServerVersion;
 import org.bukkit.*;
 
 public class WorldManager {

@@ -1,30 +1,23 @@
 package me.mohamad82.pensieve.recording;
 
-import me.mohamad82.pensieve.nms.NMSUtils;
-import me.mohamad82.pensieve.nms.EntityMetadata;
-import me.mohamad82.pensieve.nms.npc.NPCType;
-import me.mohamad82.pensieve.nms.npc.enums.NPCState;
-import me.Mohamad82.RUoM.Ruom;
-import me.Mohamad82.RUoM.XSeries.XMaterial;
-import me.Mohamad82.RUoM.utils.ServerVersion;
-import me.Mohamad82.RUoM.utils.StringUtils;
-import me.Mohamad82.RUoM.vector.Vector3;
-import me.Mohamad82.RUoM.vector.Vector3Utils;
-import me.mohamad82.pensieve.recording.record.EntityRecord;
-import me.mohamad82.pensieve.recording.record.PlayerRecord;
+import me.mohamad82.pensieve.recording.record.*;
+import me.mohamad82.ruom.Ruom;
+import me.mohamad82.ruom.npc.NPC;
+import me.mohamad82.ruom.utils.NMSUtils;
+import me.mohamad82.ruom.utils.ServerVersion;
+import me.mohamad82.ruom.utils.StringUtils;
+import me.mohamad82.ruom.vector.Vector3;
+import me.mohamad82.ruom.vector.Vector3Utils;
+import me.mohamad82.ruom.xseries.XMaterial;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Material;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Item;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.ThrownPotion;
+import org.bukkit.entity.*;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -33,9 +26,8 @@ import java.util.*;
 
 public class Recorder implements Listener {
 
-    private final Recorder thisRecorder = this;
+    private final Recorder instance = this;
 
-    private final JavaPlugin plugin;
     private final Vector3 center;
 
     private final Set<Player> players;
@@ -49,14 +41,12 @@ public class Recorder implements Listener {
     private BukkitTask bukkitTask;
     private int currentTickIndex = 0;
 
-    public Recorder(JavaPlugin plugin, Set<Player> player, Vector3 center) {
-        this.plugin = plugin;
+    public Recorder(Set<Player> player, Vector3 center) {
         this.players = player;
         this.center = Vector3Utils.simplifyToCenter(center);
     }
 
-    public Recorder(JavaPlugin plugin, Player player) {
-        this.plugin = plugin;
+    public Recorder(Player player) {
         Set<Player> players = new HashSet<>();
         players.add(player);
         this.players = players;
@@ -75,7 +65,7 @@ public class Recorder implements Listener {
                         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.translateAlternateColorCodes('&',
                                 "&9Recorded &d" + currentTickIndex + " &9Ticks")));
 
-                        RecordTick tick = new RecordTick();
+                        PlayerRecordTick tick = new PlayerRecordTick();
                         playerCurrentTick.put(player, tick);
 
                         if (currentTickIndex == 0) {
@@ -85,7 +75,7 @@ public class Recorder implements Listener {
                             tick.setLocation(Vector3Utils.toVector3(player.getLocation()));
                             tick.setYaw(player.getLocation().getYaw());
                             tick.setPitch(player.getLocation().getPitch());
-                            tick.setState(getPlayerState(player));
+                            tick.setPose(getPlayerPose(player));
                             tick.setHealth(player.getHealth());
                             tick.setHunger(player.getFoodLevel());
                             tick.setHand(getPlayerEquipment(player, EquipmentSlot.HAND));
@@ -95,9 +85,9 @@ public class Recorder implements Listener {
                             tick.setLeggings(getPlayerEquipment(player, EquipmentSlot.LEGS));
                             tick.setBoots(getPlayerEquipment(player, EquipmentSlot.FEET));
 
-                            lastNonNullTicks.put(player.getUniqueId(), tick.clone());
+                            lastNonNullTicks.put(player.getUniqueId(), tick.copy());
                         } else {
-                            RecordTick lastNonNullTick = lastNonNullTicks.get(player.getUniqueId());
+                            PlayerRecordTick lastNonNullTick = (PlayerRecordTick) lastNonNullTicks.get(player.getUniqueId());
 
                             Vector3 location = Vector3Utils.toVector3(player.getLocation());
                             if (!lastNonNullTick.getLocation().equals(location)) {
@@ -117,17 +107,13 @@ public class Recorder implements Listener {
                                 lastNonNullTick.setPitch(tick.getPitch());
                             }
 
-                            NPCState state = getPlayerState(player);
-                            if (!lastNonNullTick.getState().equals(state)) {
-                                tick.setState(state);
-                                lastNonNullTick.setState(tick.getState());
+                            NPC.Pose pose = getPlayerPose(player);
+                            if (!lastNonNullTick.getPose().equals(pose)) {
+                                tick.setPose(pose);
+                                lastNonNullTick.setPose(tick.getPose());
                             }
 
-                            byte entityMetadata = getPlayerMetadata(player);
-                            if (lastNonNullTick.getEntityMetadata() != entityMetadata) {
-                                tick.setEntityMetadata(entityMetadata);
-                                lastNonNullTick.setEntityMetadata(entityMetadata);
-                            }
+                            setPlayerMetadataValues(player, tick);
 
                             ItemStack hand = getPlayerEquipment(player, EquipmentSlot.HAND);
                             if (!lastNonNullTick.getHand().equals(hand) && tick.getHand() == null) {
@@ -199,14 +185,14 @@ public class Recorder implements Listener {
                                 potionMeta.addCustomEffect(potionEffect, true);
                                 potionItem.setItemMeta(potionMeta);
                                 int potionColor = NMSUtils.getPotionColor(potionItem);
-                                if (lastNonNullTick.getPotionColor() != potionColor) {
-                                    tick.setPotionColor(potionColor);
-                                    lastNonNullTick.setPotionColor(potionColor);
+                                if (lastNonNullTick.getEffectColor() != potionColor) {
+                                    tick.setEffectColor(potionColor);
+                                    lastNonNullTick.setEffectColor(potionColor);
                                 }
                             } else {
-                                if (lastNonNullTick.getPotionColor() != 0) {
-                                    tick.setPotionColor(0);
-                                    lastNonNullTick.setPotionColor(0);
+                                if (lastNonNullTick.getEffectColor() != 0) {
+                                    tick.setEffectColor(0);
+                                    lastNonNullTick.setEffectColor(0);
                                 }
                             }
                         }
@@ -216,51 +202,114 @@ public class Recorder implements Listener {
 
                     Set<Entity> entitiesToRemove = new HashSet<>();
                     for (Entity entity : entities) {
+                        EntityRecord record;
                         if (getEntityRecord(entity) == null) {
-                            EntityRecord record = new EntityRecord(entity.getUniqueId(), center, NPCType.getByEntityType(entity.getType()), currentTickIndex);
-                            record.setStartLocation(Vector3Utils.toVector3(entity.getLocation()));
-                            if (entity instanceof ThrownPotion) {
-                                record.setItem(((ThrownPotion) entity).getItem());
-                            }
-                            if (entity instanceof Item) {
-                                record.setDroppedItem(((Item) entity).getItemStack().clone());
-                            }
-                            getEntityRecords().add(record);
-                        }
-                        RecordTick tick = new RecordTick();
-                        entityCurrentTick.put(entity, tick);
-                        RecordTick lastNonNullTick;
+                            switch (entity.getType()) {
+                                case DROPPED_ITEM: {
+                                    record = new DroppedItemRecord(entity.getUniqueId(), center, currentTickIndex, ((Item) entity).getItemStack().clone());
+                                    break;
+                                }
+                                case AREA_EFFECT_CLOUD: {
+                                    AreaEffectCloud areaEffectCloud = (AreaEffectCloud) entity;
+                                    record = new AreaEffectCloudRecord(entity.getUniqueId(), center, currentTickIndex, areaEffectCloud.getColor().asRGB());
+                                    break;
+                                }
+                                case SPLASH_POTION:
+                                case THROWN_EXP_BOTTLE:
+                                case SNOWBALL:
+                                case ENDER_PEARL:
+                                case EGG: {
+                                    ItemStack projectileItem;
+                                    switch (entity.getType()) {
+                                        case SPLASH_POTION: {
+                                            projectileItem = ((ThrownPotion) entity).getItem();
+                                            break;
+                                        }
+                                        case THROWN_EXP_BOTTLE: {
+                                            projectileItem = XMaterial.EXPERIENCE_BOTTLE.parseItem();
+                                            break;
+                                        }
+                                        case SNOWBALL: {
+                                            projectileItem = XMaterial.SNOWBALL.parseItem();
+                                            break;
+                                        }
+                                        case ENDER_PEARL: {
+                                            projectileItem = XMaterial.ENDER_PEARL.parseItem();
+                                            break;
+                                        }
+                                        case EGG: {
+                                            projectileItem = XMaterial.EGG.parseItem();
+                                            break;
+                                        }
+                                        default: {
+                                            throw new IllegalStateException("Please report this to the plugin's developer. Entity type: " + entity.getType().toString());
+                                        }
+                                    }
 
-                        if (!lastNonNullTicks.containsKey(entity.getUniqueId())) {
-                            tick.setLocation(Vector3Utils.toVector3(entity.getLocation()));
-                            tick.setYaw(entity.getLocation().getYaw());
-                            tick.setPitch(entity.getLocation().getPitch());
-                            tick.setVelocity(Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ()));
-
-                            lastNonNullTicks.put(entity.getUniqueId(), tick.clone());
-                        } else {
-                            lastNonNullTick = lastNonNullTicks.get(entity.getUniqueId());
-
-                            Vector3 location = Vector3Utils.toVector3(entity.getLocation());
-                            if (!lastNonNullTick.getLocation().equals(location)) {
-                                tick.setLocation(location);
-                                lastNonNullTick.setLocation(location);
-                            } else {
-                                Vector3 velocity = Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ());
-                                if (lastNonNullTick.getVelocity() == null || !lastNonNullTick.getVelocity().equals(velocity)) {
-                                    tick.setVelocity(velocity);
-                                    lastNonNullTick.setVelocity(velocity);
+                                    record = new ProjectileRecord(entity.getUniqueId(), center, currentTickIndex, projectileItem);
+                                    break;
+                                }
+                                case SPECTRAL_ARROW:
+                                case ARROW: {
+                                    int color = -1;
+                                    if (!(entity instanceof SpectralArrow)) {
+                                        try {
+                                            color = ((Arrow) entity).getColor().asRGB();
+                                        } catch (IllegalArgumentException ignore) {
+                                        }
+                                    }
+                                    record = new ArrowRecord(entity.getUniqueId(), center, currentTickIndex, color);
+                                    break;
+                                }
+                                default: {
+                                    Ruom.warn("Unsupported entity type was added to the recorder: " + entity.getType().toString().toLowerCase());
+                                    record = null;
                                 }
                             }
-
-                            if (lastNonNullTick.getYaw() != entity.getLocation().getYaw()) {
-                                tick.setYaw(entity.getLocation().getYaw());
-                                lastNonNullTick.setYaw(entity.getLocation().getYaw());
+                            if (record != null) {
+                                record.setStartLocation(Vector3Utils.toVector3(entity.getLocation()));
+                                getEntityRecords().add(record);
                             }
+                        } else {
+                            record = getEntityRecord(entity);
+                        }
+                        RecordTick tick = record.createRecordTick();
+                        entityCurrentTick.put(entity, tick);
 
-                            if (lastNonNullTick.getPitch() != entity.getLocation().getPitch()) {
+                        if (tick instanceof AreaEffectCloudTick) {
+                            ((AreaEffectCloudTick) tick).setRadius(((AreaEffectCloud) entity).getRadius());
+                        } else {
+                            if (!lastNonNullTicks.containsKey(entity.getUniqueId())) {
+                                tick.setLocation(Vector3Utils.toVector3(entity.getLocation()));
+                                tick.setYaw(entity.getLocation().getYaw());
                                 tick.setPitch(entity.getLocation().getPitch());
-                                lastNonNullTick.setPitch(entity.getLocation().getPitch());
+                                tick.setVelocity(Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ()));
+
+                                lastNonNullTicks.put(entity.getUniqueId(), tick.copy());
+                            } else {
+                                RecordTick lastNonNullTick = lastNonNullTicks.get(entity.getUniqueId());
+
+                                Vector3 location = Vector3Utils.toVector3(entity.getLocation());
+                                if (!lastNonNullTick.getLocation().equals(location)) {
+                                    tick.setLocation(location);
+                                    lastNonNullTick.setLocation(location);
+                                } else {
+                                    Vector3 velocity = Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ());
+                                    if (lastNonNullTick.getVelocity() == null || !lastNonNullTick.getVelocity().equals(velocity)) {
+                                        tick.setVelocity(velocity);
+                                        lastNonNullTick.setVelocity(velocity);
+                                    }
+                                }
+
+                                if (lastNonNullTick.getYaw() != entity.getLocation().getYaw()) {
+                                    tick.setYaw(entity.getLocation().getYaw());
+                                    lastNonNullTick.setYaw(entity.getLocation().getYaw());
+                                }
+
+                                if (lastNonNullTick.getPitch() != entity.getLocation().getPitch()) {
+                                    tick.setPitch(entity.getLocation().getPitch());
+                                    lastNonNullTick.setPitch(entity.getLocation().getPitch());
+                                }
                             }
                         }
 
@@ -274,14 +323,14 @@ public class Recorder implements Listener {
 
                     currentTickIndex++;
                 } catch (Exception e) {
-                    RecordManager.getInstance().getRecorders().remove(thisRecorder);
+                    RecordManager.getInstance().getRecorders().remove(instance);
                     cancel();
                     e.printStackTrace();
                     Ruom.error(StringUtils.colorize("&4Something wrong happened with the recorder. Record process is now terminated" +
                             " to prevent furthur errors. Please contact the developer and provide the errors you see above."));
                 }
             }
-        }.runTaskTimer(plugin, 0, 1);
+        }.runTaskTimer(Ruom.getPlugin(), 0, 1);
     }
 
     public void stop() {
@@ -289,45 +338,38 @@ public class Recorder implements Listener {
         bukkitTask.cancel();
     }
 
-    private NPCState getPlayerState(Player player) {
-        NPCState state;
+    private NPC.Pose getPlayerPose(Player player) {
+        NPC.Pose pose;
 
         if (player.isSneaking())
-            state = NPCState.CROUCHING;
+            pose = NPC.Pose.CROUCHING;
         else if (player.isSleeping())
-            state = NPCState.SLEEPING;
+            pose = NPC.Pose.SLEEPING;
         else if (ServerVersion.supports(13) && player.isSwimming())
-            state = NPCState.SWIMMING;
+            pose = NPC.Pose.SWIMMING;
         else if (player.isDead())
-            state = NPCState.DYING;
+            pose = NPC.Pose.DYING;
         else if (ServerVersion.supports(9) && player.isGliding())
-            state = NPCState.SWIMMING;
+            pose = NPC.Pose.SWIMMING;
         else
-            state = NPCState.STANDING;
+            pose = NPC.Pose.STANDING;
 
-        return state;
+        return pose;
     }
 
-    public byte getPlayerMetadata(Player player) {
-        Set<EntityMetadata.EntityStatus> metadata = new HashSet<>();
+    public void setPlayerMetadataValues(Player player, RecordTick tick) {
+        PlayerRecordTick playerRecordTick = (PlayerRecordTick) tick;
 
-        if (player.getFireTicks() > 0)
-            metadata.add(EntityMetadata.EntityStatus.BURNING);
-        if (player.isSneaking())
-            metadata.add(EntityMetadata.EntityStatus.CROUCHING);
-        if (player.isSprinting())
-            metadata.add(EntityMetadata.EntityStatus.SPRINTING);
-        if (ServerVersion.supports(13) && player.isSwimming())
-            metadata.add(EntityMetadata.EntityStatus.SWIMMING);
-        if (player.isInvisible())
-            metadata.add(EntityMetadata.EntityStatus.INVISIBLE);
-        if (ServerVersion.supports(9) && player.isGlowing())
-            metadata.add(EntityMetadata.EntityStatus.GLOWING);
-        if (ServerVersion.supports(11) && player.isGliding()) {
-            metadata.add(EntityMetadata.EntityStatus.GLIDING);
-        }
-
-        return EntityMetadata.EntityStatus.getBitMasks(metadata);
+        playerRecordTick.setBurning(player.getFireTicks() > 0);
+        playerRecordTick.setCrouching(player.isSneaking());
+        playerRecordTick.setSprinting(player.isSprinting());
+        if (ServerVersion.supports(13))
+            playerRecordTick.setSwimming(player.isSwimming());
+        playerRecordTick.setInvisible(player.isInvisible());
+        if (ServerVersion.supports(9))
+            playerRecordTick.setGlowing(player.isGlowing());
+        if (ServerVersion.supports(11))
+            playerRecordTick.setGliding(player.isGliding());
     }
 
     private ItemStack getPlayerEquipment(Player player, EquipmentSlot slot) {
@@ -347,8 +389,9 @@ public class Recorder implements Listener {
 
     public EntityRecord getEntityRecord(Entity entity) {
         for (EntityRecord record : entityRecords) {
-            if (record.getUuid().equals(entity.getUniqueId()))
+            if (record.getUuid().equals(entity.getUniqueId())) {
                 return record;
+            }
         }
         return null;
     }

@@ -1,8 +1,10 @@
-package me.mohamad82.pensieve.recording;
+package me.mohamad82.pensieve.recording.record;
 
-import me.mohamad82.pensieve.nms.npc.enums.NPCState;
+import me.mohamad82.pensieve.recording.PendingBlockBreak;
 import me.mohamad82.pensieve.recording.enums.DamageType;
-import me.Mohamad82.RUoM.vector.Vector3;
+import me.mohamad82.pensieve.utils.Utils;
+import me.mohamad82.ruom.npc.NPC;
+import me.mohamad82.ruom.vector.Vector3;
 import org.bukkit.Material;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -10,7 +12,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.HashMap;
 import java.util.Map;
 
-public class RecordTick implements Cloneable {
+public class PlayerRecordTick extends RecordTick {
 
     private Map<Vector3, Material> blockPlaces;
     private Map<Vector3, Material> blockBreaks;
@@ -18,11 +20,9 @@ public class RecordTick implements Cloneable {
 
     private PendingBlockBreak pendingBlockBreak;
     private ItemStack eatingItem;
-    private Vector3 location;
-    private Vector3 velocity;
     private Vector3 blockInteractionLocation;
     private Material blockInteractionType;
-    private NPCState state;
+    private NPC.Pose pose;
     private DamageType takenDamageType;
     private String message;
 
@@ -31,21 +31,22 @@ public class RecordTick implements Cloneable {
     private boolean throwProjectile;
     private boolean drawCrossbow;
     private boolean shootCrossbow;
-    private boolean drawBowWithOffHand;
     private boolean openChestInteraction;
-
-    private float yaw = -1;
-    private float pitch = -1;
+    private boolean burning;
+    private boolean crouching;
+    private boolean sprinting;
+    private boolean swimming;
+    private boolean invisible;
+    private boolean glowing;
+    private boolean gliding;
 
     private double health = -1;
     private int hunger = -1;
     private int ping = -1;
-    private int drawBow = -1;
-    private int crossbowChargeLevel = -1;
+    private byte useItemInteraction = -1;
+    private int usedItemTime = -1;
     private int bodyArrows = -1;
-    private int potionColor = -1;
-    private int itemAmount = -1;
-    private byte entityMetadata = -1;
+    private int crossbowChargeLevel = -1;
 
     private ItemStack hand;
     private ItemStack offHand;
@@ -53,10 +54,6 @@ public class RecordTick implements Cloneable {
     private ItemStack chestplate;
     private ItemStack leggings;
     private ItemStack boots;
-
-    protected RecordTick() {
-
-    }
 
     public Map<Vector3, Material> getBlockPlaces() {
         return blockPlaces;
@@ -94,14 +91,6 @@ public class RecordTick implements Cloneable {
         blockData = new HashMap<>();
     }
 
-    public ItemStack getEatingItem() {
-        return eatingItem;
-    }
-
-    public void setEatingItem(ItemStack eatingItem) {
-        this.eatingItem = eatingItem;
-    }
-
     public PendingBlockBreak getPendingBlockBreak() {
         return pendingBlockBreak;
     }
@@ -110,20 +99,12 @@ public class RecordTick implements Cloneable {
         this.pendingBlockBreak = pendingBlockBreak;
     }
 
-    public Vector3 getLocation() {
-        return location;
+    public ItemStack getEatingItem() {
+        return eatingItem;
     }
 
-    public void setLocation(Vector3 location) {
-        this.location = location;
-    }
-
-    public Vector3 getVelocity() {
-        return velocity;
-    }
-
-    public void setVelocity(Vector3 velocity) {
-        this.velocity = velocity;
+    public void setEatingItem(ItemStack eatingItem) {
+        this.eatingItem = eatingItem;
     }
 
     public Vector3 getBlockInteractionLocation() {
@@ -142,12 +123,20 @@ public class RecordTick implements Cloneable {
         this.blockInteractionType = blockInteractionType;
     }
 
-    public NPCState getState() {
-        return state;
+    public NPC.Pose getPose() {
+        return pose;
     }
 
-    public void setState(NPCState state) {
-        this.state = state;
+    public void setPose(NPC.Pose pose) {
+        this.pose = pose;
+    }
+
+    public DamageType getTakenDamageType() {
+        return takenDamageType;
+    }
+
+    public void damage(DamageType takenDamageType) {
+        this.takenDamageType = takenDamageType;
     }
 
     public String getMessage() {
@@ -158,40 +147,12 @@ public class RecordTick implements Cloneable {
         this.message = message;
     }
 
-    public float getYaw() {
-        return yaw;
-    }
-
-    public void setYaw(float yaw) {
-        this.yaw = yaw;
-    }
-
-    public float getPitch() {
-        return pitch;
-    }
-
-    public void setPitch(float pitch) {
-        this.pitch = pitch;
-    }
-
     public boolean didSwing() {
         return swing;
     }
 
     public void swing() {
         this.swing = true;
-    }
-
-    public boolean tookDamage() {
-        return takenDamageType != null;
-    }
-
-    public DamageType getTakenDamageType() {
-        return takenDamageType;
-    }
-
-    public void damage(DamageType damageType) {
-        this.takenDamageType = damageType;
     }
 
     public boolean ateFood() {
@@ -202,7 +163,7 @@ public class RecordTick implements Cloneable {
         this.eatFood = true;
     }
 
-    public boolean threwProjectile() {
+    public boolean thrownProjectile() {
         return throwProjectile;
     }
 
@@ -215,7 +176,7 @@ public class RecordTick implements Cloneable {
     }
 
     public void drawCrossbow() {
-        this.drawCrossbow = true;
+        this.drawCrossbow = drawCrossbow;
     }
 
     public boolean shotCrossbow() {
@@ -226,55 +187,7 @@ public class RecordTick implements Cloneable {
         this.shootCrossbow = true;
     }
 
-    public int getCrossbowChargeLevel() {
-        return crossbowChargeLevel;
-    }
-
-    public void setCrossbowChargeLevel(int crossbowChargeLevel) {
-        this.crossbowChargeLevel = crossbowChargeLevel;
-    }
-
-    public int getBodyArrows() {
-        return bodyArrows;
-    }
-
-    public void setBodyArrows(int bodyArrows) {
-        this.bodyArrows = bodyArrows;
-    }
-
-    public int getPotionColor() {
-        return potionColor;
-    }
-
-    public void setPotionColor(int potionColor) {
-        this.potionColor = potionColor;
-    }
-
-    public int getItemAmount() {
-        return itemAmount;
-    }
-
-    public void setItemAmount(int itemAmount) {
-        this.itemAmount = itemAmount;
-    }
-
-    public byte getEntityMetadata() {
-        return entityMetadata;
-    }
-
-    public void setEntityMetadata(byte entityMetadata) {
-        this.entityMetadata = entityMetadata;
-    }
-
-    public boolean drawnBowWithOffHand() {
-        return drawBowWithOffHand;
-    }
-
-    public void drawBowWithOffHand() {
-        this.drawBowWithOffHand = true;
-    }
-
-    public boolean isOpenChestInteraction() {
+    public boolean didOpenChestInteraction() {
         return openChestInteraction;
     }
 
@@ -282,12 +195,60 @@ public class RecordTick implements Cloneable {
         this.openChestInteraction = openChestInteraction;
     }
 
-    public int getDrawBow() {
-        return drawBow;
+    public boolean wasBurning() {
+        return burning;
     }
 
-    public void drawBow(int drawnBow) {
-        this.drawBow = drawnBow;
+    public void setBurning(boolean burning) {
+        this.burning = burning;
+    }
+
+    public boolean wasCrouching() {
+        return crouching;
+    }
+
+    public void setCrouching(boolean crouching) {
+        this.crouching = crouching;
+    }
+
+    public boolean wasSprinting() {
+        return sprinting;
+    }
+
+    public void setSprinting(boolean sprinting) {
+        this.sprinting = sprinting;
+    }
+
+    public boolean wasSwimming() {
+        return swimming;
+    }
+
+    public void setSwimming(boolean swimming) {
+        this.swimming = swimming;
+    }
+
+    public boolean wasInvisible() {
+        return invisible;
+    }
+
+    public void setInvisible(boolean invisible) {
+        this.invisible = invisible;
+    }
+
+    public boolean wasGlowing() {
+        return glowing;
+    }
+
+    public void setGlowing(boolean glowing) {
+        this.glowing = glowing;
+    }
+
+    public boolean wasGliding() {
+        return gliding;
+    }
+
+    public void setGliding(boolean gliding) {
+        this.gliding = gliding;
     }
 
     public double getHealth() {
@@ -312,6 +273,44 @@ public class RecordTick implements Cloneable {
 
     public void setPing(int ping) {
         this.ping = ping;
+    }
+
+    /**
+     * 0 = No interaction
+     * 1 = MainHand interaction
+     * 2 = OffHand interaction
+     * 3 = Release
+     */
+    public byte getUseItemInteractionHand() {
+        return useItemInteraction;
+    }
+
+    public void useItemInteraction(byte useItemInteraction) {
+        this.useItemInteraction = useItemInteraction;
+    }
+
+    public int getUsedItemTime() {
+        return usedItemTime;
+    }
+
+    public void setUsedItemTime(int usedItemTime) {
+        this.usedItemTime = usedItemTime;
+    }
+
+    public int getBodyArrows() {
+        return bodyArrows;
+    }
+
+    public void setBodyArrows(int bodyArrows) {
+        this.bodyArrows = bodyArrows;
+    }
+
+    public int getCrossbowChargeLevel() {
+        return crossbowChargeLevel;
+    }
+
+    public void setCrossbowChargeLevel(int crossbowChargeLevel) {
+        this.crossbowChargeLevel = crossbowChargeLevel;
     }
 
     public ItemStack getHand() {
@@ -404,30 +403,9 @@ public class RecordTick implements Cloneable {
         }
     }
 
-    public RecordTick clone() {
-        try {
-            RecordTick tick = (RecordTick) super.clone();
-            if (this.getBlockPlaces() != null)
-                tick.setBlockPlaces(new HashMap<>(this.getBlockPlaces()));
-            if (this.getBlockBreaks() != null)
-                tick.setBlockBreaks(new HashMap<>(this.getBlockBreaks()));
-            if (tick.getBlockData() != null)
-                tick.setBlockData(new HashMap<>(this.getBlockData()));
-            if (this.getLocation() != null)
-                tick.setLocation(this.getLocation().clone());
-            if (this.getHelmet() != null)
-                tick.setHelmet(this.getHelmet().clone());
-            if (this.getChestplate() != null)
-                tick.setChestplate(this.getChestplate().clone());
-            if (this.getLeggings() != null)
-                tick.setLeggings(this.getLeggings().clone());
-            if (this.getBoots() != null)
-                this.setBoots(this.getBoots().clone());
-
-            return tick;
-        } catch (CloneNotSupportedException e) {
-            throw new Error(e);
-        }
+    @Override
+    public PlayerRecordTick copy() {
+        return Utils.copy(this, new PlayerRecordTick());
     }
-    
+
 }

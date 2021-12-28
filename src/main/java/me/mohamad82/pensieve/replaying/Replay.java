@@ -1,38 +1,29 @@
 package me.mohamad82.pensieve.replaying;
 
-import me.Mohamad82.RUoM.Ruom;
-import me.Mohamad82.RUoM.XSeries.XMaterial;
-import me.Mohamad82.RUoM.XSeries.XSound;
-import me.Mohamad82.RUoM.adventureapi.ComponentUtils;
-import me.Mohamad82.RUoM.utils.BlockUtils;
-import me.Mohamad82.RUoM.utils.ListUtils;
-import me.Mohamad82.RUoM.utils.PlayerUtils;
-import me.Mohamad82.RUoM.vector.Vector3;
-import me.Mohamad82.RUoM.vector.Vector3Utils;
-import me.mohamad82.pensieve.nms.EntityMetadata;
-import me.mohamad82.pensieve.nms.NMSUtils;
-import me.mohamad82.pensieve.nms.hologram.HologramOld;
-import me.mohamad82.pensieve.nms.hologram.HologramLineOld;
-import me.mohamad82.pensieve.nms.znpcold.EntityNPCOld;
-import me.mohamad82.pensieve.nms.znpcold.NPCOld;
-import me.mohamad82.pensieve.nms.znpcold.PlayerNPCOld;
-import me.mohamad82.pensieve.nms.npc.NPCType;
-import me.mohamad82.pensieve.nms.npc.enums.NPCAnimation;
-import me.mohamad82.pensieve.recording.RecordTick;
-import me.mohamad82.pensieve.recording.record.EntityRecord;
-import me.mohamad82.pensieve.recording.record.PlayerRecord;
 import me.mohamad82.pensieve.recording.record.Record;
-import me.mohamad82.pensieve.utils.BlockSoundUtils;
-import me.mohamad82.pensieve.utils.SoundContainer;
+import me.mohamad82.pensieve.recording.record.*;
+import me.mohamad82.ruom.Ruom;
+import me.mohamad82.ruom.hologram.Hologram;
+import me.mohamad82.ruom.npc.EntityNPC;
+import me.mohamad82.ruom.npc.LivingEntityNPC;
+import me.mohamad82.ruom.npc.NPC;
+import me.mohamad82.ruom.npc.PlayerNPC;
+import me.mohamad82.ruom.npc.entity.AreaEffectCloudNPC;
+import me.mohamad82.ruom.npc.entity.ArrowNPC;
+import me.mohamad82.ruom.npc.entity.ItemNPC;
+import me.mohamad82.ruom.npc.entity.ThrowableProjectileNPC;
+import me.mohamad82.ruom.utils.*;
+import me.mohamad82.ruom.vector.Vector3;
+import me.mohamad82.ruom.vector.Vector3Utils;
+import me.mohamad82.ruom.xseries.XMaterial;
+import me.mohamad82.ruom.xseries.XSound;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -42,15 +33,11 @@ import java.util.*;
 
 public class Replay {
 
-    private static final String HOLOGRAM_LINE_PING = String.format("<gradient:aqua:blue>Ping: <gradient:blue:aqua>%s", 0);
-    private static final String HOLOGRAM_LINE_CPS = String.format("<gradient:aqua:blue>CPS: <gradient:blue:aqua>%s", 0);
-
-    private final Map<PlayerRecord, PlayerNPCOld> playerRecords = new HashMap<>();
-    private final Map<EntityRecord, EntityNPCOld> entityRecords = new HashMap<>();
+    private final Map<PlayerRecord, PlayerNPC> playerRecords = new HashMap<>();
+    private final Map<EntityRecord, EntityNPC> entityRecords = new HashMap<>();
     private final Map<UUID, List<RecordTick>> preparedLastNonNullTicks = new HashMap<>();
-    private final Map<UUID, RecordTick> lastNonNullTicks = new HashMap<>();
     private final Map<UUID, ReplayCache> replayCache = new HashMap<>();
-    private final Map<UUID, HologramOld> playerHolograms = new HashMap<>();
+    private final Map<UUID, Hologram> playerHolograms = new HashMap<>();
     private final Map<UUID, UUID> modifiedUuids = new HashMap<>();
 
     private final World world;
@@ -70,7 +57,7 @@ public class Replay {
             boolean firstLoop = true;
             for (RecordTick tick : record.getRecordTicks()) {
                 if (firstLoop) {
-                    lastNonNullTick = tick.clone();
+                    lastNonNullTick = tick.copy();
                     firstLoop = false;
                 } else {
                     if (tick.getLocation() != null)
@@ -79,30 +66,43 @@ public class Replay {
                         lastNonNullTick.setYaw(tick.getYaw());
                     if (tick.getPitch() != -1)
                         lastNonNullTick.setPitch(tick.getPitch());
-                    if (tick.getHealth() != -1)
-                        lastNonNullTick.setHealth(tick.getHealth());
-                    if (tick.getHunger() != -1)
-                        lastNonNullTick.setHunger(tick.getHunger());
-                    if (tick.getState() != null)
-                        lastNonNullTick.setState(tick.getState());
-                    if (tick.getHand() != null)
-                        lastNonNullTick.setHand(tick.getHand());
-                    if (tick.getOffHand() != null)
-                        lastNonNullTick.setOffHand(tick.getOffHand());
-                    if (tick.getHelmet() != null)
-                        lastNonNullTick.setHelmet(tick.getHelmet());
-                    if (tick.getChestplate() != null)
-                        lastNonNullTick.setChestplate(tick.getChestplate());
-                    if (tick.getLeggings() != null)
-                        lastNonNullTick.setLeggings(tick.getLeggings());
-                    if (tick.getBoots() != null)
-                        lastNonNullTick.setBoots(tick.getBoots());
+                    if (tick.getVelocity() != null)
+                        lastNonNullTick.setVelocity(tick.getVelocity());
+                    if (tick.getEffectColor() != -1)
+                        lastNonNullTick.setEffectColor(tick.getEffectColor());
 
-                    if (tick.getItemAmount() != -1)
-                        lastNonNullTick.setItemAmount(tick.getItemAmount());
+                    if (tick instanceof PlayerRecordTick) {
+                        PlayerRecordTick playerRecordTick = (PlayerRecordTick) tick;
+                        PlayerRecordTick lastNonNullPlayerRecordTick = (PlayerRecordTick) lastNonNullTick;
+                        if (playerRecordTick.getPing() != -1)
+                            lastNonNullPlayerRecordTick.setPing(playerRecordTick.getPing());
+                        if (playerRecordTick.getHealth() != -1)
+                            lastNonNullPlayerRecordTick.setHealth(playerRecordTick.getHealth());
+                        if (playerRecordTick.getHunger() != -1)
+                            lastNonNullPlayerRecordTick.setHunger(playerRecordTick.getHunger());
+                        if (playerRecordTick.getPose() != null)
+                            lastNonNullPlayerRecordTick.setPose(playerRecordTick.getPose());
+                        if (playerRecordTick.getHand() != null)
+                            lastNonNullPlayerRecordTick.setHand(playerRecordTick.getHand());
+                        if (playerRecordTick.getOffHand() != null)
+                            lastNonNullPlayerRecordTick.setOffHand(playerRecordTick.getOffHand());
+                        if (playerRecordTick.getHelmet() != null)
+                            lastNonNullPlayerRecordTick.setHelmet(playerRecordTick.getHelmet());
+                        if (playerRecordTick.getChestplate() != null)
+                            lastNonNullPlayerRecordTick.setChestplate(playerRecordTick.getChestplate());
+                        if (playerRecordTick.getLeggings() != null)
+                            lastNonNullPlayerRecordTick.setLeggings(playerRecordTick.getLeggings());
+                        if (playerRecordTick.getBoots() != null)
+                            lastNonNullPlayerRecordTick.setBoots(playerRecordTick.getBoots());
+                    } else if (tick instanceof DroppedItemRecordTick) {
+                        DroppedItemRecordTick droppedItemRecordTick = (DroppedItemRecordTick) tick;
+                        DroppedItemRecordTick lastNonNullDroppedItemRecordTick = (DroppedItemRecordTick) lastNonNullTick;
+                        if (droppedItemRecordTick.getItemAmount() != -1)
+                            lastNonNullDroppedItemRecordTick.setItemAmount(droppedItemRecordTick.getItemAmount());
+                    }
                 }
 
-                lastNonNullTicks.add(lastNonNullTick.clone());
+                lastNonNullTicks.add(lastNonNullTick.copy());
             }
 
             preparedLastNonNullTicks.put(record.getUuid(), lastNonNullTicks);
@@ -113,7 +113,7 @@ public class Replay {
         for (EntityRecord record : entityRecords.keySet()) {
             if (replayCache.containsKey(record.getUuid()) && replayCache.get(record.getUuid()).isPlaying()) {
                 boolean noGravity = speed.equals(PlayBackControl.Speed.x050) || speed.equals(PlayBackControl.Speed.x025);
-                entityRecords.get(record).setMetadata(EntityMetadata.getEntityGravityId(), noGravity);
+                entityRecords.get(record).setNoGravity(noGravity);
             }
         }
     }
@@ -125,7 +125,7 @@ public class Replay {
         for (PlayerRecord record : playerRecords) {
             Vector3 centerOffSetDistance = Vector3Utils.getTravelDistance(record.getCenter(), record.getStartLocation());
             Vector3 centerOffSet = center.clone().add(centerOffSetDistance).add(0.5, 0, 0.5);
-            this.playerRecords.put(record, new PlayerNPCOld(
+            this.playerRecords.put(record, PlayerNPC.playerNPC(
                     record.getName(),
                     Vector3Utils.toLocation(world, centerOffSet),
                     record.getSkin()
@@ -134,27 +134,40 @@ public class Replay {
             replayCache.put(record.getUuid(), cache);
             cache.setCentersDistance(Vector3Utils.getTravelDistance(record.getCenter(), center));
 
-            HologramOld hologram = HologramOld.hologram(
-                    ListUtils.toList(
-                            HologramLineOld.hologramLine(ComponentUtils.parse(String.format("<gold>%s", record.getName())), 0),
-                            HologramLineOld.hologramLine(ComponentUtils.parse(HOLOGRAM_LINE_PING), 0.3f),
-                            HologramLineOld.hologramLine(ComponentUtils.parse(HOLOGRAM_LINE_CPS), 0.225f)
-                    ),
-                    Vector3Utils.toLocation(world, record.getStartLocation()).add(0, 2.5, 0)
-            );
-            playerHolograms.put(record.getUuid(), hologram);
+            //TODO: Hologram rework
+            playerHolograms.put(record.getUuid(), Hologram.hologram(Collections.emptyList(), Vector3Utils.toLocation(world, Vector3.at(0, 0, 0))));
         }
 
         for (EntityRecord record : entityRecords) {
-            Vector3 centerOffSetDistance = Vector3Utils.getTravelDistance(record.getCenter(), record.getStartLocation());
-            Vector3 centerOffSet = center.clone().add(centerOffSetDistance).add(0.5, 0, 0.5);
             UUID uuid = UUID.randomUUID();
             modifiedUuids.put(record.getUuid(), uuid);
-            this.entityRecords.put(record, new EntityNPCOld(
-                    uuid,
-                    Vector3Utils.toLocation(world, centerOffSet),
-                    record.getEntityType()
-            ));
+            Location startLocation = Vector3Utils.toLocation(world, center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), record.getStartLocation())).add(0.5, 0, 0.5));
+            EntityNPC entityNPC;
+
+            switch (record.getEntityType()) {
+                case ITEM: {
+                    entityNPC = ItemNPC.itemNPC(startLocation, ((DroppedItemRecord) record).getItem());
+                    break;
+                }
+                case AREA_EFFECT_CLOUD: {
+                    entityNPC = AreaEffectCloudNPC.areaEffectCloudNPC(startLocation);
+                    break;
+                }
+                case POTION: {
+                    entityNPC = ThrowableProjectileNPC.throwableProjectileNPC(startLocation, ((ProjectileRecord) record).getProjectileItem());
+                    break;
+                }
+                case ARROW: {
+                    entityNPC = ArrowNPC.arrowNPC(startLocation);
+                    break;
+                }
+                default: {
+                    entityNPC = null;
+                    Ruom.warn("Unsupported entity type was added to a replay: " + record.getEntityType().toString().toLowerCase());
+                }
+            }
+            if (entityNPC != null)
+                this.entityRecords.put(record, entityNPC);
         }
 
         prepareLastNonNullTicks();
@@ -172,13 +185,10 @@ public class Replay {
 
         for (PlayerRecord record : playerRecords.keySet()) {
             replayCache.get(record.getUuid()).setPlaying(true);
-            PlayerNPCOld npc = playerRecords.get(record);
-            npc.getViewers().addAll(Ruom.getOnlinePlayers());
-            npc.addNPCPacket();
-            npc.removeNPCTabList();
-            Ruom.runSync(() -> {
-                npc.setMetadata(EntityMetadata.getEntityCustomNameVisibilityId(), false);
-            }, 20);
+            PlayerNPC npc = playerRecords.get(record);
+            npc.setTabList(null);
+            npc.setCustomNameVisible(false);
+            npc.addViewers(Ruom.getOnlinePlayers());
 
             if (record.getRecordTicks().size() > maxTicks)
                 maxTicks = record.getRecordTicks().size();
@@ -248,40 +258,52 @@ public class Replay {
                         UUID uuid = modifiedUuids.get(record.getUuid());
                         if (replayCache.containsKey(uuid) && !replayCache.get(uuid).isPlaying()) continue;
                         if (tickIndex < record.getStartingTick()) continue;
-                        EntityNPCOld npc = entityRecords.get(record);
-                        if (replayCache.containsKey(uuid)) {
+                        EntityNPC npc = entityRecords.get(record);
+                        if (!replayCache.containsKey(uuid)) {
                             if (shouldPlayThisTick) {
                                 ReplayCache cache = new ReplayCache();
                                 cache.setPlaying(true);
                                 replayCache.put(uuid, cache);
 
-                                npc.addViewers(Ruom.getOnlinePlayers());
-                                npc.addNPCPacket();
                                 if (playbackControl.getSpeed().equals(PlayBackControl.Speed.x050) || playbackControl.getSpeed().equals(PlayBackControl.Speed.x025))
-                                    npc.setMetadata(EntityMetadata.getEntityGravityId(), true);
-                                if (record.getItem() != null) {
-                                    if (record.getItem().getType().equals(XMaterial.SPLASH_POTION.parseMaterial())) {
-                                        npc.setMetadata(EntityMetadata.getPotionMetadataId(), NMSUtils.getNmsItemStack(record.getItem()));
-                                    }
+                                    npc.setNoGravity(true);
+
+                                if (record instanceof DroppedItemRecord) {
+                                    ((ItemNPC) npc).setItem(((DroppedItemRecord) record).getItem());
+                                } else if (record instanceof AreaEffectCloudRecord) {
+                                    ((AreaEffectCloudNPC) npc).setColor(((AreaEffectCloudRecord) record).getColor());
+                                } else if (record instanceof ProjectileRecord) {
+                                    ((ThrowableProjectileNPC) npc).setItem(((ProjectileRecord) record).getProjectileItem());
+                                } else if (record instanceof ArrowRecord) {
+                                    ((ArrowNPC) npc).setColor(((ArrowRecord) record).getColor());
                                 }
-                                if (record.getDroppedItem() != null) {
-                                    npc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSUtils.getNmsItemStack(record.getDroppedItem()));
-                                }
+
+                                npc.addViewers(Ruom.getOnlinePlayers());
+                                if (!(record instanceof AreaEffectCloudRecord))
+                                    npc.setVelocity(preparedLastNonNullTicks.get(record.getUuid()).get(tickIndex - record.getStartingTick()).getVelocity());
                             }
                         } else {
                             int entityTickIndex = tickIndex - (record.getStartingTick());
                             if (entityTickIndex >= record.getRecordTicks().size()) {
-                                if (record.getPickedUpBy() != null) {
-                                    int collector = getEntityId(record.getPickedUpBy());
-                                    if (collector != 0) {
-                                        npc.collect(collector, lastNonNullTicks.get(uuid).getItemAmount());
+                                if (record instanceof DroppedItemRecord) {
+                                    DroppedItemRecord droppedItemRecord = (DroppedItemRecord) record;
+                                    if (droppedItemRecord.getPickedBy() != null) {
+                                        int collector = getEntityId(droppedItemRecord.getPickedBy());
+                                        if (collector != 0) {
+                                            ((ItemNPC) npc).collect(collector);
+                                        }
                                     }
                                 }
                                 replayCache.get(uuid).setPlaying(false);
-                                npc.removeNPCPacket();
+                                npc.removeViewers(Ruom.getOnlinePlayers());
                             } else {
                                 RecordTick tick = record.getRecordTicks().get(entityTickIndex);
-                                RecordTick lastNonNullTick = preparedLastNonNullTicks.get(record.getUuid()).get(entityTickIndex);
+                                RecordTick lastNonNullTick = preparedLastNonNullTicks.get(record.getUuid()).get(entityTickIndex - 1);
+
+                                if (tick instanceof AreaEffectCloudTick) {
+                                    ((AreaEffectCloudNPC) npc).setRadius(((AreaEffectCloudTick) tick).getRadius());
+                                    continue;
+                                }
 
                                 if (tick.getLocation() != null) {
                                     moveNPC(tick, lastNonNullTick, npc, null, record.getCenter(), shouldPlayThisTick, lowSpeedHelpIndex, playbackControl.getSpeed(), false);
@@ -293,11 +315,11 @@ public class Replay {
                                         center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), lastNonNullTick.getLocation())));
 
                                 if (tick.getVelocity() != null) {
-                                    npc.velocity(tick.getVelocity());
+                                    npc.setVelocity(tick.getVelocity());
 
                                     if (lastNonNullTick.getLocation() != null) {
                                         if (entityTickIndex != 0) {
-                                            if (record.getEntityType().equals(NPCType.ARROW)) {
+                                            if (record instanceof ArrowRecord) {
                                                 float soundPitch = (float) (1.1 + (random.nextInt(2) / 10));
                                                 for (Player player : npc.getViewers()) {
                                                     player.playSound(location, XSound.ENTITY_ARROW_HIT.parseSound(), playbackControl.getVolume(), soundPitch);
@@ -307,29 +329,33 @@ public class Replay {
                                     }
                                 }
                                 if (entityTickIndex == record.getRecordTicks().size() - 1) {
-                                    switch(record.getEntityType()) {
-                                        case POTION: {
+                                    if (record instanceof ProjectileRecord) {
+                                        ProjectileRecord projectileRecord = (ProjectileRecord) record;
+
+                                        if (ListUtils.toList(XMaterial.SPLASH_POTION.parseMaterial(), XMaterial.LINGERING_POTION.parseMaterial()).contains(projectileRecord.getProjectileItem().getType())) {
                                             for (Player player : npc.getViewers()) {
                                                 player.playSound(location, XSound.ENTITY_SPLASH_POTION_BREAK.parseSound(), playbackControl.getVolume() - 0.3f, 1);
                                                 //noinspection deprecation
-                                                player.playEffect(location, Effect.POTION_BREAK, NMSUtils.getPotionColor(record.getItem()));
+                                                player.playEffect(location, Effect.POTION_BREAK, NMSUtils.getPotionColor(projectileRecord.getProjectileItem()));
                                             }
-                                            break;
-                                        }
-                                        case SNOWBALL: {
+                                        } else if (projectileRecord.getProjectileItem().getType().equals(XMaterial.SNOWBALL.parseMaterial())) {
                                             for (Player player : npc.getViewers()) {
                                                 player.spawnParticle(Particle.SNOWBALL, location, random.nextInt(7));
                                             }
-                                            break;
                                         }
                                     }
                                 }
-                                if (tick.getItemAmount() != -1) {
-                                    ItemStack droppedItem = new ItemStack(record.getDroppedItem().getType());
-                                    droppedItem.setItemMeta(record.getDroppedItem().getItemMeta());
-                                    droppedItem.setAmount(tick.getItemAmount());
-                                    npc.setMetadata(EntityMetadata.getDroppedItemMetadataId(), NMSUtils.getNmsItemStack(droppedItem));
-                                    lastNonNullTick.setItemAmount(tick.getItemAmount());
+
+                                if (tick instanceof DroppedItemRecordTick) {
+                                    int itemAmount = ((DroppedItemRecordTick) tick).getItemAmount();
+                                    if (itemAmount > 0) {
+                                        ItemStack originalDroppedItem = ((DroppedItemRecord) record).getItem();
+                                        ItemStack droppedItem = new ItemStack(originalDroppedItem.getType());
+                                        droppedItem.setItemMeta(originalDroppedItem.getItemMeta());
+                                        droppedItem.setAmount(itemAmount);
+                                        ((ItemNPC) npc).setItem(droppedItem);
+                                        ((DroppedItemRecordTick) lastNonNullTick).setItemAmount(itemAmount);
+                                    }
                                 }
                             }
                         }
@@ -337,94 +363,89 @@ public class Replay {
 
                     for (PlayerRecord record : playerRecords.keySet()) {
                         if (replayCache.get(record.getUuid()).isPlaying()) {
-                            PlayerNPCOld npc = playerRecords.get(record);
+                            PlayerNPC npc = playerRecords.get(record);
                             if (tickIndex == record.getTotalTicks()) {
                                 //This record is finished
-                                npc.removeNPCPacket();
+                                npc.removeViewers(Ruom.getOnlinePlayers());
                                 playerHolograms.get(record.getUuid()).unload();
                                 replayCache.get(record.getUuid()).setPlaying(false);
                                 finishedRecords++;
                                 if (finishedRecords == totalRecords) {
                                     entityRecords.forEach((entityRecord, entityNPC) -> {
-                                        entityNPC.removeNPCPacket();
+                                        entityNPC.removeViewers(Ruom.getOnlinePlayers());
                                     });
                                     cancel();
                                     return;
                                 }
                                 continue;
                             }
-                            HologramOld hologram = playerHolograms.get(record.getUuid());
+                            Hologram hologram = playerHolograms.get(record.getUuid());
                             ReplayCache cache = replayCache.get(record.getUuid());
-                            RecordTick tick = record.getRecordTicks().get(tickIndex);
-                            RecordTick lastNonNullTick;
-                            RecordTick nextTick;
+                            PlayerRecordTick tick = (PlayerRecordTick) record.getRecordTicks().get(tickIndex);
+                            PlayerRecordTick lastNonNullTick;
+                            PlayerRecordTick nextTick;
                             try {
-                                nextTick = record.getRecordTicks().get(tickIndex + 1);
+                                nextTick = (PlayerRecordTick) record.getRecordTicks().get(tickIndex + 1);
                             } catch (IndexOutOfBoundsException e) {
                                 //It's the last tickIndex
                                 nextTick = null;
                             }
 
                             if (tickIndex == 0) {
-                                npc.setState(tick.getState());
+                                npc.setPose(tick.getPose());
+                                npc.setSprinting(tick.wasSprinting());
+                                npc.setGlowing(tick.wasGlowing());
+                                npc.setInvisible(tick.wasInvisible());
+                                npc.setOnFire(tick.wasBurning());
 
-                                npc.setEquipment(EquipmentSlot.HAND, tick.getHand());
-                                npc.setEquipment(EquipmentSlot.OFF_HAND, tick.getOffHand());
-                                npc.setEquipment(EquipmentSlot.HEAD, tick.getHelmet());
-                                npc.setEquipment(EquipmentSlot.CHEST, tick.getChestplate());
-                                npc.setEquipment(EquipmentSlot.LEGS, tick.getLeggings());
-                                npc.setEquipment(EquipmentSlot.FEET, tick.getBoots());
+                                npc.setEquipment(NPC.EquipmentSlot.MAINHAND, tick.getHand());
+                                npc.setEquipment(NPC.EquipmentSlot.OFFHAND, tick.getOffHand());
+                                npc.setEquipment(NPC.EquipmentSlot.HEAD, tick.getHelmet());
+                                npc.setEquipment(NPC.EquipmentSlot.CHEST, tick.getChestplate());
+                                npc.setEquipment(NPC.EquipmentSlot.LEGS, tick.getLeggings());
+                                npc.setEquipment(NPC.EquipmentSlot.FEET, tick.getBoots());
 
-                                //lastNonNullTicks.put(record.getUuid(), tick.clone());
-                                lastNonNullTick = tick.clone();
+                                lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(record.getUuid()).get(tickIndex);
 
-                                hologram.addViewer(Ruom.getOnlinePlayers().toArray(new Player[0]));
+                                hologram.addViewers(Ruom.getOnlinePlayers());
                             } else {
-                                lastNonNullTick = preparedLastNonNullTicks.get(record.getUuid()).get(tickIndex - 1);
+                                lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(record.getUuid()).get(tickIndex - 1);
 
                                 moveNPC(tick, lastNonNullTick, npc, hologram, record.getCenter(), shouldPlayThisTick, lowSpeedHelpIndex, playbackControl.getSpeed(), true);
 
-                                if (tick.getState() != null)
-                                    npc.setState(tick.getState());
-                                if (tick.getEntityMetadata() != -1)
-                                    npc.setMetadata(EntityMetadata.EntityStatus.getMetadataId(), tick.getEntityMetadata());
-                                if (tick.getHand() != null)
-                                    npc.setEquipment(EquipmentSlot.HAND, tick.getHand());
-                                if (tick.getOffHand() != null)
-                                    npc.setEquipment(EquipmentSlot.OFF_HAND, tick.getOffHand());
-                                if (tick.getHelmet() != null)
-                                    npc.setEquipment(EquipmentSlot.HEAD, tick.getHelmet());
-                                if (tick.getChestplate() != null)
-                                    npc.setEquipment(EquipmentSlot.CHEST, tick.getChestplate());
-                                if (tick.getLeggings() != null)
-                                    npc.setEquipment(EquipmentSlot.LEGS, tick.getLeggings());
-                                if (tick.getBoots() != null)
-                                    npc.setEquipment(EquipmentSlot.FEET, tick.getBoots());
+                                if (tick.wasCrouching())
+                                    npc.setPose(NPC.Pose.CROUCHING);
+                                else if (tick.wasGliding())
+                                    npc.setPose(NPC.Pose.SWIMMING);
+                                else if (tick.wasSwimming())
+                                    npc.setPose(NPC.Pose.SWIMMING);
+                                else
+                                    npc.setPose(NPC.Pose.STANDING);
 
-                                /*if (tick.getHealth() != -1)
-                                    lastNonNullTick.setHealth(tick.getHealth());
-                                if (tick.getHunger() != -1)
-                                    lastNonNullTick.setHunger(tick.getHunger());
-                                if (tick.getState() != null)
-                                    lastNonNullTick.setState(tick.getState());
+                                npc.setSprinting(tick.wasSprinting());
+                                npc.setInvisible(tick.wasInvisible());
+                                npc.setOnFire(tick.wasBurning());
+                                npc.setGlowing(tick.wasGlowing());
+
                                 if (tick.getHand() != null)
-                                    lastNonNullTick.setHand(tick.getHand());
+                                    npc.setEquipment(NPC.EquipmentSlot.MAINHAND, tick.getHand());
                                 if (tick.getOffHand() != null)
-                                    lastNonNullTick.setOffHand(tick.getOffHand());
+                                    npc.setEquipment(NPC.EquipmentSlot.OFFHAND, tick.getOffHand());
                                 if (tick.getHelmet() != null)
-                                    lastNonNullTick.setHelmet(tick.getHelmet());
+                                    npc.setEquipment(NPC.EquipmentSlot.HEAD, tick.getHelmet());
                                 if (tick.getChestplate() != null)
-                                    lastNonNullTick.setChestplate(tick.getChestplate());
+                                    npc.setEquipment(NPC.EquipmentSlot.CHEST, tick.getChestplate());
                                 if (tick.getLeggings() != null)
-                                    lastNonNullTick.setLeggings(tick.getLeggings());
+                                    npc.setEquipment(NPC.EquipmentSlot.LEGS, tick.getLeggings());
                                 if (tick.getBoots() != null)
-                                    lastNonNullTick.setBoots(tick.getBoots());*/
+                                    npc.setEquipment(NPC.EquipmentSlot.FEET, tick.getBoots());
                             }
 
                             if (!shouldPlayThisTick) continue;
 
                             if (tick.getPing() != -1) {
-                                hologram.editLine(2, ComponentUtils.parse(HOLOGRAM_LINE_PING.replace(String.valueOf(0), String.valueOf(tick.getPing()))));
+                                //TODO Holograms re-impl
+                                //hologram.editLine(2, ComponentUtils.parse(HOLOGRAM_LINE_PING.replace(String.valueOf(0), String.valueOf(tick.getPing()))));
                             }
                             //TODO: Hologram CPS
 
@@ -432,13 +453,13 @@ public class Replay {
                                     center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), lastNonNullTick.getLocation())));
 
                             if (tick.didSwing())
-                                npc.animate(NPCAnimation.SWING_MAIN_ARM);
-                            if (tick.tookDamage()) {
-                                npc.animate(NPCAnimation.TAKE_DAMAGE);
+                                npc.animate(NPC.Animation.SWING_MAIN_ARM);
+                            if (tick.getTakenDamageType() != null) {
+                                npc.animate(NPC.Animation.TAKE_DAMAGE);
 
                                 switch (tick.getTakenDamageType()) {
                                     case CRITICAL: {
-                                        npc.animate(NPCAnimation.CRITICAL_EFFECT);
+                                        npc.animate(NPC.Animation.CRITICAL_EFFECT);
                                         for (Player player : npc.getViewers()) {
                                             player.playSound(location, XSound.ENTITY_PLAYER_ATTACK_CRIT.parseSound(), playbackControl.getVolume(), 1);
                                             player.playSound(location, XSound.ENTITY_PLAYER_HURT.parseSound(), playbackControl.getVolume(), 1);
@@ -473,44 +494,44 @@ public class Replay {
                                     }
                                 }
                             }
-                            if (tick.threwProjectile()) {
+                            if (tick.thrownProjectile()) {
                                 for (Player player : npc.getViewers()) {
                                     //Throw sounds are all the same
                                     player.playSound(location, XSound.ENTITY_SPLASH_POTION_THROW.parseSound(), playbackControl.getVolume() - 0.5f, 0.1f);
                                 }
                             }
-                            if (tick.getDrawBow() > 0) {
-                                EntityMetadata.ItemUseKey itemUseKey;
-                                if (tick.drawnBowWithOffHand())
-                                    itemUseKey = EntityMetadata.ItemUseKey.OFFHAND_RELEASE;
-                                else
-                                    itemUseKey = EntityMetadata.ItemUseKey.RELEASE;
-                                npc.setMetadata(EntityMetadata.ItemUseKey.getMetadataId(), itemUseKey.getBitMask());
-
-                                if (!tick.drawnCrossbow()) {
-                                    float soundPitch;
-                                    if (tick.getDrawBow() < 300) {
-                                        soundPitch = 0.8f;
-                                    } else if (tick.getDrawBow() < 500) {
-                                        soundPitch = 0.9f;
-                                    } else if (tick.getDrawBow() < 750) {
-                                        soundPitch = 1.0f;
-                                    } else if (tick.getDrawBow() < 1000) {
-                                        soundPitch = 1.1f;
-                                    } else {
-                                        soundPitch = 1.2f;
+                            if (tick.getUseItemInteractionHand() > 0) {
+                                switch (tick.getUseItemInteractionHand()) {
+                                    case 1: {
+                                        npc.startUsingItem(LivingEntityNPC.InteractionHand.MAIN_HAND);
+                                        break;
                                     }
-                                    for (Player player : npc.getViewers()) {
-                                        player.playSound(location, XSound.ENTITY_ARROW_SHOOT.parseSound(), playbackControl.getVolume(), soundPitch + (float) (random.nextInt(2) - 1) / 10);
+                                    case 2: {
+                                        npc.startUsingItem(LivingEntityNPC.InteractionHand.OFF_HAND);
+                                        break;
+                                    }
+                                    case 3: {
+                                        npc.stopUsingItem();
+                                        if (!tick.drawnCrossbow()) {
+                                            float soundPitch;
+                                            if (tick.getUsedItemTime() < 300) {
+                                                soundPitch = 0.8f;
+                                            } else if (tick.getUsedItemTime() < 500) {
+                                                soundPitch = 0.9f;
+                                            } else if (tick.getUsedItemTime() < 750) {
+                                                soundPitch = 1.0f;
+                                            } else if (tick.getUsedItemTime() < 1000) {
+                                                soundPitch = 1.1f;
+                                            } else {
+                                                soundPitch = 1.2f;
+                                            }
+                                            for (Player player : npc.getViewers()) {
+                                                player.playSound(location, XSound.ENTITY_ARROW_SHOOT.parseSound(), playbackControl.getVolume(), soundPitch + (float) (random.nextInt(2) - 1) / 10);
+                                            }
+                                        }
+                                        break;
                                     }
                                 }
-                            } else if (tick.getDrawBow() == 0) {
-                                EntityMetadata.ItemUseKey itemUseKey;
-                                if (tick.drawnBowWithOffHand())
-                                    itemUseKey = EntityMetadata.ItemUseKey.OFFHAND_HOLD;
-                                else
-                                    itemUseKey = EntityMetadata.ItemUseKey.HOLD;
-                                npc.setMetadata(EntityMetadata.ItemUseKey.getMetadataId(), itemUseKey.getBitMask());
                             }
                             if (tick.shotCrossbow()) {
                                 for (Player player : npc.getViewers()) {
@@ -538,11 +559,11 @@ public class Replay {
                                 }
                             }
                             if (tick.getBodyArrows() >= 0) {
-                                npc.setMetadata(EntityMetadata.getBodyArrowsMetadataId(), tick.getBodyArrows());
+                                npc.setArrowsOnBody(tick.getBodyArrows());
                             }
-                            if (tick.getPotionColor() != -1) {
-                                npc.setMetadata(EntityMetadata.getLivingEntityPotionColorMetadataId(), tick.getPotionColor());
-                                npc.setMetadata(EntityMetadata.getLivingEntityPotionAmbientMetadataId(), true);
+                            if (tick.getEffectColor() != -1) {
+                                npc.setEffectColor(tick.getEffectColor());
+                                npc.setEffectsAsAmbients(false);
                             }
 
                             if (tick.getBlockPlaces() != null) {
@@ -552,18 +573,16 @@ public class Replay {
                                     Material blockMaterial = tick.getBlockPlaces().get(blockLoc);
                                     BlockData blockData = Bukkit.createBlockData(tick.getBlockData().get(blockLoc));
                                     Block block = world.getBlockAt(blockLocation);
+                                    SoundContainer soundContainer = SoundContainer.soundContainer(blockMaterial.createBlockData().getSoundGroup().getPlaceSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
                                     if (blockMaterial.toString().contains("_DOOR")) {
-                                        placeDoor(blockLocation, blockData);
+                                        BlockUtils.placeDoor(blockLocation, blockData);
                                     } else if (blockMaterial.toString().contains("BED")) {
-                                        placeBed(blockLocation, blockData);
+                                        BlockUtils.placeBed(blockLocation, blockData);
                                     } else {
                                         block.setType(blockMaterial, true);
                                         block.setBlockData(blockData);
                                     }
-                                    for (Player player : npc.getViewers()) {
-                                        player.playSound(blockLocation,
-                                                BlockSoundUtils.getBlockSound(BlockSoundUtils.SoundType.PLACE, blockMaterial), playbackControl.getVolume(), 0.8f);
-                                    }
+                                    soundContainer.play(npc.getViewers());
                                     cache.getBlockDataUsedForPlacing().add(blockLoc);
                                 }
                             }
@@ -573,18 +592,16 @@ public class Replay {
                                     Vector3 blockLocFinal = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), blockLoc));
                                     Location blockLocation = Vector3Utils.toLocation(world, blockLocFinal);
                                     Material blockMaterial = tick.getBlockBreaks().get(blockLoc);
+                                    SoundContainer soundContainer = SoundContainer.soundContainer(blockMaterial.createBlockData().getSoundGroup().getBreakSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
                                     if (blockMaterial.toString().contains("_DOOR")) {
-                                        breakDoor(blockLocation);
+                                        BlockUtils.breakDoor(blockLocation);
                                     } else if (blockMaterial.toString().contains("BED")) {
-                                        breakBed(blockLocation);
+                                        BlockUtils.breakBed(blockLocation);
                                     } else {
                                         Block block = world.getBlockAt(blockLocation);
                                         block.setType(Material.AIR, true);
                                     }
-                                    for (Player player : npc.getViewers()) {
-                                        player.playSound(blockLocation,
-                                                BlockSoundUtils.getBlockSound(BlockSoundUtils.SoundType.BREAK, blockMaterial), playbackControl.getVolume(), 0.8f);
-                                    }
+                                    soundContainer.play(npc.getViewers());
                                     NMSUtils.sendBlockDestruction(npc.getViewers(), blockLocFinal, -1);
                                     BlockUtils.spawnBlockBreakParticles(blockLocation, tick.getBlockBreaks().get(blockLoc));
                                 }
@@ -593,7 +610,7 @@ public class Replay {
                             if (tick.getBlockInteractionLocation() != null) {
                                 Vector3 blockLocFinal = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), tick.getBlockInteractionLocation()));
                                 Location blockLocation = Vector3Utils.toLocation(world, blockLocFinal);
-                                NMSUtils.sendChestAnimation(npc.getViewers(), blockLocFinal, tick.getBlockInteractionType(), tick.isOpenChestInteraction());
+                                NMSUtils.sendChestAnimation(npc.getViewers(), blockLocFinal, tick.getBlockInteractionType(), tick.didOpenChestInteraction());
 
                                 float pitch = 0.9f + (random.nextBoolean() ? 0.1f : 0);
                                 boolean shouldDelaySound = false;
@@ -601,17 +618,17 @@ public class Replay {
                                 switch (tick.getBlockInteractionType()) {
                                     case TRAPPED_CHEST:
                                     case CHEST: {
-                                        sound = tick.isOpenChestInteraction() ? XSound.BLOCK_CHEST_OPEN.parseSound() : XSound.BLOCK_CHEST_CLOSE.parseSound();
-                                        if (!tick.isOpenChestInteraction()) shouldDelaySound = true;
+                                        sound = tick.didOpenChestInteraction() ? XSound.BLOCK_CHEST_OPEN.parseSound() : XSound.BLOCK_CHEST_CLOSE.parseSound();
+                                        if (!tick.didOpenChestInteraction()) shouldDelaySound = true;
                                         break;
                                     }
                                     case ENDER_CHEST: {
-                                        sound = tick.isOpenChestInteraction() ? XSound.BLOCK_ENDER_CHEST_OPEN.parseSound() : XSound.BLOCK_ENDER_CHEST_CLOSE.parseSound();
-                                        if (!tick.isOpenChestInteraction()) shouldDelaySound = true;
+                                        sound = tick.didOpenChestInteraction() ? XSound.BLOCK_ENDER_CHEST_OPEN.parseSound() : XSound.BLOCK_ENDER_CHEST_CLOSE.parseSound();
+                                        if (!tick.didOpenChestInteraction()) shouldDelaySound = true;
                                         break;
                                     }
                                     default: {
-                                        sound = tick.isOpenChestInteraction() ? XSound.BLOCK_SHULKER_BOX_OPEN.parseSound() : XSound.BLOCK_SHULKER_BOX_CLOSE.parseSound();
+                                        sound = tick.didOpenChestInteraction() ? XSound.BLOCK_SHULKER_BOX_OPEN.parseSound() : XSound.BLOCK_SHULKER_BOX_CLOSE.parseSound();
                                     }
                                 }
                                 if (shouldDelaySound) {
@@ -634,7 +651,7 @@ public class Replay {
                                     Location blockLocation = Vector3Utils.toLocation(world, blockLocFinal);
                                     BlockData blockData = Bukkit.createBlockData(tick.getBlockData().get(blockLoc));
                                     world.getBlockAt(blockLocation).setBlockData(blockData);
-                                    getBlockDataSound(blockData).ifPresent(soundContainer -> {
+                                    BlockUtils.getBlockDataSound(blockData).ifPresent(soundContainer -> {
                                         soundContainer.withVolume(playbackControl.getVolume() - 0.5f).play(blockLocation, npc.getViewers());
                                     });
                                     if (blockData.getMaterial().toString().contains("BUTTON")) {
@@ -645,7 +662,7 @@ public class Replay {
                             }
 
                             if (tick.getPendingBlockBreak() != null) {
-                                npc.animate(NPCAnimation.SWING_MAIN_ARM);
+                                npc.animate(NPC.Animation.SWING_MAIN_ARM);
                                 if (!cache.getPendingBlockBreakOffSetLocations().containsKey(record.getUuid())) {
                                     cache.getPendingBlockBreakOffSetLocations().put(record.getUuid(),
                                             center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), tick.getPendingBlockBreak().getLocation())));
@@ -712,12 +729,12 @@ public class Replay {
                     Ruom.error("An error occured while playing a replay, The replay was terminated to prevent furthur errors." +
                             " Please report errors you see above to the developer.");
                     for (PlayerRecord record : playerRecords.keySet()) {
-                        playerRecords.get(record).removeNPCPacket();
+                        playerRecords.get(record).removeViewers(Ruom.getOnlinePlayers());
                     }
                     for (EntityRecord record : entityRecords.keySet()) {
-                        entityRecords.get(record).removeNPCPacket();
+                        entityRecords.get(record).removeViewers(Ruom.getOnlinePlayers());
                     }
-                    for (HologramOld hologram : playerHolograms.values()) {
+                    for (Hologram hologram : playerHolograms.values()) {
                         hologram.unload();
                     }
                     playerHolograms.clear();
@@ -732,33 +749,12 @@ public class Replay {
     public void suspend() {
         replayRunnable.cancel();
         for (PlayerRecord record : playerRecords.keySet()) {
-            PlayerNPCOld npc = playerRecords.get(record);
-            npc.removeNPCPacket();
+            PlayerNPC npc = playerRecords.get(record);
+            npc.removeViewers(Ruom.getOnlinePlayers());
         }
     }
 
-    private void moveNPC(RecordTick tick, RecordTick lastNonNullTick, NPCOld npc, @Nullable HologramOld hologram, Vector3 recordCenter, boolean shouldPlayThisTick, int lowSpeedHelpIndex, PlayBackControl.Speed speed, boolean onGround) {
-        Vector3 travelDistance = null;
-        if (tick.getLocation() != null) {
-            Vector3 centerOffSet = Vector3Utils.getTravelDistance(recordCenter, tick.getLocation());
-            Vector3 lastPoint = lastNonNullTick.getLocation().clone().add(centerOffSet);
-            Vector3 newPoint = tick.getLocation().clone().add(centerOffSet);
-
-            travelDistance = getCalculatedTravelDistance(lastPoint, newPoint, centerOffSet, speed, lowSpeedHelpIndex);
-
-            /*if (!shouldPlayThisTick) {
-                travelDistance = getCalculatedTravelDistance(lastNonNullTick, lastPoint, newPoint, centerOffSet, speed, lowSpeedHelpIndex);
-            } else {
-                travelDistance = Vector3Utils.getTravelDistance(lastPoint, newPoint);
-                lastNonNullTick.setLocation(tick.getLocation());
-            }*/
-        }
-
-        /*if (lastNonNullTick.getYaw() == -1 && tick.getYaw() != -1)
-            lastNonNullTick.setYaw(tick.getYaw());
-        if (lastNonNullTick.getPitch() == -1 && tick.getPitch() != -1)
-            lastNonNullTick.setPitch(tick.getPitch());*/
-
+    private void moveNPC(RecordTick tick, RecordTick lastNonNullTick, NPC npc, @Nullable Hologram hologram, Vector3 recordCenter, boolean shouldPlayThisTick, int lowSpeedHelpIndex, PlayBackControl.Speed speed, boolean onGround) {
         float newYaw = tick.getYaw();
         float newPitch = tick.getPitch();
         float lastYaw = lastNonNullTick.getYaw();
@@ -783,16 +779,20 @@ public class Replay {
             pitch = lastPitch;
         }
 
-        //TravelDistance will be null if player don't move
-        npc.setMetadata(EntityMetadata.getEntityGravityId(), false);
-        if (travelDistance != null && !travelDistance.equals(Vector3.at(0, 0, 0))) {
-            //Returns false if distance was more than 8 blocks, Move packet does not support more than 8 blocks.
-            if (!npc.moveAndLook(travelDistance.getX(), travelDistance.getY(), travelDistance.getZ(), yaw, pitch, onGround)) {
-                Location location = npc.getLocation().add(travelDistance.getX(), travelDistance.getY(), travelDistance.getZ());
-                npc.teleport(location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch(), true);
-            }
-            if (hologram != null) {
-                hologram.move(travelDistance);
+        if (tick.getLocation() != null) {
+            Vector3 centerOffSet = Vector3Utils.getTravelDistance(recordCenter, tick.getLocation());
+            Vector3 lastPoint = lastNonNullTick.getLocation().clone().add(centerOffSet);
+            Vector3 newPoint = tick.getLocation().clone().add(centerOffSet);
+
+            Vector3 travelDistance = getCalculatedTravelDistance(lastPoint, newPoint, centerOffSet, speed, lowSpeedHelpIndex);
+
+            if (!travelDistance.equals(Vector3.at(0, 0, 0))) {
+                if (!npc.moveAndLook(travelDistance, yaw, pitch)) {
+                    npc.teleport(center.clone().add(centerOffSet), yaw, pitch);
+                }
+                if (hologram != null) {
+                    hologram.move(travelDistance);
+                }
             }
         } else {
             if (!(yaw == lastYaw && pitch == lastPitch))
@@ -851,7 +851,7 @@ public class Replay {
     private float getCalculatedLookAngle(float oldAngle, float newAngle, PlayBackControl.Speed speed, int lowSpeedHelpIndex) {
         float angle = -1;
 
-        float centerAngle = getCenterAngle(oldAngle, newAngle);
+        float centerAngle = MathUtils.getCenterAngle(oldAngle, newAngle);
 
         if (speed.equals(PlayBackControl.Speed.x050)) {
             if (newAngle != -1) {
@@ -861,7 +861,7 @@ public class Replay {
             switch (lowSpeedHelpIndex) {
                 case 1: {
                     if (newAngle != -1)
-                        angle = getCenterAngle(oldAngle, centerAngle);
+                        angle = MathUtils.getCenterAngle(oldAngle, centerAngle);
                     break;
                 }
                 case 2: {
@@ -871,7 +871,7 @@ public class Replay {
                 }
                 case 3: {
                     if (newAngle != -1) {
-                        angle = getCenterAngle(centerAngle, newAngle);
+                        angle = MathUtils.getCenterAngle(centerAngle, newAngle);
                     }
                     break;
                 }
@@ -880,102 +880,11 @@ public class Replay {
         return angle;
     }
 
-    private float getCenterAngle(float a1, float a2) {
-        return (360 + a2 + (((a1 - a2 + 180 + 360) % 360) - 180) / 2) % 360;
-    }
-
-    private void placeDoor(Location location, BlockData blockData) {
-        Block bottomBlock = location.getBlock();
-        Block upperBlock = bottomBlock.getRelative(BlockFace.UP);
-        BlockData upperBlockData = Bukkit.createBlockData(blockData.getAsString().replace("half=lower", "half=upper"));
-        bottomBlock.setType(blockData.getMaterial(), false);
-        upperBlock.setType(blockData.getMaterial(), false);
-        upperBlock.setBlockData(upperBlockData);
-    }
-
-    private void breakDoor(Location location) {
-        Block block = location.getBlock();
-        BlockData blockData = block.getBlockData().clone();
-        block.setType(Material.AIR, false);
-        if (blockData.getAsString().contains("half=lower")) {
-            block.getRelative(0, 1, 0).setType(Material.AIR, false);
-        } else if (blockData.getAsString().contains("half=upper")) {
-            block.getRelative(0, -1, 0).setType(Material.AIR, false);
-        }
-    }
-
-    private void placeBed(Location location, BlockData blockData) {
-        Block block = location.getBlock();
-        String blockDataString = blockData.getAsString();
-        block.setType(blockData.getMaterial(), false);
-        block.setBlockData(Bukkit.createBlockData(blockDataString));
-
-        Block otherPartBlock = getOtherBedPart(location, blockData).getBlock();
-        otherPartBlock.setType(blockData.getMaterial(), false);
-        otherPartBlock.setBlockData(Bukkit.createBlockData(blockDataString.replace("part=foot", "part=head")));
-    }
-
-    private Location getOtherBedPart(Location location, BlockData blockData) {
-        String blockDataString = blockData.getAsString();
-        if (!blockDataString.contains("part=")) {
-            throw new IllegalStateException("Given BlockData is not a bed's BlockData.");
-        }
-        boolean isFootPart = blockDataString.contains("part=foot");
-
-        if (blockDataString.contains("facing=north")) {
-            return location.clone().add(0, 0, isFootPart ? -1 : 1);
-        } else if (blockDataString.contains("facing=east")) {
-            return location.clone().add(isFootPart ? 1 : -1, 0, 0);
-        } else if (blockDataString.contains("facing=south")) {
-            return location.clone().add(0, 0, isFootPart ? 1 : -1);
-        } else if (blockDataString.contains("facing=west")) {
-            return location.clone().add(isFootPart ? -1 : 1, 0, 0);
-        }
-
-        throw new IllegalStateException("Given BlockData is not a bed's BlockData.");
-    }
-
-    private void breakBed(Location location) {
-        Block block = location.getBlock();
-        BlockData blockData = block.getBlockData();
-
-        block.setType(Material.AIR, false);
-        getOtherBedPart(location, blockData).getBlock().setType(Material.AIR, false);
-    }
-
-    private Optional<SoundContainer> getBlockDataSound(BlockData blockData) {
-        String blockDataString = blockData.getAsString();
-        if (blockData.getMaterial().toString().contains("_DOOR")) {
-            boolean isIronDoor = blockData.getMaterial().equals(XMaterial.IRON_DOOR.parseMaterial());
-            return Optional.of(SoundContainer.soundContainer(blockDataString.contains("open=false") ? isIronDoor ?
-                    XSound.BLOCK_IRON_DOOR_CLOSE : XSound.BLOCK_WOODEN_DOOR_CLOSE : isIronDoor ?
-                    XSound.BLOCK_IRON_DOOR_OPEN : XSound.BLOCK_WOODEN_DOOR_OPEN));
-        } else if (blockData.getMaterial().toString().contains("TRAPDOOR")) {
-            boolean isIronTrapDoor = blockData.getMaterial().equals(XMaterial.IRON_TRAPDOOR.parseMaterial());
-            return Optional.of(SoundContainer.soundContainer(blockDataString.contains("open=false") ? isIronTrapDoor ?
-                    XSound.BLOCK_IRON_TRAPDOOR_CLOSE : XSound.BLOCK_WOODEN_TRAPDOOR_CLOSE : isIronTrapDoor ?
-                    XSound.BLOCK_IRON_TRAPDOOR_OPEN : XSound.BLOCK_WOODEN_TRAPDOOR_OPEN));
-        } else if (blockData.getMaterial().equals(XMaterial.LEVER.parseMaterial())) {
-            return Optional.of(blockDataString.contains("powered=false") ?
-                    SoundContainer.soundContainer(XSound.BLOCK_LEVER_CLICK, 1f, 0.4f) :
-                    SoundContainer.soundContainer(XSound.BLOCK_LEVER_CLICK, 1f, 0.6f));
-        } else if (blockData.getMaterial().toString().contains("BUTTON")) {
-            boolean isStoneButton = blockData.getMaterial().toString().contains("STONE");
-            return Optional.of(blockDataString.contains("powered=false") ? isStoneButton ?
-                    SoundContainer.soundContainer(XSound.BLOCK_STONE_BUTTON_CLICK_OFF, 1f, 0.4f) :
-                    SoundContainer.soundContainer(XSound.BLOCK_WOODEN_BUTTON_CLICK_OFF, 1f, 0.4f) : isStoneButton ?
-                    SoundContainer.soundContainer(XSound.BLOCK_STONE_BUTTON_CLICK_ON, 1f, 0.6f) :
-                    SoundContainer.soundContainer(XSound.BLOCK_WOODEN_BUTTON_CLICK_ON, 1f, 0.6f));
-        }
-
-        return Optional.empty();
-    }
-
     private void scheduleButtonAutoPowerOff(Block button) {
         Ruom.runSync(() -> {
             if (button.getType().toString().contains("BUTTON")) {
                 button.setBlockData(Bukkit.createBlockData(button.getBlockData().getAsString().replace("powered=true", "powered=false")));
-                getBlockDataSound(button.getBlockData()).ifPresent(soundContainer -> soundContainer.withVolume(0.5f).play(button.getLocation()));
+                BlockUtils.getBlockDataSound(button.getBlockData()).ifPresent(soundContainer -> soundContainer.withVolume(0.5f).play(button.getLocation()));
             }
         }, 25);
     }

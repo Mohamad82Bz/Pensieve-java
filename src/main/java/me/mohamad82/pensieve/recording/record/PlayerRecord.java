@@ -1,8 +1,8 @@
 package me.mohamad82.pensieve.recording.record;
 
-import me.Mohamad82.RUoM.translators.skin.MinecraftSkin;
-import me.Mohamad82.RUoM.translators.skin.SkinBuilder;
-import me.Mohamad82.RUoM.vector.Vector3;
+import me.mohamad82.ruom.translators.skin.MinecraftSkin;
+import me.mohamad82.ruom.translators.skin.SkinBuilder;
+import me.mohamad82.ruom.vector.Vector3;
 import org.bukkit.entity.Player;
 
 import java.util.Optional;
@@ -34,6 +34,11 @@ public class PlayerRecord extends Record {
 
     public String getName() {
         return name;
+    }
+
+    @Override
+    public RecordTick createRecordTick() {
+        return new PlayerRecordTick();
     }
 
 }
