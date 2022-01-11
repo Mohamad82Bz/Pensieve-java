@@ -4,7 +4,7 @@ import me.mohamad82.ruom.vector.Vector3;
 
 import java.util.*;
 
-public class ReplayCache {
+public class ReplayCacheOld {
 
     private final Map<UUID, Integer> pendingBlockBreakStages = new HashMap<>();
     private final Map<UUID, Vector3> pendingBlockBreakOffSetLocations = new HashMap<>();

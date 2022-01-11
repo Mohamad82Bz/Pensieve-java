@@ -30,7 +30,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'me.mohamad82:ruom:3.1.7:all'
+    implementation 'me.mohamad82:ruom:3.4.5:all'
     compileOnly 'org.spigotmc:spigot:1.16.5-R0.1-SNAPSHOT'
     compileOnly 'com.intellectualsites.fawe:FAWE-Bukkit:1.16-637'
     testCompileOnly 'org.spigotmc:spigot:1.18.1-R0.1-SNAPSHOT:remapped-mojang'

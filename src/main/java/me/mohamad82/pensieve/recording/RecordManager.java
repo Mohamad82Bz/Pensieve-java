@@ -9,7 +9,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
@@ -20,7 +19,7 @@ import java.util.Set;
 public class RecordManager {
 
     private final Set<Player> recordingPlayers = new HashSet<>();
-    private final Set<Recorder> recorders = new HashSet<>();
+    private final Set<RecorderImpl> recorders = new HashSet<>();
 
     private final Map<Player, PendingBlockBreak> breakingPlayers = new HashMap<>();
     private final Map<Player, ItemStack> eatingPlayers = new HashMap<>();
@@ -65,7 +64,7 @@ public class RecordManager {
     }
 
     public @Nullable RecordTick getCurrentRecordTick(Player player) {
-        for (Recorder recorder : recorders) {
+        for (RecorderImpl recorder : recorders) {
             if (recorder.getPlayers().contains(player)) {
                 if (recorder.isRunning()) {
                     return recorder.getCurrentTick(player);
@@ -76,7 +75,7 @@ public class RecordManager {
     }
 
     public @Nullable RecordTick getCurrentRecordTick(Entity entity) {
-        for (Recorder recorder : recorders) {
+        for (RecorderImpl recorder : recorders) {
             if (recorder.getEntities().contains(entity)) {
                 if (recorder.isRunning()) {
                     return recorder.getCurrentTick(entity);
@@ -86,16 +85,16 @@ public class RecordManager {
         return null;
     }
 
-    public @Nullable Recorder getPlayerRecorder(Player player) {
-        for (Recorder recorder : recorders) {
+    public @Nullable RecorderImpl getPlayerRecorder(Player player) {
+        for (RecorderImpl recorder : recorders) {
             if (recorder.getPlayers().contains(player))
                 return recorder;
         }
         return null;
     }
 
-    public @Nullable Recorder getEntityRecorder(Entity entity) {
-        for (Recorder recorder : recorders) {
+    public @Nullable RecorderImpl getEntityRecorder(Entity entity) {
+        for (RecorderImpl recorder : recorders) {
             if (recorder.getEntities().contains(entity))
                 return recorder;
         }
@@ -106,7 +105,7 @@ public class RecordManager {
         return recordingPlayers;
     }
 
-    public Set<Recorder> getRecorders() {
+    public Set<RecorderImpl> getRecorders() {
         return recorders;
     }
 

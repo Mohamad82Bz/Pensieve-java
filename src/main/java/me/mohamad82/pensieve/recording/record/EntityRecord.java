@@ -11,7 +11,7 @@ public abstract class EntityRecord extends Record {
     private final NPCType entityType;
     private final int startingTick;
 
-    protected EntityRecord(UUID uuid, Vector3 center, NPCType entityType, int startingTick) {
+    public EntityRecord(UUID uuid, Vector3 center, NPCType entityType, int startingTick) {
         super(uuid, center);
         this.entityType = entityType;
         this.startingTick = startingTick;

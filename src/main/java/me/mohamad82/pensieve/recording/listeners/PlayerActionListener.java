@@ -7,12 +7,14 @@ import me.mohamad82.pensieve.recording.record.RecordTick;
 import me.mohamad82.ruom.event.packet.PlayerActionEvent;
 import me.mohamad82.ruom.vector.Vector3;
 import me.mohamad82.ruom.vector.Vector3Utils;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 
 public class PlayerActionListener extends PlayerActionEvent {
 
     @Override
     protected void onStartDig(Player player, Vector3 blockPos, Direction direction) {
+        if (player.getGameMode() != GameMode.SURVIVAL) return;
         RecordTick recordTick = RecordManager.getInstance().getCurrentRecordTick(player);
         if (recordTick == null) return;
         PlayerRecordTick playerRecordTick = (PlayerRecordTick) recordTick;
@@ -29,6 +31,7 @@ public class PlayerActionListener extends PlayerActionEvent {
 
     @Override
     protected void onStopDig(Player player, Vector3 blockPos) {
+        if (player.getGameMode() != GameMode.SURVIVAL) return;
         RecordManager.getInstance().getBreakingPlayers().remove(player);
     }
 
@@ -39,7 +42,7 @@ public class PlayerActionListener extends PlayerActionEvent {
 
     @Override
     protected void onDropAllItems(Player player) {
-
+        RecordManager.getInstance().getEatingPlayers().remove(player);
     }
 
     @Override

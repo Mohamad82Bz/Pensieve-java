@@ -1,30 +1,11 @@
 package me.mohamad82.pensieve.utils;
 
 import me.mohamad82.ruom.vector.Vector3;
-import me.mohamad82.ruom.xseries.ReflectionUtils;
-import org.bukkit.entity.AreaEffectCloud;
-import org.bukkit.entity.Player;
-import org.bukkit.projectiles.ProjectileSource;
-import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.*;
 
 public class Utils {
-
-    private static Class<?> CRAFT_AREA_EFFECT_CLOUD;
-
-    private static Method CRAFT_AREA_EFFECT_CLOUD_GET_SOURCE_METHOD;
-
-    static {
-        try {
-            CRAFT_AREA_EFFECT_CLOUD = ReflectionUtils.getCraftClass("entity.CraftAreaEffectCloud");
-            CRAFT_AREA_EFFECT_CLOUD_GET_SOURCE_METHOD = CRAFT_AREA_EFFECT_CLOUD.getMethod("getSource");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     private static final Set<Vector3> usedLocations = new HashSet<>();
 
@@ -49,7 +30,7 @@ public class Utils {
         }
     }
 
-    public static <T> T copy(T object, T newObject, Field[]... allFields) {
+    public static <T> T copy(T object, T newObject) {
         try {
             Set<Field> fields = new HashSet<>();
 
@@ -76,19 +57,6 @@ public class Utils {
             return newObject;
         } catch (Exception e) {
             throw new Error(e);
-        }
-    }
-
-    @Nullable
-    public static Player getAreaEffectCloudOwner(AreaEffectCloud areaEffectCloud) {
-        try {
-            ProjectileSource projectileSource = (ProjectileSource) CRAFT_AREA_EFFECT_CLOUD_GET_SOURCE_METHOD.invoke(areaEffectCloud);
-            if (projectileSource == null) return null;
-            if (!(projectileSource instanceof Player)) return null;
-            return (Player) projectileSource;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
         }
     }
 

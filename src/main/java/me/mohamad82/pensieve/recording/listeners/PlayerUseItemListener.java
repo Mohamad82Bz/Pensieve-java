@@ -3,14 +3,49 @@ package me.mohamad82.pensieve.recording.listeners;
 import me.mohamad82.pensieve.recording.RecordManager;
 import me.mohamad82.pensieve.recording.record.PlayerRecordTick;
 import me.mohamad82.pensieve.recording.record.RecordTick;
+import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.event.PlayerUseItemEvent;
-import me.mohamad82.ruom.utils.PlayerUtils;
 import me.mohamad82.ruom.utils.ServerVersion;
+import me.mohamad82.ruom.utils.item.CrossbowUtils;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.*;
+
 public class PlayerUseItemListener extends PlayerUseItemEvent {
+
+    private final Set<UUID> eatingPlayers = new HashSet<>();
+    private final Map<UUID, ItemStack> crossbowUsers = new HashMap<>();
+    private final Map<UUID, Integer> crossbowHoldTimes = new HashMap<>();
+    private final Map<UUID, Integer> crossbowCurrentSound = new HashMap<>();
+
+    public PlayerUseItemListener() {
+        Ruom.runAsync(() -> {
+            for (Player player : Ruom.getOnlinePlayers()) {
+                if (crossbowHoldTimes.containsKey(player.getUniqueId()) && crossbowUsers.containsKey(player.getUniqueId())) {
+                    RecordTick recordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+                    if (recordTick == null) continue;
+                    PlayerRecordTick playerRecordTick = (PlayerRecordTick) recordTick;
+
+                    int holdTime = crossbowHoldTimes.get(player.getUniqueId()) + 1;
+                    int currentSound = crossbowCurrentSound.get(player.getUniqueId());
+                    crossbowHoldTimes.put(player.getUniqueId(), holdTime);
+                    float drawn = CrossbowUtils.getPowerForTime(holdTime, crossbowUsers.get(player.getUniqueId()));
+
+                    if (drawn > 0.5F) {
+                        if (currentSound == 1) continue;
+                        playerRecordTick.setCrossbowChargeLevel(1);
+                        crossbowCurrentSound.put(player.getUniqueId(), 1);
+                    } else if (drawn > 0.2F) {
+                        if (currentSound == 0) continue;
+                        playerRecordTick.setCrossbowChargeLevel(0);
+                        crossbowCurrentSound.put(player.getUniqueId(), 0);
+                    }
+                }
+            }
+        }, 0, 1);
+    }
 
     @Override
     protected void onStartUseItem(Player player, ItemStack itemStack, boolean isMainHand) {
@@ -18,18 +53,43 @@ public class PlayerUseItemListener extends PlayerUseItemEvent {
         if (recordTick == null) return;
         PlayerRecordTick playerRecordTick = (PlayerRecordTick) recordTick;
 
-        playerRecordTick.useItemInteraction((byte) (isMainHand ? 1 : 2));
+        if (itemStack.getType().isEdible()) {
+            playerRecordTick.setEatingItem(itemStack);
+            RecordManager.getInstance().getEatingPlayers().put(player, itemStack);
+            eatingPlayers.add(player.getUniqueId());
+        } else {
+            playerRecordTick.useItemInteraction((byte) (isMainHand ? 1 : 2));
+            if (!crossbowUsers.containsKey(player.getUniqueId()) && ServerVersion.supports(14) && itemStack.getType() == XMaterial.CROSSBOW.parseMaterial()) {
+                crossbowUsers.put(player.getUniqueId(), itemStack);
+                crossbowHoldTimes.put(player.getUniqueId(), 1);
+                crossbowCurrentSound.put(player.getUniqueId(), -1);
+            }
+        }
     }
 
     @Override
-    protected void onStopUseItem(Player player, ItemStack itemStack, float holdTime) {
+    protected void onStopUseItem(Player player, ItemStack itemStack, int holdTime) {
+        if (eatingPlayers.contains(player.getUniqueId())) {
+            RecordManager.getInstance().getEatingPlayers().remove(player);
+            eatingPlayers.remove(player.getUniqueId());
+            return;
+        }
         RecordTick recordTick = RecordManager.getInstance().getCurrentRecordTick(player);
         if (recordTick == null) return;
         PlayerRecordTick playerRecordTick = (PlayerRecordTick) recordTick;
 
         playerRecordTick.useItemInteraction((byte) 3);
-        playerRecordTick.setUsedItemTime(Math.round(holdTime));
-        if (ServerVersion.supports(14) && PlayerUtils.hasItemInHand(player, XMaterial.CROSSBOW.parseMaterial())) {
+        playerRecordTick.setUsedItemTime(holdTime);
+
+        if (crossbowUsers.containsKey(player.getUniqueId())) {
+            float drawn = CrossbowUtils.getPowerForTime(holdTime, crossbowUsers.get(player.getUniqueId()));
+            if (drawn > 1.0F) {
+                playerRecordTick.setCrossbowChargeLevel(2);
+            }
+            playerRecordTick.setCrossbowChargeLevel(2);
+            crossbowUsers.remove(player.getUniqueId());
+            crossbowHoldTimes.remove(player.getUniqueId());
+            crossbowCurrentSound.remove(player.getUniqueId());
             playerRecordTick.drawCrossbow();
         }
     }

@@ -6,6 +6,7 @@ import me.mohamad82.pensieve.utils.Utils;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.vector.Vector3;
 import org.bukkit.Material;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
@@ -14,9 +15,9 @@ import java.util.Map;
 
 public class PlayerRecordTick extends RecordTick {
 
-    private Map<Vector3, Material> blockPlaces;
-    private Map<Vector3, Material> blockBreaks;
-    private Map<Vector3, String> blockData;
+    private Map<Vector3, BlockData> blockPlaces;
+    private Map<Vector3, BlockData> blockBreaks;
+    private Map<Vector3, BlockData> blockData;
 
     private PendingBlockBreak pendingBlockBreak;
     private ItemStack eatingItem;
@@ -29,6 +30,10 @@ public class PlayerRecordTick extends RecordTick {
     private boolean swing;
     private boolean eatFood;
     private boolean throwProjectile;
+    private boolean throwTrident;
+    private boolean throwFishingRod;
+    private boolean throwFirework;
+    private boolean retrieveFishingRod;
     private boolean drawCrossbow;
     private boolean shootCrossbow;
     private boolean openChestInteraction;
@@ -55,36 +60,24 @@ public class PlayerRecordTick extends RecordTick {
     private ItemStack leggings;
     private ItemStack boots;
 
-    public Map<Vector3, Material> getBlockPlaces() {
+    public Map<Vector3, BlockData> getBlockPlaces() {
         return blockPlaces;
-    }
-
-    public void setBlockPlaces(Map<Vector3, Material> blockPlaces) {
-        this.blockPlaces = blockPlaces;
     }
 
     public void initializeBlockPlaces() {
         blockPlaces = new HashMap<>();
     }
 
-    public Map<Vector3, Material> getBlockBreaks() {
+    public Map<Vector3, BlockData> getBlockBreaks() {
         return blockBreaks;
-    }
-
-    public void setBlockBreaks(Map<Vector3, Material> blockBreaks) {
-        this.blockBreaks = blockBreaks;
     }
 
     public void initializeBlockBreaks() {
         blockBreaks = new HashMap<>();
     }
 
-    public Map<Vector3, String> getBlockData() {
+    public Map<Vector3, BlockData> getBlockData() {
         return blockData;
-    }
-
-    public void setBlockData(Map<Vector3, String> blockData) {
-        this.blockData = blockData;
     }
 
     public void initializeBlockData() {
@@ -163,12 +156,44 @@ public class PlayerRecordTick extends RecordTick {
         this.eatFood = true;
     }
 
-    public boolean thrownProjectile() {
+    public boolean thrownArrow() {
         return throwProjectile;
     }
 
-    public void throwProjectile() {
+    public void throwArrow() {
         this.throwProjectile = true;
+    }
+
+    public boolean thrownTrident() {
+        return throwTrident;
+    }
+
+    public void throwTrident() {
+        this.throwTrident = true;
+    }
+
+    public boolean thrownFishingRod() {
+        return throwFishingRod;
+    }
+
+    public void throwFishingRod() {
+        this.throwFishingRod = true;
+    }
+
+    public boolean thrownFirework() {
+        return throwFirework;
+    }
+
+    public void throwFirework() {
+        throwFirework = true;
+    }
+
+    public boolean retrievedFishingRod() {
+        return retrieveFishingRod;
+    }
+
+    public void retrieveFishingRod() {
+        this.retrieveFishingRod = true;
     }
 
     public boolean drawnCrossbow() {
@@ -176,7 +201,7 @@ public class PlayerRecordTick extends RecordTick {
     }
 
     public void drawCrossbow() {
-        this.drawCrossbow = drawCrossbow;
+        this.drawCrossbow = true;
     }
 
     public boolean shotCrossbow() {

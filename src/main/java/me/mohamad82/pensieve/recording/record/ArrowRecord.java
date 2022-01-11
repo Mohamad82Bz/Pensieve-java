@@ -9,6 +9,7 @@ import java.util.UUID;
 public class ArrowRecord extends EntityRecord {
 
     private final int color;
+    private UUID pickedBy;
 
     public ArrowRecord(UUID uuid, Vector3 center, int startingTick, int color) {
         super(uuid, center, NPCType.ARROW, startingTick);
@@ -17,6 +18,14 @@ public class ArrowRecord extends EntityRecord {
 
     public int getColor() {
         return color;
+    }
+
+    public UUID getPickedBy() {
+        return pickedBy;
+    }
+
+    public void setPickedBy(UUID pickedBy) {
+        this.pickedBy = pickedBy;
     }
 
     @Override
