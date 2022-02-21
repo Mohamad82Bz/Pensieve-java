@@ -1,5 +1,6 @@
 package me.mohamad82.pensieve.recording.record;
 
+import com.google.gson.JsonObject;
 import me.mohamad82.ruom.npc.NPCType;
 import me.mohamad82.ruom.vector.Vector3;
 
@@ -7,11 +8,15 @@ import java.util.UUID;
 
 public class AreaEffectCloudRecord extends EntityRecord {
 
-    private final int color;
+    private int color;
 
     public AreaEffectCloudRecord(UUID uuid, Vector3 center, int startingTick, int color) {
-        super(uuid, center, NPCType.AREA_EFFECT_CLOUD, startingTick);
+        super(RecordType.AREA_EFFECT_CLOUD, uuid, center, NPCType.AREA_EFFECT_CLOUD, startingTick);
         this.color = color;
+    }
+
+    protected AreaEffectCloudRecord() {
+
     }
 
     public int getColor() {
@@ -20,7 +25,21 @@ public class AreaEffectCloudRecord extends EntityRecord {
 
     @Override
     public RecordTick createRecordTick() {
-        return new AreaEffectCloudTick();
+        return new AreaEffectCloudRecordTick();
+    }
+
+    public JsonObject toJson(JsonObject jsonObject) {
+        jsonObject.addProperty("color", color);
+
+        return super.toJson(jsonObject);
+    }
+
+    public AreaEffectCloudRecord fromJson(SerializableRecord record, JsonObject jsonObject) {
+        AreaEffectCloudRecord areaEffectCloudRecord = (AreaEffectCloudRecord) record;
+
+        areaEffectCloudRecord.color = jsonObject.get("color").getAsInt();
+
+        return (AreaEffectCloudRecord) super.fromJson(record, jsonObject);
     }
 
 }

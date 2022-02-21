@@ -10,6 +10,7 @@ version = '1.0'
 description = 'A well-supported recording and replaying system for Minecraft'
 
 repositories {
+    mavenCentral()
     mavenLocal()
     maven {
         url = uri('https://hub.spigotmc.org/nexus/content/repositories/snapshots/')
@@ -22,15 +23,12 @@ repositories {
         }
     }
     maven {
-        url = uri('https://mvn.intellectualsites.com/content/repositories/releases/')
-    }
-    maven {
         url = uri('https://repo.screamingsandals.org/public/')
     }
 }
 
 dependencies {
-    implementation 'me.mohamad82:ruom:3.4.5:all'
+    implementation 'me.mohamad82:ruom:3.6:all'
     compileOnly 'org.spigotmc:spigot:1.16.5-R0.1-SNAPSHOT'
     compileOnly 'com.intellectualsites.fawe:FAWE-Bukkit:1.16-637'
     testCompileOnly 'org.spigotmc:spigot:1.18.1-R0.1-SNAPSHOT:remapped-mojang'
@@ -43,6 +41,16 @@ shadowJar {
         exclude(dependency('net.kyori:.*:.*'))
         exclude(dependency('com.zaxxer:HikariCP:.*'))
         exclude(dependency('com.github.cryptomorin:XSeries:.*'))
+    }
+}
+
+def targetJavaVersion = 8
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }
 }
 

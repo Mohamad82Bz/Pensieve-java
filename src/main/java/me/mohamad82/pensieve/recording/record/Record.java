@@ -1,101 +1,143 @@
 package me.mohamad82.pensieve.recording.record;
 
 import com.google.common.collect.ImmutableList;
+import com.google.gson.JsonObject;
 import me.mohamad82.ruom.vector.Vector3;
-import org.jetbrains.annotations.ApiStatus;
+import me.mohamad82.ruom.vector.Vector3Utils;
 
+import java.lang.reflect.Method;
 import java.util.*;
 
-public abstract class Record {
+public abstract class Record extends SerializableRecord {
 
-    private final List<RecordTick> recordTicks = new ArrayList<>();
-    private final UUID uuid;
-    private final Vector3 center;
+    private RecordType type;
+    private List<RecordTick> recordTicks = new ArrayList<>();
+    private UUID uuid;
+    private Vector3 center;
     private Vector3 startLocation;
 
-    private final Set<String> customDataSet = new HashSet<>();
     private final Map<String, String> customDataMap = new HashMap<>();
 
-    protected Record(UUID uuid, Vector3 center) {
+    protected Record(RecordType type, UUID uuid, Vector3 center) {
+        this.type = type;
         this.uuid = uuid;
         this.center = center;
     }
 
-    /**
-     * Returns the total ticks saved in this record.
-     * @return The total tick.
-     */
+    protected Record() {
+
+    }
+
+    public RecordType getType() {
+        return type;
+    }
+
     public int getTotalTicks() {
         return recordTicks.size();
     }
 
-    /**
-     * Returns the UUID of this record.
-     * @return The UUID.
-     */
     public UUID getUuid() {
         return uuid;
     }
 
-    /**
-     * Returns the center of this record used to offset a replay.
-     * @return The center.
-     */
     public Vector3 getCenter() {
         return center;
     }
 
-    /**
-     * The location where record is started.
-     * @return The location.
-     */
     public Vector3 getStartLocation() {
         return startLocation;
     }
 
-    /**
-     * Sets the start location of this record  - INTERNAL USE ONLY
-     * @param startLocation The start location.
-     */
-    @ApiStatus.Internal
     public void setStartLocation(Vector3 startLocation) {
         this.startLocation = startLocation;
     }
 
-    @ApiStatus.Internal
     public void addRecordTick(RecordTick recordTick) {
         recordTicks.add(recordTick);
     }
 
-    /**
-     * Returns an immutablelist of the recordticks that are currently in this record.
-     * @return The ImmutableList of recordticks.
-     */
     public ImmutableList<RecordTick> getRecordTicks() {
         return ImmutableList.copyOf(recordTicks);
     }
 
-    /**
-     * Returns the custom data set used to store custom data for writing addons, etc.
-     * @return The custom data set.
-     */
-    public Set<String> getCustomDataSet() {
-        return customDataSet;
-    }
-
-    /**
-     * Returns the custom data map used to store custom data for writing addons, etc.
-     * @return The custom data map.
-     */
     public Map<String, String> getCustomDataMap() {
         return customDataMap;
     }
 
-    /**
-     * Constructs a new record tick - INTERNAL USE ONLY
-     * @return A new recordtick
-     */
-    @ApiStatus.Internal
     public abstract RecordTick createRecordTick();
+
+    public JsonObject toJson(JsonObject jsonObject) {
+        jsonObject.addProperty("type", type.toString());
+        jsonObject.addProperty("uuid", uuid.toString());
+        jsonObject.addProperty("center", center.toString());
+        jsonObject.addProperty("startlocation", startLocation.toString());
+
+        if (!customDataMap.isEmpty()) {
+            JsonObject customDataMapJson = new JsonObject();
+            for (Map.Entry<String, String> entry : customDataMap.entrySet()) {
+                customDataMapJson.addProperty(entry.getKey(), entry.getValue());
+            }
+            jsonObject.add("customdatamap", customDataMapJson);
+        }
+
+        try {
+            Method recordTickToJsonMethod = type.getRecordTickClass().getMethod("toJson", JsonObject.class);
+            JsonObject ticksJsonObject = new JsonObject();
+            int tickIndex = 0;
+            for (RecordTick tick : recordTicks) {
+                JsonObject recordTickJsonObject = (JsonObject) recordTickToJsonMethod.invoke(tick, new JsonObject());
+                ticksJsonObject.add(String.valueOf(tickIndex), recordTickJsonObject);
+                tickIndex++;
+            }
+            jsonObject.add("ticks", ticksJsonObject);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return jsonObject;
+    }
+
+    public Record fromJson(SerializableRecord serializableRecord, JsonObject jsonObject) {
+        Record record = (Record) serializableRecord;
+
+        record.type = RecordType.valueOf(jsonObject.get("type").getAsString());
+        record.uuid = UUID.fromString(jsonObject.get("uuid").getAsString());
+        record.center = Vector3Utils.toVector3(jsonObject.get("center").getAsString());
+        record.startLocation = Vector3Utils.toVector3(jsonObject.get("startlocation").getAsString());
+
+        try {
+            Method recordTickFromJsonMethod = record.getType().getRecordTickClass().getMethod("fromJson", SerializableRecordTick.class, JsonObject.class);
+            Object tickObject = record.getType().getRecordTickClass().getConstructor().newInstance();
+            JsonObject ticksJsonObject = jsonObject.get("ticks").getAsJsonObject();
+            int tickIndex = 0;
+            boolean hasNext = ticksJsonObject.has(String.valueOf(tickIndex));
+            List<RecordTick> recordTicks = new ArrayList<>();
+            while(hasNext) {
+                JsonObject tickJsonObject = ticksJsonObject.get(String.valueOf(tickIndex)).getAsJsonObject();
+                recordTicks.add((RecordTick) recordTickFromJsonMethod.invoke(tickObject, tickObject, tickJsonObject));
+                tickObject = record.getType().getRecordTickClass().getConstructor().newInstance();
+
+                hasNext = ticksJsonObject.has(String.valueOf(++tickIndex));
+            }
+
+
+
+            /*int tickIndex = 0;
+            boolean hasNext = ticksJsonObject.has("0");
+            List<RecordTick> recordTicks = new ArrayList<>();
+            while (hasNext) {
+                JsonObject tickJsonObject = ticksJsonObject.get(String.valueOf(tickIndex)).getAsJsonObject();
+                recordTicks.add((RecordTick) recordTickFromJsonMethod.invoke(tickObject, tickObject, tickJsonObject));
+
+                hasNext = ticksJsonObject.has(String.valueOf(++tickIndex));
+            }*/
+
+            record.recordTicks = recordTicks;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return record;
+    }
 
 }

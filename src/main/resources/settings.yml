@@ -1,9 +1,0 @@
-#Here you can decide how many records can a player save in their last games,
-#and how many they can mark as their favorite and save the record for ever.
-record_save:
-  default:
-    last: 3 #Set this to -1 if you don't want default players to see any of their last game records
-    favorite: 1 #Se this to -1 if you don't want default players to save one of their game records
-  vip: #Simply this can be what ever you like, this name will be used in the permission nodes. For example: %pensieve_recordsave_vip%
-    last: 10
-    favorite: 3

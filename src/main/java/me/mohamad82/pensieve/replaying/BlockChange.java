@@ -50,13 +50,13 @@ public class BlockChange {
     }
 
     public void apply() {
-        if (beforeBlockData.getMaterial().toString().contains("BED")) {
+        if (beforeBlockData.getMaterial().toString().contains("BED") && beforeBlockData.getMaterial() != XMaterial.BEDROCK.parseMaterial()) {
             BlockUtils.breakBed(location);
         } else if (beforeBlockData.getMaterial().toString().contains("_DOOR")) {
             BlockUtils.breakDoor(location);
         }
 
-        if (afterBlockData.getMaterial().toString().contains("BED")) {
+        if (afterBlockData.getMaterial().toString().contains("BED") && afterBlockData.getMaterial() != XMaterial.BEDROCK.parseMaterial()) {
             BlockUtils.placeBed(location, afterBlockData);
         } else if (afterBlockData.getMaterial().toString().contains("_DOOR")) {
             BlockUtils.placeDoor(location, afterBlockData);
@@ -66,13 +66,13 @@ public class BlockChange {
     }
 
     public void rollback() {
-        if (afterBlockData.getMaterial().toString().contains("BED")) {
+        if (afterBlockData.getMaterial().toString().contains("BED") && afterBlockData.getMaterial() != XMaterial.BEDROCK.parseMaterial()) {
             BlockUtils.breakBed(location);
         } else if (afterBlockData.getMaterial().toString().contains("_DOOR")) {
             BlockUtils.breakDoor(location);
         }
 
-        if (beforeBlockData.getMaterial().toString().contains("BED")) {
+        if (beforeBlockData.getMaterial().toString().contains("BED") && beforeBlockData.getMaterial() != XMaterial.BEDROCK.parseMaterial()) {
             BlockUtils.placeBed(location, beforeBlockData);
         } else if (beforeBlockData.getMaterial().toString().contains("_DOOR")) {
             BlockUtils.placeDoor(location, beforeBlockData);

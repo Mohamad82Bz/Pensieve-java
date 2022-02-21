@@ -3,7 +3,7 @@ package me.mohamad82.pensieve.recording.listeners;
 import me.mohamad82.pensieve.recording.PendingBlockBreak;
 import me.mohamad82.pensieve.recording.RecordManager;
 import me.mohamad82.pensieve.recording.record.PlayerRecordTick;
-import me.mohamad82.pensieve.recording.record.RecordTick;
+import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.event.packet.PlayerActionEvent;
 import me.mohamad82.ruom.vector.Vector3;
 import me.mohamad82.ruom.vector.Vector3Utils;
@@ -15,9 +15,8 @@ public class PlayerActionListener extends PlayerActionEvent {
     @Override
     protected void onStartDig(Player player, Vector3 blockPos, Direction direction) {
         if (player.getGameMode() != GameMode.SURVIVAL) return;
-        RecordTick recordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (recordTick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) recordTick;
+        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (playerRecordTick == null) return;
 
         final PendingBlockBreak pendingBlockBreak = new PendingBlockBreak(
                 blockPos,

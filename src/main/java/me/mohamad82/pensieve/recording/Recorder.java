@@ -6,6 +6,7 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
+import java.util.UUID;
 
 public interface Recorder {
 
@@ -61,9 +62,15 @@ public interface Recorder {
     /**
      * Returns the record container that can be used to construct a Replayer.
      * Will return null if recorder wasn't stopped.
-     * @return The record container
+     * @return The record container.
      */
     @Nullable
     RecordContainer getRecordContainer();
+
+    /**
+     * Returns the unique uuid of this recorder instance.
+     * @return The unique uuid.
+     */
+    UUID getRecorderUUID();
 
 }

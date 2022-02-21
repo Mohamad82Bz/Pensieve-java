@@ -47,9 +47,8 @@ public class RecordListeners implements Listener {
         Player player = event.getPlayer();
         Block block = event.getBlockPlaced();
 
-        RecordTick tick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (tick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) tick;
+        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (playerRecordTick == null) return;
 
         if (playerRecordTick.getBlockPlaces() == null)
             playerRecordTick.initializeBlockPlaces();
@@ -67,9 +66,8 @@ public class RecordListeners implements Listener {
 
         RecorderImpl recorder = RecordManager.getInstance().getPlayerRecorder(player);
         if (recorder == null) return;
-        RecordTick tick = recorder.getCurrentTick(player);
-        if (tick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) tick;
+        PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
+        if (playerRecordTick == null) return;
 
         if (playerRecordTick.getBlockBreaks() == null)
             playerRecordTick.initializeBlockBreaks();
@@ -77,29 +75,18 @@ public class RecordListeners implements Listener {
 
         //Pending Block Break (Block break animations)
         if (player.getGameMode().equals(GameMode.SURVIVAL)) {
-            Ruom.runAsync(() -> {
-                List<PendingBlockBreak> pendingBlockBreaks = new ArrayList<>();
-                int i = 2;
-                for (PlayerRecord record : recorder.getPlayerRecords()) {
-                    if (record.getUuid().equals(player.getUniqueId())) {
-                        while (((PlayerRecordTick) record.getRecordTicks().get(recorder.getCurrentTickIndex() - i)).getPendingBlockBreak() != null) {
-                            pendingBlockBreaks.add(((PlayerRecordTick) record.getRecordTicks().get(recorder.getCurrentTickIndex() - i)).getPendingBlockBreak());
-                            i++;
-                        }
-                    }
+            PendingBlockBreak pendingBlockBreak = RecordManager.getInstance().getBreakingPlayers().get(player);
+            if (pendingBlockBreak == null) return;
+            List<Integer> stages = new ArrayList<>();
+            int i = 1;
+            while (stages.size() <= pendingBlockBreak.timeSpent) {
+                for (int a = 1; a <= Math.round((float) pendingBlockBreak.timeSpent / 9); a++) {
+                    stages.add(i);
                 }
-                //Some weird calculations for the break animation stages
-                int index = 0;
-                for (int a = 0; a < 10; a++) {
-                    for (int j = 0; j < Math.ceil((float) pendingBlockBreaks.size() / 10); j++) {
-                        if (index >= pendingBlockBreaks.size())
-                            pendingBlockBreaks.get(pendingBlockBreaks.size() - 1).getAnimationStages().add(a);
-                        else
-                            pendingBlockBreaks.get(index).getAnimationStages().add(a);
-                        index++;
-                    }
-                }
-            });
+                if (i < 9)
+                    i++;
+            }
+            pendingBlockBreak.setAnimationStages(stages);
         }
     }
 
@@ -114,9 +101,8 @@ public class RecordListeners implements Listener {
                 for (Entity nearbyEntity : entity.getLocation().getWorld().getNearbyEntities(entity.getLocation(), 8, 8, 8)) {
                     if (nearbyEntity.getType().equals(EntityType.PLAYER)) {
                         Player nearbyPlayer = (Player) nearbyEntity;
-                        RecordTick nearbyPlayerCurrentTick = RecordManager.getInstance().getCurrentRecordTick(nearbyPlayer);
-                        if (nearbyPlayerCurrentTick != null) {
-                            PlayerRecordTick playerRecordTick = (PlayerRecordTick) nearbyPlayerCurrentTick;
+                        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(nearbyPlayer);
+                        if (playerRecordTick != null) {
 
                             if (playerRecordTick.getBlockBreaks() != null) {
                                 for (Vector3 blockLocation : playerRecordTick.getBlockBreaks().keySet()) {
@@ -158,7 +144,7 @@ public class RecordListeners implements Listener {
         if (recorder == null) return;
 
         recorder.getEntities().add(droppedItem);
-        ((PlayerRecordTick) recorder.getCurrentTick(player)).swing();
+        recorder.getCurrentTick(player).swing();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -226,22 +212,9 @@ public class RecordListeners implements Listener {
         Player player = event.getPlayer();
         Block block = event.getClickedBlock();
 
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (currentTick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) currentTick;
+        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (playerRecordTick == null) return;
 
-        ItemStack item = null;
-        if (player.getInventory().getItem(EquipmentSlot.HAND).getType().isEdible())
-            item = player.getInventory().getItem(EquipmentSlot.HAND);
-        else if (ServerVersion.supports(9) && player.getInventory().getItem(EquipmentSlot.OFF_HAND).getType().isEdible())
-            item = player.getInventory().getItem(EquipmentSlot.OFF_HAND);
-
-        if (item != null && (event.getAction().equals(Action.RIGHT_CLICK_BLOCK) || event.getAction().equals(Action.RIGHT_CLICK_AIR))) {
-            if (!(RecordManager.getInstance().getEatingPlayers().containsKey(player))) {
-                //playerRecordTick.setEatingItem(item);
-                //RecordManager.getInstance().getEatingPlayers().put(player, item);
-            }
-        }
         if (event.getAction().equals(Action.LEFT_CLICK_AIR) || event.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
             playerRecordTick.swing();
         }
@@ -251,7 +224,8 @@ public class RecordListeners implements Listener {
                 if (playerRecordTick.getBlockData() == null)
                     playerRecordTick.initializeBlockData();
                 if (!(block.getType().toString().contains("BUTTON") && buttonInteractionCooldowns.contains(block.getLocation()))) {
-                    playerRecordTick.getBlockData().put(Vector3Utils.toVector3(block.getLocation()), block.getBlockData());
+                    playerRecordTick.getBlockData().put(Vector3Utils.toVector3(block.getLocation()),
+                            block.getBlockData().getMaterial().toString().contains("_DOOR") ? Bukkit.createBlockData(block.getBlockData().getAsString().replace("half=upper", "half=lower")) : block.getBlockData());
                     if (block.getType().toString().contains("BUTTON")) {
                         buttonInteractionCooldowns.add(block.getLocation());
                         Ruom.runSync(() -> {
@@ -311,7 +285,7 @@ public class RecordListeners implements Listener {
         if (recorder == null) return;
         RecordTick lastNonNullTick = recorder.getLastNonNullTick(player.getUniqueId());
         if (lastNonNullTick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) recorder.getCurrentTick(player);
+        PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
         PlayerRecordTick lastNonNullPlayerRecordTick = (PlayerRecordTick) lastNonNullTick;
 
         if (furnaceInteractions.containsKey(player.getUniqueId())) {
@@ -344,9 +318,8 @@ public class RecordListeners implements Listener {
         if (!event.getEntityType().equals(EntityType.PLAYER)) return;
         Player victim = (Player) event.getEntity();
 
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(victim);
-        if (currentTick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) currentTick;
+        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(victim);
+        if (playerRecordTick == null) return;
 
         if (!event.getDamager().getType().equals(EntityType.PLAYER)) {
             //Hit by a mob
@@ -373,9 +346,8 @@ public class RecordListeners implements Listener {
         if (!event.getEntityType().equals(EntityType.PLAYER)) return;
         Player player = (Player) event.getEntity();
 
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (currentTick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) currentTick;
+        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (playerRecordTick == null) return;
 
         if (event.getCause().equals(EntityDamageEvent.DamageCause.LAVA) ||
                 event.getCause().equals(EntityDamageEvent.DamageCause.FIRE) ||
@@ -395,9 +367,8 @@ public class RecordListeners implements Listener {
         if (event.isCancelled()) return;
         Player player = (Player) event.getEntity();
 
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (currentTick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) currentTick;
+        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (playerRecordTick == null) return;
 
         playerRecordTick.setHunger(event.getFoodLevel());
     }
@@ -407,9 +378,8 @@ public class RecordListeners implements Listener {
         if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (currentTick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) currentTick;
+        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (playerRecordTick == null) return;
 
         playerRecordTick.eatFood();
     }
@@ -478,7 +448,7 @@ public class RecordListeners implements Listener {
         PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
 
         if (projectile instanceof AbstractArrow || projectile instanceof ThrownPotion || projectile instanceof ThrownExpBottle || projectile instanceof Snowball || projectile instanceof EnderPearl || projectile instanceof Egg) {
-            playerRecordTick.throwArrow();
+            playerRecordTick.throwProjectile();
             recorder.getEntities().add(projectile);
         }
         if (projectile instanceof Trident && ServerVersion.supports(13)) {
@@ -544,19 +514,6 @@ public class RecordListeners implements Listener {
         if (!(projectile instanceof FishHook)) {
             recorder.getEntities().remove(projectile);
         }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onChat(AsyncPlayerChatEvent event) {
-        if (event.isCancelled()) return;
-        Player player = event.getPlayer();
-
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (currentTick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) currentTick;
-
-        //TODO: SayanChat support
-        playerRecordTick.setMessage(event.getMessage());
     }
 
     @SuppressWarnings("deprecation")

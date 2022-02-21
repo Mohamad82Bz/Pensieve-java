@@ -1,5 +1,6 @@
 package me.mohamad82.pensieve.recording.record;
 
+import com.google.gson.JsonObject;
 import me.mohamad82.pensieve.utils.Utils;
 
 public class DroppedItemRecordTick extends EntityRecordTick {
@@ -17,6 +18,29 @@ public class DroppedItemRecordTick extends EntityRecordTick {
     @Override
     public DroppedItemRecordTick copy() {
         return Utils.copy(this, new DroppedItemRecordTick());
+    }
+
+    @Override
+    public JsonObject toJson(JsonObject jsonObject) {
+        if (itemAmount != -1) {
+            jsonObject.addProperty("itemamount", itemAmount);
+        }
+
+        return super.toJson(jsonObject);
+    }
+
+    public DroppedItemRecordTick fromJson(SerializableRecordTick recordTick, JsonObject jsonObject) {
+        DroppedItemRecordTick tick = (DroppedItemRecordTick) recordTick;
+
+        if (jsonObject.has("itemamount")) {
+            tick.itemAmount = jsonObject.get("itemamount").getAsInt();
+        }
+
+        return (DroppedItemRecordTick) super.fromJson(tick, jsonObject);
+    }
+
+    public DroppedItemRecordTick fromJson(JsonObject jsonObject) {
+        return fromJson(new DroppedItemRecordTick(), jsonObject);
     }
 
 }

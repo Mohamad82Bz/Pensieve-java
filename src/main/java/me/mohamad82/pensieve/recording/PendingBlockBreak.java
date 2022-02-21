@@ -1,22 +1,30 @@
 package me.mohamad82.pensieve.recording;
 
+import com.google.gson.JsonObject;
 import me.mohamad82.ruom.utils.NMSUtils;
 import me.mohamad82.ruom.vector.Vector3;
+import me.mohamad82.ruom.vector.Vector3Utils;
+import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.ApiStatus;
 
 import java.util.*;
 
-public class PendingBlockBreak implements Cloneable {
+public class PendingBlockBreak {
 
     private UUID uuid;
-    private Vector3 location;
-    private Material material;
-    private BlockDirection blockDirection;
+    private final Vector3 location;
+    private final Material material;
+    private final BlockDirection blockDirection;
+    private final Random random;
     private List<Integer> animationStages;
+
+    @ApiStatus.Internal
+    public int timeSpent = 0;
 
     public PendingBlockBreak(Vector3 location, BlockDirection blockDirection, Material material) {
         this.uuid = UUID.randomUUID();
@@ -24,6 +32,7 @@ public class PendingBlockBreak implements Cloneable {
         this.location = location;
         this.blockDirection = blockDirection;
         this.material = material;
+        random = new Random();
     }
 
     public UUID getUuid() {
@@ -66,8 +75,6 @@ public class PendingBlockBreak implements Cloneable {
             centerBlock.add(0.504, 0, 0);
         else if (blockDirection.equals(BlockDirection.WEST))
             centerBlock.add(-0.504, 0, 0);
-        Random random = new Random();
-
 
         for (int i = 0; i <= 1; i++) {
             float first = (float) (random.nextInt(8) - 4) / 10;
@@ -101,13 +108,46 @@ public class PendingBlockBreak implements Cloneable {
             NMSUtils.sendBlockDestruction(players, location, animationStages.get(stage));
     }
 
-    @Override
-    public PendingBlockBreak clone() {
-        try {
-            return (PendingBlockBreak) super.clone();
-        } catch (CloneNotSupportedException e) {
-            throw new Error(e);
+    public JsonObject toJson() {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("u", uuid.toString());
+        jsonObject.addProperty("l", location.toString());
+        jsonObject.addProperty("m", XMaterial.matchXMaterial(material).name());
+        jsonObject.addProperty("b", blockDirection.toString());
+        if (animationStages != null) {
+            StringBuilder stagesStringBuilder = new StringBuilder();
+            for (int stage : animationStages) {
+                stagesStringBuilder.append(stage).append(",");
+            }
+            String stages = stagesStringBuilder.substring(0, stagesStringBuilder.length() - 1);
+            jsonObject.addProperty("s", stages);
         }
+
+        return jsonObject;
+    }
+
+    public static PendingBlockBreak fromJson(JsonObject jsonObject) {
+        PendingBlockBreak pendingBlockBreak = new PendingBlockBreak(
+                Vector3Utils.toVector3(jsonObject.get("l").getAsString()),
+                BlockDirection.valueOf(jsonObject.get("b").getAsString().toUpperCase()),
+                XMaterial.matchXMaterial(jsonObject.get("m").getAsString()).get().parseMaterial()
+        );
+        pendingBlockBreak.uuid = UUID.fromString(jsonObject.get("u").getAsString());
+        if (jsonObject.has("s")) {
+            String[] stagesSplit = jsonObject.get("s").getAsString().split(",");
+            List<Integer> stages = new ArrayList<>();
+            for (String stageString : stagesSplit) {
+                stages.add(Integer.parseInt(stageString));
+            }
+            pendingBlockBreak.animationStages = stages;
+        }
+
+        return pendingBlockBreak;
+    }
+
+    @Override
+    public int hashCode() {
+        return uuid.hashCode();
     }
 
     public enum BlockDirection {

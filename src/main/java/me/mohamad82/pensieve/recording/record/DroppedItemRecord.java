@@ -1,6 +1,8 @@
 package me.mohamad82.pensieve.recording.record;
 
+import com.google.gson.JsonObject;
 import me.mohamad82.ruom.npc.NPCType;
+import me.mohamad82.ruom.utils.NMSUtils;
 import me.mohamad82.ruom.vector.Vector3;
 import org.bukkit.inventory.ItemStack;
 
@@ -8,12 +10,16 @@ import java.util.UUID;
 
 public class DroppedItemRecord extends EntityRecord {
 
-    private final ItemStack item;
+    private ItemStack item;
     private UUID pickedBy;
 
     public DroppedItemRecord(UUID uuid, Vector3 center, int startingTick, ItemStack item) {
-        super(uuid, center, NPCType.ITEM, startingTick);
+        super(RecordType.DROPPED_ITEM, uuid, center, NPCType.ITEM, startingTick);
         this.item = item;
+    }
+
+    protected DroppedItemRecord() {
+
     }
 
     public UUID getPickedBy() {
@@ -31,6 +37,27 @@ public class DroppedItemRecord extends EntityRecord {
     @Override
     public RecordTick createRecordTick() {
         return new DroppedItemRecordTick();
+    }
+
+    public JsonObject toJson(JsonObject jsonObject) {
+        jsonObject.addProperty("item", NMSUtils.getItemStackNBTJson(item));
+
+        if (pickedBy != null) {
+            jsonObject.addProperty("pickedby", pickedBy.toString());
+        }
+
+        return super.toJson(jsonObject);
+    }
+
+    public DroppedItemRecord fromJson(SerializableRecord record, JsonObject jsonObject) {
+        DroppedItemRecord droppedItemRecord = (DroppedItemRecord) record;
+
+        droppedItemRecord.item = NMSUtils.getItemStackFromNBTJson(jsonObject.get("item").getAsString());
+        if (jsonObject.has("pickedby")) {
+            droppedItemRecord.pickedBy = UUID.fromString(jsonObject.get("pickedby").getAsString());
+        }
+
+        return (DroppedItemRecord) super.fromJson(record, jsonObject);
     }
 
 }

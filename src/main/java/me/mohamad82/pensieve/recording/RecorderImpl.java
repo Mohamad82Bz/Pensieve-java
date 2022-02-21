@@ -1,7 +1,9 @@
 package me.mohamad82.pensieve.recording;
 
+import me.mohamad82.pensieve.api.event.*;
 import me.mohamad82.pensieve.recording.record.*;
 import me.mohamad82.ruom.Ruom;
+import me.mohamad82.ruom.adventure.ComponentUtils;
 import me.mohamad82.ruom.nmsaccessors.EntityAccessor;
 import me.mohamad82.ruom.nmsaccessors.FireworkRocketEntityAccessor;
 import me.mohamad82.ruom.nmsaccessors.SynchedEntityDataAccessor;
@@ -14,9 +16,6 @@ import me.mohamad82.ruom.vector.Vector3;
 import me.mohamad82.ruom.vector.Vector3Utils;
 import me.mohamad82.ruom.xseries.XEnchantment;
 import me.mohamad82.ruom.xseries.XMaterial;
-import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Material;
 import org.bukkit.entity.*;
 import org.bukkit.inventory.EquipmentSlot;
@@ -32,6 +31,7 @@ import java.util.*;
 public class RecorderImpl implements Recorder {
 
     private final RecorderImpl instance = this;
+    private final UUID recorderUUID = UUID.randomUUID();
 
     private RecordContainer recordContainer;
     private final Vector3 center;
@@ -62,6 +62,9 @@ public class RecorderImpl implements Recorder {
     }
 
     public void start() {
+        PensieveRecorderStartEvent recorderStartEvent = new PensieveRecorderStartEvent(this);
+        Ruom.getServer().getPluginManager().callEvent(recorderStartEvent);
+
         for (Player player : players) {
             playerRecords.add(new PlayerRecord(player, center));
         }
@@ -70,19 +73,18 @@ public class RecorderImpl implements Recorder {
             public void run() {
                 try {
                     for (Player player : players) {
-                        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.translateAlternateColorCodes('&',
-                                "&9Recorded &d" + currentTickIndex + " &9Ticks")));
+                        NMSUtils.sendActionBar(player, ComponentUtils.parse("<gradient:blue:dark_purple>Recorded " + currentTickIndex + " ticks."));
 
                         PlayerRecordTick tick = new PlayerRecordTick();
                         playerCurrentTick.put(player, tick);
 
                         if (currentTickIndex == 0) {
-                            getPlayerRecord(player).setStartLocation(Vector3.at(
-                                    player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ()));
+                            getPlayerRecord(player).setStartLocation(Vector3.at(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ()));
 
                             tick.setLocation(Vector3Utils.toVector3(player.getLocation()));
                             tick.setYaw(player.getLocation().getYaw());
                             tick.setPitch(player.getLocation().getPitch());
+                            tick.setPing(NMSUtils.getPing(player));
                             tick.setPose(getPlayerPose(player));
                             tick.setHealth(player.getHealth());
                             tick.setHunger(player.getFoodLevel());
@@ -205,6 +207,9 @@ public class RecorderImpl implements Recorder {
                             }
                         }
 
+                        PensieveRecorderPlayerTickEvent recorderTickEvent = new PensieveRecorderPlayerTickEvent(instance, player, currentTickIndex, tick);
+                        Ruom.getServer().getPluginManager().callEvent(recorderTickEvent);
+
                         getPlayerRecord(player).addRecordTick(tick);
                     }
 
@@ -252,7 +257,7 @@ public class RecorderImpl implements Recorder {
                                             break;
                                         }
                                         default: {
-                                            throw new IllegalStateException("Please report this to the plugin's developer. Entity type: " + entity.getType().toString());
+                                            throw new IllegalStateException("Please report this to the plugin's developer. Entity type: " + entity.getType());
                                         }
                                     }
 
@@ -274,7 +279,7 @@ public class RecorderImpl implements Recorder {
                                 case TRIDENT: {
                                     ItemStack trident = ((Trident) entity).getItem();
                                     boolean enchanted = trident.hasItemMeta() && trident.getItemMeta().hasEnchants();
-                                    int loyalty = trident.hasItemMeta() ? (trident.getItemMeta().hasEnchant(XEnchantment.LOYALTY.parseEnchantment()) ? trident.getItemMeta().getEnchantLevel(XEnchantment.LOYALTY.parseEnchantment()) : 0) : 0;
+                                    int loyalty = trident.hasItemMeta() ? (trident.getItemMeta().hasEnchant(XEnchantment.LOYALTY.getEnchant()) ? trident.getItemMeta().getEnchantLevel(XEnchantment.LOYALTY.getEnchant()) : 0) : 0;
                                     record = new TridentRecord(entity.getUniqueId(), center, currentTickIndex, Byte.parseByte(String.valueOf(loyalty)), enchanted);
                                     break;
                                 }
@@ -304,61 +309,63 @@ public class RecorderImpl implements Recorder {
                         RecordTick tick = record.createRecordTick();
                         entityCurrentTick.put(entity, tick);
 
-                        if (tick instanceof AreaEffectCloudTick) {
-                            ((AreaEffectCloudTick) tick).setRadius(((AreaEffectCloud) entity).getRadius());
+                        if (tick instanceof AreaEffectCloudRecordTick) {
+                            ((AreaEffectCloudRecordTick) tick).setRadius(((AreaEffectCloud) entity).getRadius());
+                        }
+                        if (!lastNonNullTicks.containsKey(entity.getUniqueId())) {
+                            tick.setLocation(Vector3Utils.toVector3(entity.getLocation()));
+                            tick.setYaw(entity.getLocation().getYaw());
+                            tick.setPitch(entity.getLocation().getPitch());
+                            tick.setVelocity(Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ()));
+
+                            lastNonNullTicks.put(entity.getUniqueId(), tick.copy());
                         } else {
-                            if (!lastNonNullTicks.containsKey(entity.getUniqueId())) {
-                                tick.setLocation(Vector3Utils.toVector3(entity.getLocation()));
-                                tick.setYaw(entity.getLocation().getYaw());
-                                tick.setPitch(entity.getLocation().getPitch());
-                                tick.setVelocity(Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ()));
+                            RecordTick lastNonNullTick = lastNonNullTicks.get(entity.getUniqueId());
 
-                                lastNonNullTicks.put(entity.getUniqueId(), tick.copy());
+                            Vector3 location = Vector3Utils.toVector3(entity.getLocation());
+                            if (!lastNonNullTick.getLocation().equals(location)) {
+                                tick.setLocation(location);
+                                lastNonNullTick.setLocation(location);
                             } else {
-                                RecordTick lastNonNullTick = lastNonNullTicks.get(entity.getUniqueId());
-
-                                Vector3 location = Vector3Utils.toVector3(entity.getLocation());
-                                if (!lastNonNullTick.getLocation().equals(location)) {
-                                    tick.setLocation(location);
-                                    lastNonNullTick.setLocation(location);
-                                } else {
-                                    Vector3 velocity = Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ());
-                                    if (lastNonNullTick.getVelocity() == null || !lastNonNullTick.getVelocity().equals(velocity)) {
-                                        tick.setVelocity(velocity);
-                                        lastNonNullTick.setVelocity(velocity);
-                                    }
+                                Vector3 velocity = Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ());
+                                if (lastNonNullTick.getVelocity() == null || !lastNonNullTick.getVelocity().equals(velocity)) {
+                                    tick.setVelocity(velocity);
+                                    lastNonNullTick.setVelocity(velocity);
                                 }
+                            }
 
-                                if (lastNonNullTick.getYaw() != entity.getLocation().getYaw()) {
-                                    tick.setYaw(entity.getLocation().getYaw());
-                                    lastNonNullTick.setYaw(entity.getLocation().getYaw());
+                            if (lastNonNullTick.getYaw() != entity.getLocation().getYaw()) {
+                                tick.setYaw(entity.getLocation().getYaw());
+                                lastNonNullTick.setYaw(entity.getLocation().getYaw());
+                            }
+
+                            if (lastNonNullTick.getPitch() != entity.getLocation().getPitch()) {
+                                tick.setPitch(entity.getLocation().getPitch());
+                                lastNonNullTick.setPitch(entity.getLocation().getPitch());
+                            }
+
+                            if (tick instanceof TridentRecordTick) {
+                                if (!((TridentRecordTick) lastNonNullTick).hasAttachedBlock() && ((Trident) entity).getAttachedBlock() != null) {
+                                    ((TridentRecordTick) tick).setAttachedBlock();
+                                    ((TridentRecordTick) lastNonNullTick).setAttachedBlock();
                                 }
-
-                                if (lastNonNullTick.getPitch() != entity.getLocation().getPitch()) {
-                                    tick.setPitch(entity.getLocation().getPitch());
-                                    lastNonNullTick.setPitch(entity.getLocation().getPitch());
+                                if (!((TridentRecordTick) lastNonNullTick).isReturning() && (int) ThrownTridentAccessor.getFieldClientSideReturnTridentTickCount().get(NMSUtils.getNmsEntity(entity)) > 0) {
+                                    ((TridentRecordTick) tick).setReturning();
+                                    ((TridentRecordTick) lastNonNullTick).setReturning();
                                 }
-
-                                if (tick instanceof TridentRecordTick) {
-                                    if (!((TridentRecordTick) lastNonNullTick).hasAttachedBlock() && ((Trident) entity).getAttachedBlock() != null) {
-                                        ((TridentRecordTick) tick).setAttachedBlock();
-                                        ((TridentRecordTick) lastNonNullTick).setAttachedBlock();
-                                    }
-                                    if (!((TridentRecordTick) lastNonNullTick).isReturning() && (int) ThrownTridentAccessor.getFieldClientSideReturnTridentTickCount().get(NMSUtils.getNmsEntity(entity)) > 0) {
-                                        ((TridentRecordTick) tick).setReturning();
-                                        ((TridentRecordTick) lastNonNullTick).setReturning();
-                                    }
-                                } else if (tick instanceof FishingHookRecordTick) {
-                                    if (((FishHook) entity).getHookedEntity() != null && (((FishingHookRecordTick) lastNonNullTick).getHookedEntity() == null || !((FishingHookRecordTick) lastNonNullTick).getHookedEntity().equals(entity.getUniqueId()))) {
-                                        ((FishingHookRecordTick) tick).setHookedEntity(((FishHook) entity).getHookedEntity().getUniqueId());
-                                        ((FishingHookRecordTick) tick).setHookedEntity(((FishHook) entity).getHookedEntity().getUniqueId());
-                                    }
+                            } else if (tick instanceof FishingHookRecordTick) {
+                                if (((FishHook) entity).getHookedEntity() != null && (((FishingHookRecordTick) lastNonNullTick).getHookedEntity() == null || !((FishingHookRecordTick) lastNonNullTick).getHookedEntity().equals(entity.getUniqueId()))) {
+                                    ((FishingHookRecordTick) tick).setHookedEntity(((FishHook) entity).getHookedEntity().getUniqueId());
+                                    ((FishingHookRecordTick) tick).setHookedEntity(((FishHook) entity).getHookedEntity().getUniqueId());
                                 }
                             }
                         }
 
+                        PensieveRecorderEntityTickEvent recorderTickEvent = new PensieveRecorderEntityTickEvent(instance, entity, currentTickIndex, tick);
+                        Ruom.getServer().getPluginManager().callEvent(recorderTickEvent);
+
                         if (entity.isDead()) {
-                            entitiesToRemove.add(entity);
+                            safeRemoveEntity(entity);
                         } else {
                             getEntityRecord(entity).addRecordTick(tick);
                         }
@@ -379,6 +386,9 @@ public class RecorderImpl implements Recorder {
     }
 
     public void stop() {
+        PensieveRecorderStopEvent recorderStopEvent = new PensieveRecorderStopEvent(this);
+        Ruom.getServer().getPluginManager().callEvent(recorderStopEvent);
+
         RecordManager.getInstance().getRecorders().remove(this);
         bukkitTask.cancel();
         recordContainer = new RecordContainer(getPlayerRecords(), getEntityRecords());
@@ -474,14 +484,18 @@ public class RecorderImpl implements Recorder {
         return entities;
     }
 
-    @Override
     public void safeAddEntity(Entity entity) {
-        entitiesToAdd.add(entity);
+        PensieveEntityAddEvent entityAddEvent = new PensieveEntityAddEvent(this, entity);
+        Ruom.getServer().getPluginManager().callEvent(entityAddEvent);
+        if (!entityAddEvent.isCancelled())
+            entitiesToAdd.add(entity);
     }
 
-    @Override
     public void safeRemoveEntity(Entity entity) {
-        entitiesToRemove.add(entity);
+        PensieveEntityRemoveEvent entityRemoveEvent = new PensieveEntityRemoveEvent(this, entity);
+        Ruom.getServer().getPluginManager().callEvent(entityRemoveEvent);
+        if (!entityRemoveEvent.isCancelled())
+            entitiesToRemove.add(entity);
     }
 
     public Set<PlayerRecord> getPlayerRecords() {
@@ -499,6 +513,10 @@ public class RecorderImpl implements Recorder {
     @Nullable
     public RecordContainer getRecordContainer() {
         return recordContainer;
+    }
+
+    public UUID getRecorderUUID() {
+        return recorderUUID;
     }
 
 }

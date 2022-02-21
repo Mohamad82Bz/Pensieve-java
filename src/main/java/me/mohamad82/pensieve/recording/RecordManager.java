@@ -1,14 +1,13 @@
 package me.mohamad82.pensieve.recording;
 
+import me.mohamad82.pensieve.recording.record.EntityRecordTick;
 import me.mohamad82.pensieve.recording.record.PlayerRecordTick;
-import me.mohamad82.pensieve.recording.record.RecordTick;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.utils.ServerVersion;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
@@ -32,38 +31,36 @@ public class RecordManager {
     public RecordManager() {
         instance = this;
 
-        new BukkitRunnable() {
-            public void run() {
-                for (Player player : Ruom.getOnlinePlayers()) {
-                    if (breakingPlayers.containsKey(player) || eatingPlayers.containsKey(player)) {
-                        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
-                        if (currentTick == null) return;
-                        PlayerRecordTick playerRecordTick = (PlayerRecordTick) currentTick;
+        Ruom.runAsync(() -> {
+            for (Player player : Ruom.getOnlinePlayers()) {
+                if (breakingPlayers.containsKey(player) || eatingPlayers.containsKey(player)) {
+                    PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+                    if (playerRecordTick == null) return;
 
-                        if (breakingPlayers.containsKey(player)) {
-                            playerRecordTick.setPendingBlockBreak(breakingPlayers.get(player));
-                        }
-                        if (eatingPlayers.containsKey(player)) {
-                            ItemStack foodItem = eatingPlayers.get(player);
-                            if (foodItem.getAmount() == 0) {
+                    if (breakingPlayers.containsKey(player)) {
+                        playerRecordTick.setPendingBlockBreak(breakingPlayers.get(player));
+                        breakingPlayers.get(player).timeSpent++;
+                    }
+                    if (eatingPlayers.containsKey(player)) {
+                        ItemStack foodItem = eatingPlayers.get(player);
+                        if (foodItem.getAmount() == 0) {
+                            eatingPlayers.remove(player);
+                        } else {
+                            if (!(player.getInventory().getItem(EquipmentSlot.HAND).getType().isEdible()) &&
+                                    (ServerVersion.supports(9) &&
+                                            !player.getInventory().getItem(EquipmentSlot.OFF_HAND).getType().isEdible())) {
                                 eatingPlayers.remove(player);
                             } else {
-                                if (!(player.getInventory().getItem(EquipmentSlot.HAND).getType().isEdible()) &&
-                                        (ServerVersion.supports(9) &&
-                                                !player.getInventory().getItem(EquipmentSlot.OFF_HAND).getType().isEdible())) {
-                                    eatingPlayers.remove(player);
-                                } else {
-                                    playerRecordTick.setEatingItem(foodItem);
-                                }
+                                playerRecordTick.setEatingMaterial(foodItem.getType());
                             }
                         }
                     }
                 }
             }
-        }.runTaskTimerAsynchronously(Ruom.getPlugin(), 0, 1);
+        }, 0, 1);
     }
 
-    public @Nullable RecordTick getCurrentRecordTick(Player player) {
+    public @Nullable PlayerRecordTick getCurrentRecordTick(Player player) {
         for (RecorderImpl recorder : recorders) {
             if (recorder.getPlayers().contains(player)) {
                 if (recorder.isRunning()) {
@@ -74,7 +71,7 @@ public class RecordManager {
         return null;
     }
 
-    public @Nullable RecordTick getCurrentRecordTick(Entity entity) {
+    public @Nullable EntityRecordTick getCurrentRecordTick(Entity entity) {
         for (RecorderImpl recorder : recorders) {
             if (recorder.getEntities().contains(entity)) {
                 if (recorder.isRunning()) {

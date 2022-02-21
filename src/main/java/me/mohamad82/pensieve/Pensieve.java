@@ -48,7 +48,6 @@ public final class Pensieve extends RUoMPlugin {
     }
 
     public void initializeInstances() {
-        new WorldManager();
         new RecordManager();
         Ruom.initializeAreaSelection();
         Ruom.initializeSkinBuilder();

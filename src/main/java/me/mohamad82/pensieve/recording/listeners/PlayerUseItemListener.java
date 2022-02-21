@@ -2,7 +2,6 @@ package me.mohamad82.pensieve.recording.listeners;
 
 import me.mohamad82.pensieve.recording.RecordManager;
 import me.mohamad82.pensieve.recording.record.PlayerRecordTick;
-import me.mohamad82.pensieve.recording.record.RecordTick;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.event.PlayerUseItemEvent;
 import me.mohamad82.ruom.utils.ServerVersion;
@@ -24,9 +23,8 @@ public class PlayerUseItemListener extends PlayerUseItemEvent {
         Ruom.runAsync(() -> {
             for (Player player : Ruom.getOnlinePlayers()) {
                 if (crossbowHoldTimes.containsKey(player.getUniqueId()) && crossbowUsers.containsKey(player.getUniqueId())) {
-                    RecordTick recordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-                    if (recordTick == null) continue;
-                    PlayerRecordTick playerRecordTick = (PlayerRecordTick) recordTick;
+                    PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+                    if (playerRecordTick == null) continue;
 
                     int holdTime = crossbowHoldTimes.get(player.getUniqueId()) + 1;
                     int currentSound = crossbowCurrentSound.get(player.getUniqueId());
@@ -49,12 +47,11 @@ public class PlayerUseItemListener extends PlayerUseItemEvent {
 
     @Override
     protected void onStartUseItem(Player player, ItemStack itemStack, boolean isMainHand) {
-        RecordTick recordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (recordTick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) recordTick;
+        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (playerRecordTick == null) return;
 
         if (itemStack.getType().isEdible()) {
-            playerRecordTick.setEatingItem(itemStack);
+            playerRecordTick.setEatingMaterial(itemStack.getType());
             RecordManager.getInstance().getEatingPlayers().put(player, itemStack);
             eatingPlayers.add(player.getUniqueId());
         } else {
@@ -74,9 +71,8 @@ public class PlayerUseItemListener extends PlayerUseItemEvent {
             eatingPlayers.remove(player.getUniqueId());
             return;
         }
-        RecordTick recordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (recordTick == null) return;
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) recordTick;
+        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (playerRecordTick == null) return;
 
         playerRecordTick.useItemInteraction((byte) 3);
         playerRecordTick.setUsedItemTime(holdTime);
