@@ -6,11 +6,12 @@ import me.mohamad82.pensieve.recording.RecorderImpl;
 import me.mohamad82.pensieve.recording.enums.DamageType;
 import me.mohamad82.pensieve.recording.record.*;
 import me.mohamad82.ruom.Ruom;
+import me.mohamad82.ruom.math.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3Utils;
+import me.mohamad82.ruom.math.vector.Vector3UtilsBukkit;
 import me.mohamad82.ruom.utils.ListUtils;
 import me.mohamad82.ruom.utils.ServerVersion;
 import me.mohamad82.ruom.utils.item.CrossbowUtils;
-import me.mohamad82.ruom.vector.Vector3;
-import me.mohamad82.ruom.vector.Vector3Utils;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -47,15 +48,17 @@ public class RecordListeners implements Listener {
         Player player = event.getPlayer();
         Block block = event.getBlockPlaced();
 
-        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (playerRecordTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (collection.isEmpty()) return;
 
-        if (playerRecordTick.getBlockPlaces() == null)
-            playerRecordTick.initializeBlockPlaces();
+        Vector3 location = Vector3Utils.simplifyToInt(Vector3UtilsBukkit.toVector3(block.getLocation()));
 
-        Vector3 location = Vector3Utils.simplifyToBlock(Vector3Utils.toVector3(block.getLocation()));
-        playerRecordTick.getBlockPlaces().put(location, block.getState().getBlockData());
-        playerRecordTick.swing();
+        collection.forEach(playerRecordTick -> {
+            if (playerRecordTick.getBlockPlaces() == null)
+                playerRecordTick.initializeBlockPlaces();
+            playerRecordTick.getBlockPlaces().put(location, block.getState().getBlockData());
+            playerRecordTick.swing();
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -64,14 +67,15 @@ public class RecordListeners implements Listener {
         Player player = event.getPlayer();
         Block block = event.getBlock();
 
-        RecorderImpl recorder = RecordManager.getInstance().getPlayerRecorder(player);
-        if (recorder == null) return;
-        PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
-        if (playerRecordTick == null) return;
+        Collection<RecorderImpl> collection = RecordManager.getInstance().getPlayerRecorder(player);
+        if (collection.isEmpty()) return;
 
-        if (playerRecordTick.getBlockBreaks() == null)
-            playerRecordTick.initializeBlockBreaks();
-        playerRecordTick.getBlockBreaks().put(Vector3Utils.toVector3(block.getLocation()), block.getState().getBlockData());
+        collection.forEach(recorder -> {
+            PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
+            if (playerRecordTick.getBlockBreaks() == null)
+                playerRecordTick.initializeBlockBreaks();
+            playerRecordTick.getBlockBreaks().put(Vector3UtilsBukkit.toVector3(block.getLocation()), block.getState().getBlockData());
+        });
 
         //Pending Block Break (Block break animations)
         if (player.getGameMode().equals(GameMode.SURVIVAL)) {
@@ -101,12 +105,12 @@ public class RecordListeners implements Listener {
                 for (Entity nearbyEntity : entity.getLocation().getWorld().getNearbyEntities(entity.getLocation(), 8, 8, 8)) {
                     if (nearbyEntity.getType().equals(EntityType.PLAYER)) {
                         Player nearbyPlayer = (Player) nearbyEntity;
-                        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(nearbyPlayer);
-                        if (playerRecordTick != null) {
-
+                        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(nearbyPlayer);
+                        if (collection.size() != 0) {
+                            PlayerRecordTick playerRecordTick = collection.iterator().next();
                             if (playerRecordTick.getBlockBreaks() != null) {
                                 for (Vector3 blockLocation : playerRecordTick.getBlockBreaks().keySet()) {
-                                    Vector3 entityLocation = Vector3Utils.toVector3(entity.getLocation());
+                                    Vector3 entityLocation = Vector3UtilsBukkit.toVector3(entity.getLocation());
                                     if (blockLocation.equals(Vector3.at(Math.floor(entityLocation.getX()), Math.floor(entityLocation.getY()), Math.floor(entityLocation.getZ())))) {
                                         player = nearbyPlayer;
                                     }
@@ -116,16 +120,13 @@ public class RecordListeners implements Listener {
                     }
                 }
                 if (player == null) return;
-                RecorderImpl recorder = RecordManager.getInstance().getPlayerRecorder(player);
-                recorder.getEntities().add(entity);
+                RecordManager.getInstance().getPlayerRecorder(player).forEach(recorder -> recorder.getEntities().add(entity));
                 break;
             }
             case AREA_EFFECT_CLOUD: {
                 if (((AreaEffectCloud) entity).getSource() instanceof Player) {
                     Player player = (Player) ((AreaEffectCloud) entity).getSource();
-                    RecorderImpl recorder = RecordManager.getInstance().getPlayerRecorder(player);
-                    if (recorder != null)
-                        recorder.getEntities().add(entity);
+                    RecordManager.getInstance().getPlayerRecorder(player).forEach(recorder -> recorder.getEntities().add(entity));
                 }
                 break;
             }
@@ -140,11 +141,10 @@ public class RecordListeners implements Listener {
         Player player = Bukkit.getPlayer(droppedItem.getThrower());
         if (player == null) return;
 
-        RecorderImpl recorder = RecordManager.getInstance().getPlayerRecorder(player);
-        if (recorder == null) return;
-
-        recorder.getEntities().add(droppedItem);
-        recorder.getCurrentTick(player).swing();
+        RecordManager.getInstance().getPlayerRecorder(player).forEach(recorder -> {
+            recorder.getEntities().add(droppedItem);
+            recorder.getCurrentTick(player).swing();
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -153,22 +153,23 @@ public class RecordListeners implements Listener {
         Item droppedItem = event.getItem();
         LivingEntity entity = event.getEntity();
 
-        RecorderImpl recorder = RecordManager.getInstance().getEntityRecorder(droppedItem);
-        if (recorder == null) return;
-        DroppedItemRecord droppedItemRecord = (DroppedItemRecord) recorder.getEntityRecord(droppedItem);
-        if (droppedItemRecord == null) return;
-        boolean pickerHasRecorder = false;
+        RecordManager.getInstance().getEntityRecorder(droppedItem).forEach(recorder -> {
+            DroppedItemRecord droppedItemRecord = (DroppedItemRecord) recorder.getEntityRecord(droppedItem);
+            if (droppedItemRecord == null) return;
 
-        if (entity.getType().equals(EntityType.PLAYER)) {
-            if (RecordManager.getInstance().getPlayerRecorder((Player) entity) != null)
-                pickerHasRecorder = true;
-        } else {
-            if (RecordManager.getInstance().getEntityRecorder(entity) != null)
-                pickerHasRecorder = true;
-        }
+            boolean pickerHasRecorder = false;
 
-        if (pickerHasRecorder)
-            droppedItemRecord.setPickedBy(event.getEntity().getUniqueId());
+            if (entity.getType().equals(EntityType.PLAYER)) {
+                if (RecordManager.getInstance().getPlayerRecorder((Player) entity).iterator().hasNext())
+                    pickerHasRecorder = true;
+            } else {
+                if (RecordManager.getInstance().getEntityRecorder(entity).iterator().hasNext())
+                    pickerHasRecorder = true;
+            }
+
+            if (pickerHasRecorder)
+                droppedItemRecord.setPickedBy(event.getEntity().getUniqueId());
+        });
     }
 
     @EventHandler
@@ -176,21 +177,21 @@ public class RecordListeners implements Listener {
         Player player = event.getPlayer();
         AbstractArrow arrow = event.getArrow();
 
-        RecorderImpl recorder = RecordManager.getInstance().getEntityRecorder(arrow);
-        if (recorder == null) return;
-        EntityRecord record = recorder.getEntityRecord(arrow);
-        if (record == null) return;
+        RecordManager.getInstance().getEntityRecorder(arrow).forEach(recorder -> {
+            EntityRecord record = recorder.getEntityRecord(arrow);
+            if (record == null) return;
 
-        switch (arrow.getType()) {
-            case ARROW: {
-                ((ArrowRecord) record).setPickedBy(player.getUniqueId());
-                break;
+            switch (arrow.getType()) {
+                case ARROW: {
+                    ((ArrowRecord) record).setPickedBy(player.getUniqueId());
+                    break;
+                }
+                case TRIDENT: {
+                    ((TridentRecord) record).setPickedBy(player.getUniqueId());
+                    break;
+                }
             }
-            case TRIDENT: {
-                ((TridentRecord) record).setPickedBy(player.getUniqueId());
-                break;
-            }
-        }
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -199,12 +200,14 @@ public class RecordListeners implements Listener {
         Item entity = event.getEntity();
         Item target = event.getTarget();
 
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(target);
-        if (currentTick == null) return;
-        DroppedItemRecordTick droppedItemRecordTick = (DroppedItemRecordTick) currentTick;
+        Collection<EntityRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(target);
+        if (collection.isEmpty()) return;
 
-        int amount = target.getItemStack().getAmount() + entity.getItemStack().getAmount();
-        droppedItemRecordTick.setItemAmount(amount);
+        collection.forEach(entityRecordTick -> {
+            DroppedItemRecordTick droppedItemRecordTick = (DroppedItemRecordTick) entityRecordTick;
+            int amount = target.getItemStack().getAmount() + entity.getItemStack().getAmount();
+            droppedItemRecordTick.setItemAmount(amount);
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -212,20 +215,23 @@ public class RecordListeners implements Listener {
         Player player = event.getPlayer();
         Block block = event.getClickedBlock();
 
-        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (playerRecordTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (collection.isEmpty()) return;
 
         if (event.getAction().equals(Action.LEFT_CLICK_AIR) || event.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
-            playerRecordTick.swing();
+            collection.forEach(PlayerRecordTick::swing);
         }
         if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK) && block.getType().isInteractable()) {
-            playerRecordTick.swing();
+            collection.forEach(PlayerRecordTick::swing);
             Ruom.runSync(() -> {
-                if (playerRecordTick.getBlockData() == null)
-                    playerRecordTick.initializeBlockData();
+                collection.forEach(playerRecordTick -> {
+                    if (playerRecordTick.getBlockData() == null) {
+                        playerRecordTick.initializeBlockData();
+                    }
+                });
                 if (!(block.getType().toString().contains("BUTTON") && buttonInteractionCooldowns.contains(block.getLocation()))) {
-                    playerRecordTick.getBlockData().put(Vector3Utils.toVector3(block.getLocation()),
-                            block.getBlockData().getMaterial().toString().contains("_DOOR") ? Bukkit.createBlockData(block.getBlockData().getAsString().replace("half=upper", "half=lower")) : block.getBlockData());
+                    collection.forEach(playerRecordTick -> playerRecordTick.getBlockData().put(Vector3UtilsBukkit.toVector3(block.getLocation()),
+                            block.getBlockData().getMaterial().toString().contains("_DOOR") ? Bukkit.createBlockData(block.getBlockData().getAsString().replace("half=upper", "half=lower")) : block.getBlockData()));
                     if (block.getType().toString().contains("BUTTON")) {
                         buttonInteractionCooldowns.add(block.getLocation());
                         Ruom.runSync(() -> {
@@ -246,15 +252,19 @@ public class RecordListeners implements Listener {
                 chestInteractionRunnables.put(player.getUniqueId(), new Runnable() {
                     @Override
                     public void run() {
-                        Vector3 interactionLocation = Vector3Utils.toVector3(block.getLocation());
-                        playerRecordTick.setBlockInteractionLocation(interactionLocation);
-                        playerRecordTick.setBlockInteractionType(block.getType());
-                        playerRecordTick.setOpenChestInteraction(true);
+                        Vector3 interactionLocation = Vector3UtilsBukkit.toVector3(block.getLocation());
+                        collection.forEach(playerRecordTick -> {
+                            playerRecordTick.setBlockInteractionLocation(interactionLocation);
+                            playerRecordTick.setBlockInteractionType(block.getType());
+                            playerRecordTick.setOpenChestInteraction(true);
+                        });
 
-                        PlayerRecordTick lastNonNullTick = (PlayerRecordTick) RecordManager.getInstance().getPlayerRecorder(player).getLastNonNullTick(player.getUniqueId());
-                        lastNonNullTick.setBlockInteractionLocation(interactionLocation);
-                        lastNonNullTick.setBlockInteractionType(block.getType());
-                        lastNonNullTick.setOpenChestInteraction(true);
+                        RecordManager.getInstance().getPlayerRecorder(player).forEach(recorder -> {
+                            PlayerRecordTick lastNonNullTick = (PlayerRecordTick) recorder.getLastNonNullTick(player.getUniqueId());
+                            lastNonNullTick.setBlockInteractionLocation(interactionLocation);
+                            lastNonNullTick.setBlockInteractionType(block.getType());
+                            lastNonNullTick.setOpenChestInteraction(true);
+                        });
                     }
                 });
                 Ruom.runSync(() -> {
@@ -281,35 +291,38 @@ public class RecordListeners implements Listener {
     public void onInventoryClose(InventoryCloseEvent event) {
         Player player = (Player) event.getPlayer();
 
-        RecorderImpl recorder = RecordManager.getInstance().getPlayerRecorder(player);
-        if (recorder == null) return;
-        RecordTick lastNonNullTick = recorder.getLastNonNullTick(player.getUniqueId());
-        if (lastNonNullTick == null) return;
-        PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
-        PlayerRecordTick lastNonNullPlayerRecordTick = (PlayerRecordTick) lastNonNullTick;
+        Collection<RecorderImpl> collection = RecordManager.getInstance().getPlayerRecorder(player);
+        if (collection.isEmpty()) return;
 
         if (furnaceInteractions.containsKey(player.getUniqueId())) {
-            if (event.getInventory().getType().equals(InventoryType.FURNACE) ||
-                    (ServerVersion.supports(14) && (event.getInventory().getType().equals(InventoryType.BLAST_FURNACE)) || event.getInventory().getType().equals(InventoryType.SMOKER))) {
+            if (event.getInventory().getType().equals(InventoryType.FURNACE) || (ServerVersion.supports(14) && (event.getInventory().getType().equals(InventoryType.BLAST_FURNACE)) || event.getInventory().getType().equals(InventoryType.SMOKER))) {
                 Block block = furnaceInteractions.get(player.getUniqueId()).getBlock();
-                if (block.getType().equals(XMaterial.FURNACE.parseMaterial()) ||
-                        (ServerVersion.supports(14) && (block.getType().equals(XMaterial.BLAST_FURNACE.parseMaterial()) || block.getType().equals(XMaterial.SMOKER.parseMaterial())))) {
-                    if (playerRecordTick.getBlockData() == null)
-                        playerRecordTick.initializeBlockData();
-                    playerRecordTick.getBlockData().put(Vector3Utils.toVector3(block.getLocation()), block.getBlockData());
+                if (block.getType().equals(XMaterial.FURNACE.parseMaterial()) || (ServerVersion.supports(14) && (block.getType().equals(XMaterial.BLAST_FURNACE.parseMaterial()) || block.getType().equals(XMaterial.SMOKER.parseMaterial())))) {
+                    collection.forEach(recorder -> {
+                        PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
+                        if (playerRecordTick.getBlockData() == null) {
+                            playerRecordTick.initializeBlockData();
+                        }
+                        playerRecordTick.getBlockData().put(Vector3UtilsBukkit.toVector3(block.getLocation()), block.getBlockData());
+                    });
                 }
             }
             furnaceInteractions.remove(player.getUniqueId());
         }
-        if (lastNonNullPlayerRecordTick.didOpenChestInteraction()) {
-            playerRecordTick.setBlockInteractionLocation(lastNonNullPlayerRecordTick.getBlockInteractionLocation());
-            playerRecordTick.setBlockInteractionType(lastNonNullPlayerRecordTick.getBlockInteractionType());
-            playerRecordTick.setOpenChestInteraction(false);
+        collection.forEach(recorder -> {
+            PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
+            PlayerRecordTick lastNonNullTick = (PlayerRecordTick) recorder.getLastNonNullTick(player.getUniqueId());
 
-            lastNonNullPlayerRecordTick.setOpenChestInteraction(false);
-            lastNonNullPlayerRecordTick.setBlockInteractionLocation(null);
-            lastNonNullPlayerRecordTick.setBlockInteractionType(null);
-        }
+            if (lastNonNullTick.didOpenChestInteraction()) {
+                playerRecordTick.setBlockInteractionLocation(lastNonNullTick.getBlockInteractionLocation());
+                playerRecordTick.setBlockInteractionType(lastNonNullTick.getBlockInteractionType());
+                playerRecordTick.setOpenChestInteraction(false);
+
+                lastNonNullTick.setOpenChestInteraction(false);
+                lastNonNullTick.setBlockInteractionLocation(null);
+                lastNonNullTick.setBlockInteractionType(null);
+            }
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -318,26 +331,30 @@ public class RecordListeners implements Listener {
         if (!event.getEntityType().equals(EntityType.PLAYER)) return;
         Player victim = (Player) event.getEntity();
 
-        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(victim);
-        if (playerRecordTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(victim);
+        if (collection.isEmpty()) return;
 
-        if (!event.getDamager().getType().equals(EntityType.PLAYER)) {
-            //Hit by a mob
-            playerRecordTick.damage(DamageType.NORMAL);
-            //Hit by an arrow
-            if (event.getDamager().getType().toString().contains("ARROW")) {
-                playerRecordTick.damage(DamageType.PROJECTILE);
-                playerRecordTick.setBodyArrows(victim.getArrowsInBody() + 1);
-                ((PlayerRecordTick) RecordManager.getInstance().getPlayerRecorder(victim).getLastNonNullTick(victim.getUniqueId())).setBodyArrows(victim.getArrowsInBody() + 1);
+        collection.forEach(playerRecordTick -> {
+            if (!event.getDamager().getType().equals(EntityType.PLAYER)) {
+                //Hit by a mob
+                playerRecordTick.damage(DamageType.NORMAL);
+                //Hit by an arrow
+                if (event.getDamager().getType().toString().contains("ARROW")) {
+                    playerRecordTick.damage(DamageType.PROJECTILE);
+                    playerRecordTick.setBodyArrows(victim.getArrowsInBody() + 1);
+                    RecordManager.getInstance().getPlayerRecorder(victim).forEach(recorder -> {
+                        ((PlayerRecordTick) recorder.getLastNonNullTick(victim.getUniqueId())).setBodyArrows(victim.getArrowsInBody() + 1);
+                    });
+                }
+            } else {
+                Player damager = (Player) event.getDamager();
+                if (isCritical(damager)) {
+                    playerRecordTick.damage(DamageType.CRITICAL);
+                } else if (isSprintAttack(damager)) {
+                    playerRecordTick.damage(DamageType.SPRINT_ATTACK);
+                }
             }
-        } else {
-            Player damager = (Player) event.getDamager();
-            if (isCritical(damager)) {
-                playerRecordTick.damage(DamageType.CRITICAL);
-            } else if (isSprintAttack(damager)) {
-                playerRecordTick.damage(DamageType.SPRINT_ATTACK);
-            }
-        }
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -346,20 +363,22 @@ public class RecordListeners implements Listener {
         if (!event.getEntityType().equals(EntityType.PLAYER)) return;
         Player player = (Player) event.getEntity();
 
-        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (playerRecordTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (collection.isEmpty()) return;
 
-        if (event.getCause().equals(EntityDamageEvent.DamageCause.LAVA) ||
-                event.getCause().equals(EntityDamageEvent.DamageCause.FIRE) ||
-                event.getCause().equals(EntityDamageEvent.DamageCause.FIRE_TICK) ||
-                event.getCause().equals(EntityDamageEvent.DamageCause.HOT_FLOOR)) {
-            playerRecordTick.damage(DamageType.BURN);
-        } else {
-            if (playerRecordTick.getTakenDamageType() == null) {
-                playerRecordTick.damage(DamageType.NORMAL);
+        collection.forEach(playerRecordTick -> {
+            if (event.getCause().equals(EntityDamageEvent.DamageCause.LAVA) ||
+                    event.getCause().equals(EntityDamageEvent.DamageCause.FIRE) ||
+                    event.getCause().equals(EntityDamageEvent.DamageCause.FIRE_TICK) ||
+                    event.getCause().equals(EntityDamageEvent.DamageCause.HOT_FLOOR)) {
+                playerRecordTick.damage(DamageType.BURN);
+            } else {
+                if (playerRecordTick.getTakenDamageType() == null) {
+                    playerRecordTick.damage(DamageType.NORMAL);
+                }
             }
-        }
-        playerRecordTick.setHealth(player.getHealth() - event.getDamage());
+            playerRecordTick.setHealth(player.getHealth() - event.getDamage());
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -367,10 +386,10 @@ public class RecordListeners implements Listener {
         if (event.isCancelled()) return;
         Player player = (Player) event.getEntity();
 
-        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (playerRecordTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (collection.isEmpty()) return;
 
-        playerRecordTick.setHunger(event.getFoodLevel());
+        collection.forEach(playerRecordTick -> playerRecordTick.setHunger(event.getFoodLevel()));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -378,10 +397,10 @@ public class RecordListeners implements Listener {
         if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
-        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (playerRecordTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (collection.isEmpty()) return;
 
-        playerRecordTick.eatFood();
+        collection.forEach(PlayerRecordTick::eatFood);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -389,8 +408,8 @@ public class RecordListeners implements Listener {
         if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (currentTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (collection.isEmpty()) return;
 
         RecordManager.getInstance().getEatingPlayers().remove(player);
     }
@@ -400,8 +419,8 @@ public class RecordListeners implements Listener {
         if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (currentTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (collection.isEmpty()) return;
 
         RecordManager.getInstance().getEatingPlayers().remove(player);
     }
@@ -411,8 +430,8 @@ public class RecordListeners implements Listener {
         if (event.isCancelled()) return;
         Player player = event.getPlayer();
 
-        RecordTick currentTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (currentTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (collection.isEmpty()) return;
 
         if (player.getInventory().getItem(EquipmentSlot.HAND).getAmount() == 0) {
             RecordManager.getInstance().getEatingPlayers().remove(player);
@@ -423,16 +442,12 @@ public class RecordListeners implements Listener {
     public void onFish(PlayerFishEvent event) {
         if (event.isCancelled()) return;
         Player player = event.getPlayer();
-        FishHook fishHook = event.getHook();
 
         if (event.getState() == PlayerFishEvent.State.REEL_IN || event.getState() == PlayerFishEvent.State.IN_GROUND || event.getState() == PlayerFishEvent.State.CAUGHT_ENTITY) {
-            RecorderImpl recorder = RecordManager.getInstance().getPlayerRecorder(player);
-            if (recorder == null) return;
+            Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+            if (collection.isEmpty()) return;
 
-            PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
-            if (playerRecordTick != null) {
-                playerRecordTick.retrieveFishingRod();
-            }
+            collection.forEach(PlayerRecordTick::retrieveFishingRod);
         }
     }
 
@@ -443,27 +458,29 @@ public class RecordListeners implements Listener {
         if (!(projectile.getShooter() instanceof Player)) return;
         Player player = (Player) projectile.getShooter();
 
-        RecorderImpl recorder = RecordManager.getInstance().getPlayerRecorder(player);
-        if (recorder == null) return;
-        PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
+        Collection<RecorderImpl> collection = RecordManager.getInstance().getPlayerRecorder(player);
 
-        if (projectile instanceof AbstractArrow || projectile instanceof ThrownPotion || projectile instanceof ThrownExpBottle || projectile instanceof Snowball || projectile instanceof EnderPearl || projectile instanceof Egg) {
-            playerRecordTick.throwProjectile();
-            recorder.getEntities().add(projectile);
-        }
-        if (projectile instanceof Trident && ServerVersion.supports(13)) {
-            playerRecordTick.throwTrident();
-            recorder.getEntities().add(projectile);
-        }
-        if (projectile instanceof FishHook) {
-            playerRecordTick.throwFishingRod();
-            recorder.getEntities().add(projectile);
-        }
-        if (projectile instanceof Firework) {
-            playerRecordTick.throwFirework();
-            playerRecordTick.swing();
-            recorder.getEntities().add(projectile);
-        }
+        collection.forEach(recorder -> {
+            PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
+
+            if (projectile instanceof AbstractArrow || projectile instanceof ThrownPotion || projectile instanceof ThrownExpBottle || projectile instanceof Snowball || projectile instanceof EnderPearl || projectile instanceof Egg) {
+                playerRecordTick.throwProjectile();
+                recorder.getEntities().add(projectile);
+            }
+            if (ServerVersion.supports(13) && projectile instanceof Trident) {
+                playerRecordTick.throwTrident();
+                recorder.getEntities().add(projectile);
+            }
+            if (projectile instanceof FishHook) {
+                playerRecordTick.throwFishingRod();
+                recorder.getEntities().add(projectile);
+            }
+            if (projectile instanceof Firework) {
+                playerRecordTick.throwFirework();
+                playerRecordTick.swing();
+                recorder.getEntities().add(projectile);
+            }
+        });
 
         if (ServerVersion.supports(14) && projectile instanceof AbstractArrow) {
             ItemStack crossbowItem = null;
@@ -485,15 +502,15 @@ public class RecordListeners implements Listener {
                     }
                 }
                 if (!hasInteractableItemOnMainHand) {
-                    playerRecordTick.shootCrossbow();
+                    collection.forEach(recorder -> recorder.getCurrentTick(player).shootCrossbow());
 
                     ItemStack chargedCrossbow = crossbowItem.clone();
                     CrossbowUtils.setCharged(chargedCrossbow, true);
 
                     if (hasCrossbowOnOffHand) {
-                        playerRecordTick.setOffHand(chargedCrossbow);
+                        collection.forEach(recorder -> recorder.getCurrentTick(player).setOffHand(chargedCrossbow));
                     } else {
-                        playerRecordTick.setHand(chargedCrossbow);
+                        collection.forEach(recorder -> recorder.getCurrentTick(player).setHand(chargedCrossbow));
                     }
                 }
             }
@@ -508,12 +525,14 @@ public class RecordListeners implements Listener {
         if (event.getHitEntity() == null) return;
         Player player = (Player) projectile.getShooter();
 
-        RecorderImpl recorder = RecordManager.getInstance().getPlayerRecorder(player);
-        if (recorder == null) return;
+        Collection<RecorderImpl> collection = RecordManager.getInstance().getPlayerRecorder(player);
+        if (collection.isEmpty()) return;
 
-        if (!(projectile instanceof FishHook)) {
-            recorder.getEntities().remove(projectile);
-        }
+        collection.forEach(recorder -> {
+            if (!(projectile instanceof FishHook)) {
+                recorder.getEntities().remove(projectile);
+            }
+        });
     }
 
     @SuppressWarnings("deprecation")

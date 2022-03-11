@@ -1,7 +1,6 @@
 package me.mohamad82.pensieve.api.event;
 
 import me.mohamad82.ruom.npc.NPC;
-import org.bukkit.Location;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 

@@ -2,8 +2,8 @@ package me.mohamad82.pensieve.recording.record;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonObject;
-import me.mohamad82.ruom.vector.Vector3;
-import me.mohamad82.ruom.vector.Vector3Utils;
+import me.mohamad82.ruom.math.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3Utils;
 
 import java.lang.reflect.Method;
 import java.util.*;

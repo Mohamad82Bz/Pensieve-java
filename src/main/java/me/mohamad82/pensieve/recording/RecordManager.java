@@ -8,16 +8,11 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class RecordManager {
 
-    private final Set<Player> recordingPlayers = new HashSet<>();
     private final Set<RecorderImpl> recorders = new HashSet<>();
 
     private final Map<Player, PendingBlockBreak> breakingPlayers = new HashMap<>();
@@ -34,11 +29,9 @@ public class RecordManager {
         Ruom.runAsync(() -> {
             for (Player player : Ruom.getOnlinePlayers()) {
                 if (breakingPlayers.containsKey(player) || eatingPlayers.containsKey(player)) {
-                    PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-                    if (playerRecordTick == null) return;
-
+                    Collection<PlayerRecordTick> collection = getCurrentRecordTick(player);
                     if (breakingPlayers.containsKey(player)) {
-                        playerRecordTick.setPendingBlockBreak(breakingPlayers.get(player));
+                        collection.forEach(playerRecordTick -> playerRecordTick.setPendingBlockBreak(breakingPlayers.get(player)));
                         breakingPlayers.get(player).timeSpent++;
                     }
                     if (eatingPlayers.containsKey(player)) {
@@ -46,12 +39,11 @@ public class RecordManager {
                         if (foodItem.getAmount() == 0) {
                             eatingPlayers.remove(player);
                         } else {
-                            if (!(player.getInventory().getItem(EquipmentSlot.HAND).getType().isEdible()) &&
-                                    (ServerVersion.supports(9) &&
-                                            !player.getInventory().getItem(EquipmentSlot.OFF_HAND).getType().isEdible())) {
+                            if (!player.getInventory().getItem(EquipmentSlot.HAND).getType().isEdible() &&
+                                    (ServerVersion.supports(9) && !player.getInventory().getItem(EquipmentSlot.OFF_HAND).getType().isEdible())) {
                                 eatingPlayers.remove(player);
                             } else {
-                                playerRecordTick.setEatingMaterial(foodItem.getType());
+                                collection.forEach(playerRecordTick -> playerRecordTick.setEatingMaterial(foodItem.getType()));
                             }
                         }
                     }
@@ -60,46 +52,46 @@ public class RecordManager {
         }, 0, 1);
     }
 
-    public @Nullable PlayerRecordTick getCurrentRecordTick(Player player) {
+    public Collection<PlayerRecordTick> getCurrentRecordTick(Player player) {
+        Collection<PlayerRecordTick> collection = new HashSet<>();
         for (RecorderImpl recorder : recorders) {
             if (recorder.getPlayers().contains(player)) {
                 if (recorder.isRunning()) {
-                    return recorder.getCurrentTick(player);
+                    collection.add(recorder.getCurrentTick(player));
                 }
             }
         }
-        return null;
+        return collection;
     }
 
-    public @Nullable EntityRecordTick getCurrentRecordTick(Entity entity) {
+    public Collection<EntityRecordTick> getCurrentRecordTick(Entity entity) {
+        Collection<EntityRecordTick> collection = new HashSet<>();
         for (RecorderImpl recorder : recorders) {
             if (recorder.getEntities().contains(entity)) {
                 if (recorder.isRunning()) {
-                    return recorder.getCurrentTick(entity);
+                    collection.add(recorder.getCurrentTick(entity));
                 }
             }
         }
-        return null;
+        return collection;
     }
 
-    public @Nullable RecorderImpl getPlayerRecorder(Player player) {
+    public Collection<RecorderImpl> getPlayerRecorder(Player player) {
+        Collection<RecorderImpl> collection = new HashSet<>();
         for (RecorderImpl recorder : recorders) {
             if (recorder.getPlayers().contains(player))
-                return recorder;
+                collection.add(recorder);
         }
-        return null;
+        return collection;
     }
 
-    public @Nullable RecorderImpl getEntityRecorder(Entity entity) {
+    public Collection<RecorderImpl> getEntityRecorder(Entity entity) {
+        Collection<RecorderImpl> collection = new HashSet<>();
         for (RecorderImpl recorder : recorders) {
             if (recorder.getEntities().contains(entity))
-                return recorder;
+                collection.add(recorder);
         }
-        return null;
-    }
-
-    public Set<Player> getRecordingPlayers() {
-        return recordingPlayers;
+        return collection;
     }
 
     public Set<RecorderImpl> getRecorders() {

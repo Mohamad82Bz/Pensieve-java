@@ -2,7 +2,7 @@ package me.mohamad82.pensieve.recording;
 
 import me.mohamad82.pensieve.recording.record.EntityRecord;
 import me.mohamad82.pensieve.recording.record.PlayerRecord;
-import me.mohamad82.ruom.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.util.HashSet;

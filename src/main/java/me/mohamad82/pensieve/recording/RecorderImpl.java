@@ -4,6 +4,7 @@ import me.mohamad82.pensieve.api.event.*;
 import me.mohamad82.pensieve.recording.record.*;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.adventure.ComponentUtils;
+import me.mohamad82.ruom.math.vector.Vector3UtilsBukkit;
 import me.mohamad82.ruom.nmsaccessors.EntityAccessor;
 import me.mohamad82.ruom.nmsaccessors.FireworkRocketEntityAccessor;
 import me.mohamad82.ruom.nmsaccessors.SynchedEntityDataAccessor;
@@ -11,9 +12,9 @@ import me.mohamad82.ruom.nmsaccessors.ThrownTridentAccessor;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.utils.NMSUtils;
 import me.mohamad82.ruom.utils.ServerVersion;
-import me.mohamad82.ruom.utils.StringUtils;
-import me.mohamad82.ruom.vector.Vector3;
-import me.mohamad82.ruom.vector.Vector3Utils;
+import me.mohamad82.ruom.string.StringUtils;
+import me.mohamad82.ruom.math.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.xseries.XEnchantment;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Material;
@@ -81,7 +82,7 @@ public class RecorderImpl implements Recorder {
                         if (currentTickIndex == 0) {
                             getPlayerRecord(player).setStartLocation(Vector3.at(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ()));
 
-                            tick.setLocation(Vector3Utils.toVector3(player.getLocation()));
+                            tick.setLocation(Vector3UtilsBukkit.toVector3(player.getLocation()));
                             tick.setYaw(player.getLocation().getYaw());
                             tick.setPitch(player.getLocation().getPitch());
                             tick.setPing(NMSUtils.getPing(player));
@@ -99,7 +100,7 @@ public class RecorderImpl implements Recorder {
                         } else {
                             PlayerRecordTick lastNonNullTick = (PlayerRecordTick) lastNonNullTicks.get(player.getUniqueId());
 
-                            Vector3 location = Vector3Utils.toVector3(player.getLocation());
+                            Vector3 location = Vector3UtilsBukkit.toVector3(player.getLocation());
                             if (!lastNonNullTick.getLocation().equals(location)) {
                                 tick.setLocation(location);
                                 lastNonNullTick.setLocation(tick.getLocation());
@@ -300,7 +301,7 @@ public class RecorderImpl implements Recorder {
                                 }
                             }
                             if (record != null) {
-                                record.setStartLocation(Vector3Utils.toVector3(entity.getLocation()));
+                                record.setStartLocation(Vector3UtilsBukkit.toVector3(entity.getLocation()));
                                 getEntityRecords().add(record);
                             }
                         } else {
@@ -313,7 +314,7 @@ public class RecorderImpl implements Recorder {
                             ((AreaEffectCloudRecordTick) tick).setRadius(((AreaEffectCloud) entity).getRadius());
                         }
                         if (!lastNonNullTicks.containsKey(entity.getUniqueId())) {
-                            tick.setLocation(Vector3Utils.toVector3(entity.getLocation()));
+                            tick.setLocation(Vector3UtilsBukkit.toVector3(entity.getLocation()));
                             tick.setYaw(entity.getLocation().getYaw());
                             tick.setPitch(entity.getLocation().getPitch());
                             tick.setVelocity(Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ()));
@@ -322,7 +323,7 @@ public class RecorderImpl implements Recorder {
                         } else {
                             RecordTick lastNonNullTick = lastNonNullTicks.get(entity.getUniqueId());
 
-                            Vector3 location = Vector3Utils.toVector3(entity.getLocation());
+                            Vector3 location = Vector3UtilsBukkit.toVector3(entity.getLocation());
                             if (!lastNonNullTick.getLocation().equals(location)) {
                                 tick.setLocation(location);
                                 lastNonNullTick.setLocation(location);

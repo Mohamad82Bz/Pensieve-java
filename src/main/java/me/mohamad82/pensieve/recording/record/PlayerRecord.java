@@ -1,9 +1,9 @@
 package me.mohamad82.pensieve.recording.record;
 
 import com.google.gson.JsonObject;
-import me.mohamad82.ruom.translators.skin.MinecraftSkin;
-import me.mohamad82.ruom.translators.skin.SkinBuilder;
-import me.mohamad82.ruom.vector.Vector3;
+import me.mohamad82.ruom.skin.MinecraftSkin;
+import me.mohamad82.ruom.skin.SkinBuilder;
+import me.mohamad82.ruom.math.vector.Vector3;
 import org.bukkit.entity.Player;
 
 import java.util.Optional;

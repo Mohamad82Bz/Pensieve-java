@@ -8,14 +8,16 @@ import me.mohamad82.pensieve.recording.record.Record;
 import me.mohamad82.pensieve.recording.record.*;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.adventure.ComponentUtils;
+import me.mohamad82.ruom.math.MathUtils;
+import me.mohamad82.ruom.math.vector.Vector3UtilsBukkit;
 import me.mohamad82.ruom.npc.EntityNPC;
 import me.mohamad82.ruom.npc.LivingEntityNPC;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.npc.PlayerNPC;
 import me.mohamad82.ruom.npc.entity.*;
 import me.mohamad82.ruom.utils.*;
-import me.mohamad82.ruom.vector.Vector3;
-import me.mohamad82.ruom.vector.Vector3Utils;
+import me.mohamad82.ruom.math.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.xseries.XMaterial;
 import me.mohamad82.ruom.xseries.XSound;
 import org.bukkit.*;
@@ -57,7 +59,7 @@ public class ReplayerImpl implements Replayer {
             Vector3 centerOffSet = center.clone().add(centerOffSetDistance).add(0.5, 0, 0.5);
             this.playerRecords.put(record, PlayerNPC.playerNPC(
                     record.getName(),
-                    Vector3Utils.toLocation(world, centerOffSet),
+                    Vector3UtilsBukkit.toLocation(world, centerOffSet),
                     record.getSkin()
             ));
         }
@@ -65,7 +67,7 @@ public class ReplayerImpl implements Replayer {
         for (EntityRecord record : recordContainer.getEntityRecords()) {
             UUID uuid = UUID.randomUUID();
             modifiedUuids.put(record.getUuid(), uuid);
-            Location startLocation = Vector3Utils.toLocation(world, center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), record.getStartLocation())).add(0.5, 0, 0.5));
+            Location startLocation = Vector3UtilsBukkit.toLocation(world, center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), record.getStartLocation())).add(0.5, 0, 0.5));
             EntityNPC entityNPC;
 
             switch (record.getEntityType()) {
@@ -214,7 +216,7 @@ public class ReplayerImpl implements Replayer {
 
                                 for (Map.Entry<Vector3, BlockData> entry : playerRecordTick.getBlockBreaks().entrySet()) {
                                     Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), entry.getKey()));
-                                    blockChanges.get(tickIndex).add(BlockChange.breakChange(Vector3Utils.toLocation(world, location), entry.getValue()));
+                                    blockChanges.get(tickIndex).add(BlockChange.breakChange(Vector3UtilsBukkit.toLocation(world, location), entry.getValue()));
                                 }
                             }
                             if (playerRecordTick.getBlockPlaces() != null) {
@@ -223,7 +225,7 @@ public class ReplayerImpl implements Replayer {
 
                                 for (Map.Entry<Vector3, BlockData> entry : playerRecordTick.getBlockPlaces().entrySet()) {
                                     Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), entry.getKey()));
-                                    blockChanges.get(tickIndex).add(BlockChange.placeChange(Vector3Utils.toLocation(world, location), entry.getValue()));
+                                    blockChanges.get(tickIndex).add(BlockChange.placeChange(Vector3UtilsBukkit.toLocation(world, location), entry.getValue()));
                                 }
                             }
                             if (playerRecordTick.getBlockData() != null) {
@@ -232,7 +234,7 @@ public class ReplayerImpl implements Replayer {
 
                                 for (Map.Entry<Vector3, BlockData> entry : playerRecordTick.getBlockData().entrySet()) {
                                     Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), entry.getKey()));
-                                    blockChanges.get(tickIndex).add(BlockChange.blockChange(Vector3Utils.toLocation(world, location), entry.getValue()));
+                                    blockChanges.get(tickIndex).add(BlockChange.blockChange(Vector3UtilsBukkit.toLocation(world, location), entry.getValue()));
                                 }
                             }
 
@@ -427,7 +429,7 @@ public class ReplayerImpl implements Replayer {
 
                                 if (!shouldPlayThisTick) continue;
 
-                                Location location = Vector3Utils.toLocation(world,
+                                Location location = Vector3UtilsBukkit.toLocation(world,
                                         center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), lastNonNullTick.getLocation())));
 
                                 if (tick.getVelocity() != null) {
@@ -518,12 +520,7 @@ public class ReplayerImpl implements Replayer {
                                 npc.setInvisible(tick.wasInvisible());
                                 npc.setOnFire(tick.wasBurning());
 
-                                npc.setEquipment(NPC.EquipmentSlot.MAINHAND, tick.getHand());
-                                npc.setEquipment(NPC.EquipmentSlot.OFFHAND, tick.getOffHand());
-                                npc.setEquipment(NPC.EquipmentSlot.HEAD, tick.getHelmet());
-                                npc.setEquipment(NPC.EquipmentSlot.CHEST, tick.getChestplate());
-                                npc.setEquipment(NPC.EquipmentSlot.LEGS, tick.getLeggings());
-                                npc.setEquipment(NPC.EquipmentSlot.FEET, tick.getBoots());
+                                setAllEquipments(npc, tick);
 
                                 lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(record.getUuid()).get(tickIndex);
                             } else {
@@ -545,23 +542,12 @@ public class ReplayerImpl implements Replayer {
                                 npc.setOnFire(tick.wasBurning());
                                 npc.setGlowing(tick.wasGlowing());
 
-                                if (tick.getHand() != null)
-                                    npc.setEquipment(NPC.EquipmentSlot.MAINHAND, tick.getHand());
-                                if (tick.getOffHand() != null)
-                                    npc.setEquipment(NPC.EquipmentSlot.OFFHAND, tick.getOffHand());
-                                if (tick.getHelmet() != null)
-                                    npc.setEquipment(NPC.EquipmentSlot.HEAD, tick.getHelmet());
-                                if (tick.getChestplate() != null)
-                                    npc.setEquipment(NPC.EquipmentSlot.CHEST, tick.getChestplate());
-                                if (tick.getLeggings() != null)
-                                    npc.setEquipment(NPC.EquipmentSlot.LEGS, tick.getLeggings());
-                                if (tick.getBoots() != null)
-                                    npc.setEquipment(NPC.EquipmentSlot.FEET, tick.getBoots());
+                                setAllEquipments(npc, tick);
                             }
 
                             if (!shouldPlayThisTick) continue;
 
-                            Location location = Vector3Utils.toLocation(world,
+                            Location location = Vector3UtilsBukkit.toLocation(world,
                                     center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), lastNonNullTick.getLocation())));
 
                             if (tick.didSwing()) {
@@ -717,7 +703,7 @@ public class ReplayerImpl implements Replayer {
                                         }
                                         case BREAK: {
                                             soundContainer = SoundContainer.soundContainer(blockChange.getBeforeBlockData().getSoundGroup().getBreakSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
-                                            NMSUtils.sendBlockDestruction(npc.getViewers(), Vector3Utils.toVector3(blockChange.getLocation()), -1);
+                                            NMSUtils.sendBlockDestruction(npc.getViewers(), Vector3UtilsBukkit.toVector3(blockChange.getLocation()), -1);
                                             BlockUtils.spawnBlockBreakParticles(blockChange.getLocation(), blockChange.getBeforeBlockData().getMaterial());
                                             break;
                                         }
@@ -739,7 +725,7 @@ public class ReplayerImpl implements Replayer {
 
                             if (tick.getBlockInteractionLocation() != null) {
                                 Vector3 blockLocFinal = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), tick.getBlockInteractionLocation()));
-                                Location blockLocation = Vector3Utils.toLocation(world, blockLocFinal);
+                                Location blockLocation = Vector3UtilsBukkit.toLocation(world, blockLocFinal);
                                 NMSUtils.sendChestAnimation(npc.getViewers(), blockLocFinal, tick.getBlockInteractionType(), tick.didOpenChestInteraction());
 
                                 float pitch = 0.9f + (random.nextBoolean() ? 0.1f : 0);
@@ -841,7 +827,8 @@ public class ReplayerImpl implements Replayer {
                                 npc.addViewers(Ruom.getOnlinePlayers());
                             }
                             RecordTick lastNonNullTick = preparedLastNonNullTicks.get(entityRecord.getUuid()).get(newTick - entityRecord.getStartingTick() - 1);
-                            npc.teleport(lastNonNullTick.getLocation(), lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
+                            Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(entityRecord.getCenter(), lastNonNullTick.getLocation()));
+                            npc.teleport(location, lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
                             npc.setVelocity(lastNonNullTick.getVelocity());
 
                             playedEntities.add(uuid);
@@ -857,8 +844,10 @@ public class ReplayerImpl implements Replayer {
                 if (newTick > playerRecord.getTotalTicks()) {
                     npc.removeViewers(Ruom.getOnlinePlayers());
                 } else {
-                    RecordTick lastNonNullTick = preparedLastNonNullTicks.get(playerRecord.getUuid()).get(newTick - 1);
-                    npc.teleport(lastNonNullTick.getLocation(), lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
+                    PlayerRecordTick lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(playerRecord.getUuid()).get(newTick - 1);
+                    setAllEquipments(npc, lastNonNullTick);
+                    Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(playerRecord.getCenter(), lastNonNullTick.getLocation()));
+                    npc.teleport(location, lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
                 }
             }
         } else {
@@ -870,6 +859,7 @@ public class ReplayerImpl implements Replayer {
                 }
             }
             for (EntityRecord entityRecord : entityRecords.keySet()) {
+                Ruom.log(entityRecord.getType().toString());
                 NPC npc = entityRecords.get(entityRecord);
                 UUID uuid = modifiedUuids.get(entityRecord.getUuid());
                 if (newTick < entityRecord.getStartingTick()) {
@@ -882,14 +872,17 @@ public class ReplayerImpl implements Replayer {
                     boolean wasDone = currentTick - entityRecord.getStartingTick() >= entityRecord.getRecordTicks().size();
 
                     if (newTick - entityRecord.getStartingTick() - 1 >= 0) {
-                        RecordTick lastNonNullTick = preparedLastNonNullTicks.get(entityRecord.getUuid()).get(newTick - entityRecord.getStartingTick() - 1);
                         if (wasDone && !nowDone) {
                             npc.addViewers(Ruom.getOnlinePlayers());
                             playedEntities.add(uuid);
                             finishedEntities.remove(uuid);
                         }
-                        npc.teleport(lastNonNullTick.getLocation(), lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
-                        npc.setVelocity(lastNonNullTick.getVelocity());
+                        if (newTick - entityRecord.getStartingTick() - 1 < entityRecord.getRecordTicks().size()) {
+                            RecordTick lastNonNullTick = preparedLastNonNullTicks.get(entityRecord.getUuid()).get(newTick - entityRecord.getStartingTick() - 1);
+                            Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(entityRecord.getCenter(), lastNonNullTick.getLocation()));
+                            npc.teleport(location, lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
+                            npc.setVelocity(lastNonNullTick.getVelocity());
+                        }
                     } else {
                         playedEntities.remove(uuid);
                         finishedEntities.remove(uuid);
@@ -897,9 +890,12 @@ public class ReplayerImpl implements Replayer {
                 }
             }
             for (PlayerRecord playerRecord : playerRecords.keySet()) {
+                Ruom.log("Player Record");
                 NPC npc = playerRecords.get(playerRecord);
-                RecordTick lastNonNullTick = preparedLastNonNullTicks.get(playerRecord.getUuid()).get(newTick - 1);
-                npc.teleport(lastNonNullTick.getLocation(), lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
+                PlayerRecordTick lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(playerRecord.getUuid()).get(newTick - 1);
+                setAllEquipments(npc, lastNonNullTick);
+                Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(playerRecord.getCenter(), lastNonNullTick.getLocation()));
+                npc.teleport(location, lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
             }
         }
     }
@@ -935,12 +931,13 @@ public class ReplayerImpl implements Replayer {
             Vector3 newPoint = tick.getLocation().clone().add(centerOffSet);
             Vector3 travelDistance = getCalculatedTravelDistance(lastPoint, newPoint, speed, lowSpeedHelpIndex);
 
-            PensieveNPCMoveAndLookEvent moveAndLookEvent = new PensieveNPCMoveAndLookEvent(npc, Vector3Utils.toLocation(world, lastPoint), Vector3Utils.toLocation(world, newPoint));
+            PensieveNPCMoveAndLookEvent moveAndLookEvent = new PensieveNPCMoveAndLookEvent(npc, Vector3UtilsBukkit.toLocation(world, lastPoint), Vector3UtilsBukkit.toLocation(world, newPoint));
             Ruom.getServer().getPluginManager().callEvent(moveAndLookEvent);
 
             if (!travelDistance.equals(Vector3.at(0, 0, 0))) {
                 if (!npc.moveAndLook(travelDistance, yaw, pitch)) {
-                    npc.teleport(center.clone().add(centerOffSet), yaw, pitch);
+                    Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(recordCenter, tick.getLocation()));
+                    npc.teleport(location, yaw, pitch);
                 }
             }
         } else {
@@ -1028,6 +1025,21 @@ public class ReplayerImpl implements Replayer {
             }
         }
         return angle;
+    }
+
+    private void setAllEquipments(NPC npc, PlayerRecordTick tick) {
+        if (tick.getHand() != null)
+            npc.setEquipment(NPC.EquipmentSlot.MAINHAND, tick.getHand());
+        if (tick.getOffHand() != null && ServerVersion.supports(9))
+            npc.setEquipment(NPC.EquipmentSlot.OFFHAND, tick.getOffHand());
+        if (tick.getHelmet() != null)
+            npc.setEquipment(NPC.EquipmentSlot.HEAD, tick.getHelmet());
+        if (tick.getChestplate() != null)
+            npc.setEquipment(NPC.EquipmentSlot.CHEST, tick.getChestplate());
+        if (tick.getLeggings() != null)
+            npc.setEquipment(NPC.EquipmentSlot.LEGS, tick.getLeggings());
+        if (tick.getBoots() != null)
+            npc.setEquipment(NPC.EquipmentSlot.FEET, tick.getBoots());
     }
 
     private void scheduleButtonAutoPowerOff(Block button) {

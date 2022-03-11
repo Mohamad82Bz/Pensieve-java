@@ -1,6 +1,7 @@
 package me.mohamad82.pensieve.utils;
 
-import me.mohamad82.ruom.vector.Vector3;
+import com.google.common.collect.Lists;
+import me.mohamad82.ruom.math.vector.Vector3;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -36,7 +37,7 @@ public class Utils {
 
             Class<?> clazz = object.getClass();
             while (!clazz.equals(Object.class)) {
-                fields.addAll(List.of(clazz.getDeclaredFields()));
+                fields.addAll(Lists.newArrayList(clazz.getDeclaredFields()));
                 clazz = clazz.getSuperclass();
             }
 

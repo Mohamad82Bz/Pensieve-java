@@ -2,8 +2,8 @@ package me.mohamad82.pensieve.recording;
 
 import com.google.gson.JsonObject;
 import me.mohamad82.ruom.utils.NMSUtils;
-import me.mohamad82.ruom.vector.Vector3;
-import me.mohamad82.ruom.vector.Vector3Utils;
+import me.mohamad82.ruom.math.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Location;
 import org.bukkit.Material;

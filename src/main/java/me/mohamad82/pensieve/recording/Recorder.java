@@ -1,6 +1,6 @@
 package me.mohamad82.pensieve.recording;
 
-import me.mohamad82.ruom.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;

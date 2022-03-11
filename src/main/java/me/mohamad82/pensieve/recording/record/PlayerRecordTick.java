@@ -9,8 +9,8 @@ import me.mohamad82.pensieve.utils.Utils;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.utils.NMSUtils;
-import me.mohamad82.ruom.vector.Vector3;
-import me.mohamad82.ruom.vector.Vector3Utils;
+import me.mohamad82.ruom.math.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -596,6 +596,7 @@ public class PlayerRecordTick extends RecordTick {
                     case "thrownfishingrod": tick.throwFishingRod = true; break;
                     case "retrievedfishingrod": tick.retrieveFishingRod = true; break;
                     case "drawncrossbow": tick.drawCrossbow = true; break;
+                    case "shotcrossbow": tick.shootCrossbow(); break;
                     case "openchestinteraction": tick.openChestInteraction = true; break;
                     case "burning": tick.burning = true; break;
                     case "crouching": tick.crouching = true; break;

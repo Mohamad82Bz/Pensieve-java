@@ -8,12 +8,14 @@ import me.mohamad82.pensieve.serializer.PensieveGsonSerializer;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.adventure.ComponentUtils;
 import me.mohamad82.ruom.hologram.Hologram;
+import me.mohamad82.ruom.math.MathUtils;
+import me.mohamad82.ruom.math.vector.Vector3UtilsBukkit;
 import me.mohamad82.ruom.npc.entity.FishingHookNPC;
 import me.mohamad82.ruom.utils.BlockUtils;
 import me.mohamad82.ruom.utils.NMSUtils;
 import me.mohamad82.ruom.utils.PlayerUtils;
-import me.mohamad82.ruom.vector.Vector3;
-import me.mohamad82.ruom.vector.Vector3Utils;
+import me.mohamad82.ruom.math.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.xseries.NMSExtras;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -97,14 +99,15 @@ public class TestRecordCommand implements CommandExecutor, Listener {
             }
             case "cirsmite": {
                 Ruom.runSync(() -> {
-                    Set<Vector3> points = BlockUtils.cylinder(Integer.parseInt(args[1]), Integer.parseInt(args[2]), true, false);
+
+                    Set<Vector3> points = MathUtils.cylinder(Integer.parseInt(args[1]), Integer.parseInt(args[2]), true, false);
                     List<Vector3> pointsArray = new ArrayList<>(points);
                     new BukkitRunnable() {
                         int i = 0;
                         public void run() {
                             if (i < pointsArray.size()) {
                                 Vector3 point = pointsArray.get(i);
-                                NMSExtras.lightning(Ruom.getOnlinePlayers(), Vector3Utils.toLocation(player.getWorld(), PlayerUtils.getPlayerVector3Location(player).add(point)), false);
+                                NMSExtras.lightning(Ruom.getOnlinePlayers(), Vector3UtilsBukkit.toLocation(player.getWorld(), PlayerUtils.getPlayerVector3Location(player).add(point)), false);
                                 i++;
                             } else {
                                 cancel();

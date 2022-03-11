@@ -1,7 +1,7 @@
 package me.mohamad82.pensieve.replaying;
 
 import me.mohamad82.pensieve.recording.RecordContainer;
-import me.mohamad82.ruom.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3;
 import org.bukkit.World;
 
 import java.util.concurrent.CompletableFuture;

@@ -23,8 +23,8 @@ public class PlayerUseItemListener extends PlayerUseItemEvent {
         Ruom.runAsync(() -> {
             for (Player player : Ruom.getOnlinePlayers()) {
                 if (crossbowHoldTimes.containsKey(player.getUniqueId()) && crossbowUsers.containsKey(player.getUniqueId())) {
-                    PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-                    if (playerRecordTick == null) continue;
+                    Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+                    if (collection.isEmpty()) return;
 
                     int holdTime = crossbowHoldTimes.get(player.getUniqueId()) + 1;
                     int currentSound = crossbowCurrentSound.get(player.getUniqueId());
@@ -33,11 +33,11 @@ public class PlayerUseItemListener extends PlayerUseItemEvent {
 
                     if (drawn > 0.5F) {
                         if (currentSound == 1) continue;
-                        playerRecordTick.setCrossbowChargeLevel(1);
+                        collection.forEach(playerRecordTick -> playerRecordTick.setCrossbowChargeLevel(1));
                         crossbowCurrentSound.put(player.getUniqueId(), 1);
                     } else if (drawn > 0.2F) {
                         if (currentSound == 0) continue;
-                        playerRecordTick.setCrossbowChargeLevel(0);
+                        collection.forEach(playerRecordTick -> playerRecordTick.setCrossbowChargeLevel(0));
                         crossbowCurrentSound.put(player.getUniqueId(), 0);
                     }
                 }
@@ -47,15 +47,15 @@ public class PlayerUseItemListener extends PlayerUseItemEvent {
 
     @Override
     protected void onStartUseItem(Player player, ItemStack itemStack, boolean isMainHand) {
-        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (playerRecordTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (collection.isEmpty()) return;
 
         if (itemStack.getType().isEdible()) {
-            playerRecordTick.setEatingMaterial(itemStack.getType());
+            collection.forEach(playerRecordTick -> playerRecordTick.setEatingMaterial(itemStack.getType()));
             RecordManager.getInstance().getEatingPlayers().put(player, itemStack);
             eatingPlayers.add(player.getUniqueId());
         } else {
-            playerRecordTick.useItemInteraction((byte) (isMainHand ? 1 : 2));
+            collection.forEach(playerRecordTick -> playerRecordTick.useItemInteraction((byte) (isMainHand ? 1 : 2)));
             if (!crossbowUsers.containsKey(player.getUniqueId()) && ServerVersion.supports(14) && itemStack.getType() == XMaterial.CROSSBOW.parseMaterial()) {
                 crossbowUsers.put(player.getUniqueId(), itemStack);
                 crossbowHoldTimes.put(player.getUniqueId(), 1);
@@ -71,22 +71,26 @@ public class PlayerUseItemListener extends PlayerUseItemEvent {
             eatingPlayers.remove(player.getUniqueId());
             return;
         }
-        PlayerRecordTick playerRecordTick = RecordManager.getInstance().getCurrentRecordTick(player);
-        if (playerRecordTick == null) return;
+        Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
+        if (collection.isEmpty()) return;
 
-        playerRecordTick.useItemInteraction((byte) 3);
-        playerRecordTick.setUsedItemTime(holdTime);
+        collection.forEach(playerRecordTick -> {
+            playerRecordTick.useItemInteraction((byte) 3);
+            playerRecordTick.setUsedItemTime(holdTime);
+        });
 
         if (crossbowUsers.containsKey(player.getUniqueId())) {
             float drawn = CrossbowUtils.getPowerForTime(holdTime, crossbowUsers.get(player.getUniqueId()));
-            if (drawn > 1.0F) {
+            collection.forEach(playerRecordTick -> {
+                if (drawn > 1.0F) {
+                    playerRecordTick.setCrossbowChargeLevel(2);
+                }
                 playerRecordTick.setCrossbowChargeLevel(2);
-            }
-            playerRecordTick.setCrossbowChargeLevel(2);
+                playerRecordTick.drawCrossbow();
+            });
             crossbowUsers.remove(player.getUniqueId());
             crossbowHoldTimes.remove(player.getUniqueId());
             crossbowCurrentSound.remove(player.getUniqueId());
-            playerRecordTick.drawCrossbow();
         }
     }
 

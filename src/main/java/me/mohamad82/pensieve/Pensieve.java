@@ -5,11 +5,10 @@ import me.mohamad82.pensieve.recording.listeners.PlayerActionListener;
 import me.mohamad82.pensieve.recording.listeners.PlayerUseItemListener;
 import me.mohamad82.pensieve.recording.listeners.RecordListeners;
 import me.mohamad82.pensieve.test.TestRecordCommand;
-import me.mohamad82.pensieve.world.WorldManager;
 import me.mohamad82.ruom.RUoMPlugin;
 import me.mohamad82.ruom.Ruom;
-import me.mohamad82.ruom.areaselection.AreaSelectionListener;
-import me.mohamad82.ruom.utils.StringUtils;
+import me.mohamad82.ruom.skin.SkinBuilder;
+import me.mohamad82.ruom.string.StringUtils;
 import org.bukkit.Bukkit;
 
 import java.util.ArrayList;
@@ -42,15 +41,13 @@ public final class Pensieve extends RUoMPlugin {
 
     public void initializeEvents() {
         Ruom.registerListener(new RecordListeners());
-        Ruom.registerListener(new AreaSelectionListener());
         new PlayerActionListener();
         new PlayerUseItemListener();
     }
 
     public void initializeInstances() {
         new RecordManager();
-        Ruom.initializeAreaSelection();
-        Ruom.initializeSkinBuilder();
+        new SkinBuilder();
         Ruom.initializePacketListener();
     }
 
