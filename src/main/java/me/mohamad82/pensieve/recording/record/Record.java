@@ -86,7 +86,9 @@ public abstract class Record extends SerializableRecord {
             int tickIndex = 0;
             for (RecordTick tick : recordTicks) {
                 JsonObject recordTickJsonObject = (JsonObject) recordTickToJsonMethod.invoke(tick, new JsonObject());
-                ticksJsonObject.add(String.valueOf(tickIndex), recordTickJsonObject);
+                if (recordTickJsonObject.size() != 0) {
+                    ticksJsonObject.add(String.valueOf(tickIndex), recordTickJsonObject);
+                }
                 tickIndex++;
             }
             jsonObject.add("ticks", ticksJsonObject);
@@ -112,26 +114,15 @@ public abstract class Record extends SerializableRecord {
             int tickIndex = 0;
             boolean hasNext = ticksJsonObject.has(String.valueOf(tickIndex));
             List<RecordTick> recordTicks = new ArrayList<>();
-            while(hasNext) {
-                JsonObject tickJsonObject = ticksJsonObject.get(String.valueOf(tickIndex)).getAsJsonObject();
-                recordTicks.add((RecordTick) recordTickFromJsonMethod.invoke(tickObject, tickObject, tickJsonObject));
-                tickObject = record.getType().getRecordTickClass().getConstructor().newInstance();
-
-                hasNext = ticksJsonObject.has(String.valueOf(++tickIndex));
-            }
-
-
-
-            /*int tickIndex = 0;
-            boolean hasNext = ticksJsonObject.has("0");
-            List<RecordTick> recordTicks = new ArrayList<>();
             while (hasNext) {
-                JsonObject tickJsonObject = ticksJsonObject.get(String.valueOf(tickIndex)).getAsJsonObject();
-                recordTicks.add((RecordTick) recordTickFromJsonMethod.invoke(tickObject, tickObject, tickJsonObject));
+                if (ticksJsonObject.has(String.valueOf(tickIndex))) {
+                    JsonObject tickJsonObject = ticksJsonObject.get(String.valueOf(tickIndex)).getAsJsonObject();
+                    recordTicks.add((RecordTick) recordTickFromJsonMethod.invoke(tickObject, tickObject, tickJsonObject));
+                    tickObject = record.getType().getRecordTickClass().getConstructor().newInstance();
+                }
 
-                hasNext = ticksJsonObject.has(String.valueOf(++tickIndex));
-            }*/
-
+                hasNext = ticksJsonObject.has(String.valueOf(++tickIndex)) || ticksJsonObject.size() + 1 != tickIndex;
+            }
             record.recordTicks = recordTicks;
         } catch (Exception e) {
             e.printStackTrace();
