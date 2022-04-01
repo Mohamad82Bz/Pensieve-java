@@ -3,13 +3,11 @@ package me.mohamad82.pensieve.serializer;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import me.mohamad82.pensieve.recording.RecordContainer;
-import me.mohamad82.pensieve.recording.record.*;
 import me.mohamad82.pensieve.recording.record.Record;
+import me.mohamad82.pensieve.recording.record.*;
 import me.mohamad82.ruom.utils.GsonUtils;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import java.io.*;
 import java.lang.reflect.Method;
 import java.util.HashSet;
 import java.util.Set;
@@ -26,7 +24,7 @@ public class PensieveGsonSerializer {
 
     }
 
-    public String serialize(RecordContainer recordContainer, boolean prettyPrinter) {
+    public String serialize(RecordContainer recordContainer) {
         Set<Record> records = new HashSet<>();
         records.addAll(recordContainer.getPlayerRecords());
         records.addAll(recordContainer.getEntityRecords());
@@ -45,11 +43,25 @@ public class PensieveGsonSerializer {
         }
         jsonObject.add("records", recordArray);
 
-        return prettyPrinter ? GsonUtils.getPrettyPrinter().toJson(jsonObject) : GsonUtils.get().toJson(jsonObject);
+        return GsonUtils.get().toJson(jsonObject);
     }
 
-    public String serialize(RecordContainer recordContainer) {
-        return serialize(recordContainer, false);
+    /**
+     * Serializes and saves a RecordContainer to a file. Note that the file will be re-created.
+     * @param file The file that the RecordContainer is going to be saved in.
+     * @param recordContainer The RecordContainer
+     * @throws IllegalArgumentException If the given file was a directory (folder).
+     * @throws IOException If the operation fails for file-related issues.
+     */
+    public void serialize(File file, RecordContainer recordContainer) throws IOException {
+        if (file.isDirectory()) {
+            throw new IllegalArgumentException("Given file is a directory (folder).");
+        }
+        file.createNewFile();
+        FileWriter writer = new FileWriter(file);
+        writer.write(serialize(recordContainer));
+        writer.flush();
+        writer.close();
     }
 
     public RecordContainer deserialize(String jsonString) {

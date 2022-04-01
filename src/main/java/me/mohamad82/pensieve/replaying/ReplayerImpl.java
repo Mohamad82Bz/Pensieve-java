@@ -277,6 +277,7 @@ public class ReplayerImpl implements Replayer {
     }
 
     public PlayBackControl start() {
+        playbackControl.setProgress(0);
         if (!prepared) {
             throw new IllegalStateException("Cannot start a non-prepared replay.");
         }
@@ -859,7 +860,6 @@ public class ReplayerImpl implements Replayer {
                 }
             }
             for (EntityRecord entityRecord : entityRecords.keySet()) {
-                Ruom.log(entityRecord.getType().toString());
                 NPC npc = entityRecords.get(entityRecord);
                 UUID uuid = modifiedUuids.get(entityRecord.getUuid());
                 if (newTick < entityRecord.getStartingTick()) {
@@ -890,7 +890,6 @@ public class ReplayerImpl implements Replayer {
                 }
             }
             for (PlayerRecord playerRecord : playerRecords.keySet()) {
-                Ruom.log("Player Record");
                 NPC npc = playerRecords.get(playerRecord);
                 PlayerRecordTick lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(playerRecord.getUuid()).get(newTick - 1);
                 setAllEquipments(npc, lastNonNullTick);

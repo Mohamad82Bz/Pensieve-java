@@ -175,7 +175,7 @@ public class RecordListeners implements Listener {
     @EventHandler
     public void onPickupArrow(PlayerPickupArrowEvent event) {
         Player player = event.getPlayer();
-        AbstractArrow arrow = event.getArrow();
+        Projectile arrow = event.getArrow();
 
         RecordManager.getInstance().getEntityRecorder(arrow).forEach(recorder -> {
             EntityRecord record = recorder.getEntityRecord(arrow);
@@ -463,7 +463,7 @@ public class RecordListeners implements Listener {
         collection.forEach(recorder -> {
             PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
 
-            if (projectile instanceof AbstractArrow || projectile instanceof ThrownPotion || projectile instanceof ThrownExpBottle || projectile instanceof Snowball || projectile instanceof EnderPearl || projectile instanceof Egg) {
+            if (projectile instanceof Arrow || projectile instanceof SpectralArrow || projectile instanceof ThrownPotion || projectile instanceof ThrownExpBottle || projectile instanceof Snowball || projectile instanceof EnderPearl || projectile instanceof Egg) {
                 playerRecordTick.throwProjectile();
                 recorder.getEntities().add(projectile);
             }
@@ -482,7 +482,7 @@ public class RecordListeners implements Listener {
             }
         });
 
-        if (ServerVersion.supports(14) && projectile instanceof AbstractArrow) {
+        if (ServerVersion.supports(14) && (projectile instanceof Arrow || projectile instanceof SpectralArrow)) {
             ItemStack crossbowItem = null;
             boolean hasCrossbowOnOffHand = false;
             boolean hasInteractableItemOnMainHand = false;

@@ -62,7 +62,7 @@ public class PendingBlockBreak {
     }
 
     public void spawnParticle(World world, Vector3 location) {
-        Location centerBlock = new Location(world, location.getCenterX(), location.getCenterY() + 0.5, location.getCenterZ());
+        Location centerBlock = new Location(world, location.getCenterX(), location.getCenterY(), location.getCenterZ());
         if (blockDirection.equals(BlockDirection.UP))
             centerBlock.add(0, 0.504, 0);
         else if (blockDirection.equals(BlockDirection.DOWN))
@@ -102,10 +102,11 @@ public class PendingBlockBreak {
     public void animateBlockBreak(Set<Player> players, int stage, Vector3 location) {
         if (animationStages == null || animationStages.isEmpty()) return;
 
-        if (stage >= animationStages.size())
+        if (stage >= animationStages.size()) {
             NMSUtils.sendBlockDestruction(players, location, 9);
-        else
+        } else {
             NMSUtils.sendBlockDestruction(players, location, animationStages.get(stage));
+        }
     }
 
     public JsonObject toJson() {

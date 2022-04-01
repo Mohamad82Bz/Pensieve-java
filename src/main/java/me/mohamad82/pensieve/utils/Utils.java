@@ -1,35 +1,13 @@
 package me.mohamad82.pensieve.utils;
 
 import com.google.common.collect.Lists;
-import me.mohamad82.ruom.math.vector.Vector3;
 
 import java.lang.reflect.Field;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Utils {
-
-    private static final Set<Vector3> usedLocations = new HashSet<>();
-
-    public static Vector3 getRandomScaledLocation() {
-        Vector3 vectorLocation;
-        int arenaDistance = 2000;
-        int x = 0;
-        int z = 0;
-        while (true) {
-            boolean randomXZDirection = new Random().nextBoolean();
-            if (randomXZDirection) {
-                z += arenaDistance;
-            } else {
-                x += arenaDistance;
-            }
-            vectorLocation = Vector3.at(x, 100, z);
-
-            if (!usedLocations.contains(vectorLocation)) {
-                usedLocations.add(vectorLocation);
-                return vectorLocation;
-            }
-        }
-    }
 
     public static <T> T copy(T object, T newObject) {
         try {
@@ -59,10 +37,6 @@ public class Utils {
         } catch (Exception e) {
             throw new Error(e);
         }
-    }
-
-    public static void removeUsedLocation(Vector3 location) {
-        usedLocations.remove(location);
     }
 
 }
