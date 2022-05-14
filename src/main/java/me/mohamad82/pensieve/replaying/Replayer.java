@@ -35,8 +35,15 @@ public interface Replayer {
     PlayBackControl start();
 
     /**
-     * Suspends the replayer.
+     * Gets the playback control of the replayer.
+     * @return The playback control.
      */
-    void suspend();
+    PlayBackControl getPlaybackControl();
+
+    /**
+     * Suspends the replayer.
+     * @return false if the replayer is already stopped or not started, true otherwise.
+     */
+    boolean suspend();
 
 }

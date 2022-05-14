@@ -14,8 +14,8 @@ public class PlayerRecord extends Record {
     private Optional<MinecraftSkin> skin = Optional.empty();
     private String name;
 
-    public PlayerRecord(Player player, Vector3 center) {
-        super(RecordType.PLAYER, player.getUniqueId(), center);
+    public PlayerRecord(Player player, Vector3 center, int startingTick) {
+        super(RecordType.PLAYER, player.getUniqueId(), center, startingTick);
         this.name = player.getName();
         this.skin = Optional.ofNullable(SkinBuilder.getInstance().getSkin(player));
     }
@@ -24,8 +24,8 @@ public class PlayerRecord extends Record {
 
     }
 
-    public PlayerRecord(UUID uuid, String name, Vector3 center) {
-        super(RecordType.PLAYER, uuid, center);
+    public PlayerRecord(UUID uuid, String name, Vector3 center, int startingTick) {
+        super(RecordType.PLAYER, uuid, center, startingTick);
         this.name = name;
     }
 

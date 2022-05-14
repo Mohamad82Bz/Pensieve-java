@@ -2,6 +2,7 @@ package me.mohamad82.pensieve.recording.record;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonObject;
+import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.math.vector.Vector3;
 import me.mohamad82.ruom.math.vector.Vector3Utils;
 
@@ -15,13 +16,15 @@ public abstract class Record extends SerializableRecord {
     private UUID uuid;
     private Vector3 center;
     private Vector3 startLocation;
+    private int startingTick;
 
     private final Map<String, String> customDataMap = new HashMap<>();
 
-    protected Record(RecordType type, UUID uuid, Vector3 center) {
+    protected Record(RecordType type, UUID uuid, Vector3 center, int startingTick) {
         this.type = type;
         this.uuid = uuid;
         this.center = center;
+        this.startingTick = startingTick;
     }
 
     protected Record() {
@@ -48,6 +51,10 @@ public abstract class Record extends SerializableRecord {
         return startLocation;
     }
 
+    public int getStartingTick() {
+        return startingTick;
+    }
+
     public void setStartLocation(Vector3 startLocation) {
         this.startLocation = startLocation;
     }
@@ -71,6 +78,7 @@ public abstract class Record extends SerializableRecord {
         jsonObject.addProperty("uuid", uuid.toString());
         jsonObject.addProperty("center", center.toString());
         jsonObject.addProperty("startlocation", startLocation.toString());
+        jsonObject.addProperty("startingtick", startingTick);
 
         if (!customDataMap.isEmpty()) {
             JsonObject customDataMapJson = new JsonObject();
@@ -86,6 +94,7 @@ public abstract class Record extends SerializableRecord {
             int tickIndex = 0;
             for (RecordTick tick : recordTicks) {
                 JsonObject recordTickJsonObject = (JsonObject) recordTickToJsonMethod.invoke(tick, new JsonObject());
+                Ruom.log(recordTickJsonObject.toString());
                 if (recordTickJsonObject.size() != 0) {
                     ticksJsonObject.add(String.valueOf(tickIndex), recordTickJsonObject);
                 }
@@ -106,6 +115,7 @@ public abstract class Record extends SerializableRecord {
         record.uuid = UUID.fromString(jsonObject.get("uuid").getAsString());
         record.center = Vector3Utils.toVector3(jsonObject.get("center").getAsString());
         record.startLocation = Vector3Utils.toVector3(jsonObject.get("startlocation").getAsString());
+        record.startingTick = jsonObject.get("startingtick").getAsInt();
 
         try {
             Method recordTickFromJsonMethod = record.getType().getRecordTickClass().getMethod("fromJson", SerializableRecordTick.class, JsonObject.class);

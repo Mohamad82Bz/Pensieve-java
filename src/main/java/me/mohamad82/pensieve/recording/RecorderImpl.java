@@ -36,175 +36,197 @@ public class RecorderImpl implements Recorder {
 
     private RecordContainer recordContainer;
     private final Vector3 center;
+    private boolean started = false;
+    private boolean stopped = false;
 
-    private final Set<Player> players;
+    private final Set<Player> players = new HashSet<>();
     private final Set<Entity> entities = new HashSet<>();
     private final Set<PlayerRecord> playerRecords = new HashSet<>();
     private final Set<EntityRecord> entityRecords = new HashSet<>();
-    private final Map<Player, RecordTick> playerCurrentTick = new HashMap<>();
+    private final Map<Player, PlayerRecordTick> playerCurrentTick = new HashMap<>();
     private final Map<Entity, RecordTick> entityCurrentTick = new HashMap<>();
     private final Map<UUID, RecordTick> lastNonNullTicks = new HashMap<>();
     private final Set<Entity> entitiesToAdd = new HashSet<>();
     private final Set<Entity> entitiesToRemove = new HashSet<>();
+    private final Set<Player> playersToAdd = new HashSet<>();
+    private final Set<Player> playersToRemove = new HashSet<>();
 
     private BukkitTask bukkitTask;
     private int currentTickIndex = 0;
 
-    RecorderImpl(Set<Player> players, Vector3 center) {
-        this.players = players;
+    RecorderImpl(Collection<Player> players, Vector3 center) {
+        playersToAdd.addAll(players);
         this.center = Vector3Utils.simplifyToCenter(center);
     }
 
+    /**
+     * Constructs a RecorderImpl for one player.
+     * @apiNote DO NOT use this constructor if you want to add more players. ONLY use this for a single player.
+     * @apiNote Center will be set to a zero value by default. Means that if you add more players when using this constructor it will be more difficult to offset positions (replaying in different cordinates)
+     * @param player The player that is going to get recorded
+     */
     RecorderImpl(Player player) {
-        Set<Player> players = new HashSet<>();
-        players.add(player);
-        this.players = players;
+        playersToAdd.add(player);
         this.center = Vector3.at(0.5, 100, 0.5);
     }
 
-    public void start() {
+    public boolean start() {
+        if (started) {
+            return false;
+        }
+        started = true;
         PensieveRecorderStartEvent recorderStartEvent = new PensieveRecorderStartEvent(this);
         Ruom.getServer().getPluginManager().callEvent(recorderStartEvent);
 
-        for (Player player : players) {
-            playerRecords.add(new PlayerRecord(player, center));
-        }
         RecordManager.getInstance().getRecorders().add(this);
         bukkitTask = new BukkitRunnable() {
             public void run() {
                 try {
-                    for (Player player : players) {
-                        NMSUtils.sendActionBar(player, ComponentUtils.parse("<gradient:blue:dark_purple>Recorded " + currentTickIndex + " ticks."));
-
+                    for (Player player : playersToRemove) {
+                        players.remove(player);
+                        playersToAdd.remove(player);
+                    }
+                    playersToRemove.clear();
+                    for (Player player : playersToAdd) {
                         PlayerRecordTick tick = new PlayerRecordTick();
                         playerCurrentTick.put(player, tick);
 
-                        if (currentTickIndex == 0) {
-                            getPlayerRecord(player).setStartLocation(Vector3.at(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ()));
+                        playerRecords.add(new PlayerRecord(player, center, currentTickIndex));
+                        getPlayerRecord(player).setStartLocation(Vector3.at(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ()));
 
-                            tick.setLocation(Vector3UtilsBukkit.toVector3(player.getLocation()));
-                            tick.setYaw(player.getLocation().getYaw());
-                            tick.setPitch(player.getLocation().getPitch());
-                            tick.setPing(NMSUtils.getPing(player));
-                            tick.setPose(getPlayerPose(player));
-                            tick.setHealth(player.getHealth());
-                            tick.setHunger(player.getFoodLevel());
-                            tick.setHand(getPlayerEquipment(player, EquipmentSlot.HAND));
-                            tick.setOffHand(getPlayerEquipment(player, EquipmentSlot.OFF_HAND));
-                            tick.setHelmet(getPlayerEquipment(player, EquipmentSlot.HEAD));
-                            tick.setChestplate(getPlayerEquipment(player, EquipmentSlot.CHEST));
-                            tick.setLeggings(getPlayerEquipment(player, EquipmentSlot.LEGS));
-                            tick.setBoots(getPlayerEquipment(player, EquipmentSlot.FEET));
+                        tick.setLocation(Vector3Utils.getTravelDistance(center, Vector3UtilsBukkit.toVector3(player.getLocation())));
+                        tick.setYaw(player.getLocation().getYaw());
+                        tick.setPitch(player.getLocation().getPitch());
+                        tick.setPing(NMSUtils.getPing(player));
+                        tick.setPose(getPlayerPose(player));
+                        tick.setHealth(player.getHealth());
+                        tick.setHunger(player.getFoodLevel());
+                        tick.setHand(getPlayerEquipment(player, EquipmentSlot.HAND));
+                        tick.setOffHand(getPlayerEquipment(player, EquipmentSlot.OFF_HAND));
+                        tick.setHelmet(getPlayerEquipment(player, EquipmentSlot.HEAD));
+                        tick.setChestplate(getPlayerEquipment(player, EquipmentSlot.CHEST));
+                        tick.setLeggings(getPlayerEquipment(player, EquipmentSlot.LEGS));
+                        tick.setBoots(getPlayerEquipment(player, EquipmentSlot.FEET));
 
-                            lastNonNullTicks.put(player.getUniqueId(), tick.copy());
+                        lastNonNullTicks.put(player.getUniqueId(), tick.copy());
+
+                        players.add(player);
+                    }
+                    for (Player player : players) {
+                        NMSUtils.sendActionBar(player, ComponentUtils.parse("<gradient:blue:dark_purple>Recorded " + currentTickIndex + " ticks."));
+
+                        PlayerRecordTick tick;
+                        if (playersToAdd.contains(player)) {
+                            tick = playerCurrentTick.get(player);
                         } else {
-                            PlayerRecordTick lastNonNullTick = (PlayerRecordTick) lastNonNullTicks.get(player.getUniqueId());
+                            tick = new PlayerRecordTick();
+                        }
+                        PlayerRecordTick lastNonNullTick = (PlayerRecordTick) lastNonNullTicks.get(player.getUniqueId());
 
-                            Vector3 location = Vector3UtilsBukkit.toVector3(player.getLocation());
-                            if (!lastNonNullTick.getLocation().equals(location)) {
-                                tick.setLocation(location);
-                                lastNonNullTick.setLocation(tick.getLocation());
+                        Vector3 location = Vector3Utils.getTravelDistance(center, Vector3UtilsBukkit.toVector3(player.getLocation()));
+                        if (!lastNonNullTick.getLocation().equals(location)) {
+                            tick.setLocation(location);
+                            lastNonNullTick.setLocation(tick.getLocation());
+                        }
+
+                        float yaw = player.getLocation().getYaw();
+                        if (lastNonNullTick.getYaw() != yaw) {
+                            tick.setYaw(yaw);
+                            lastNonNullTick.setYaw(tick.getYaw());
+                        }
+
+                        float pitch = player.getLocation().getPitch();
+                        if (lastNonNullTick.getPitch() != pitch) {
+                            tick.setPitch(pitch);
+                            lastNonNullTick.setPitch(tick.getPitch());
+                        }
+
+                        NPC.Pose pose = getPlayerPose(player);
+                        if (!lastNonNullTick.getPose().equals(pose)) {
+                            tick.setPose(pose);
+                            lastNonNullTick.setPose(tick.getPose());
+                        }
+
+                        setPlayerMetadataValues(player, tick);
+
+                        ItemStack hand = getPlayerEquipment(player, EquipmentSlot.HAND);
+                        if (!lastNonNullTick.getHand().equals(hand) && tick.getHand() == null) {
+                            if (hand == null)
+                                tick.setHand(new ItemStack(Material.AIR));
+                            else
+                                tick.setHand(hand);
+                            lastNonNullTick.setHand(tick.getHand());
+                        }
+
+                        ItemStack offHand = getPlayerEquipment(player, EquipmentSlot.OFF_HAND);
+                        if (!lastNonNullTick.getOffHand().equals(offHand) && tick.getOffHand() == null) {
+                            if (offHand == null)
+                                tick.setOffHand(new ItemStack(Material.AIR));
+                            else
+                                tick.setOffHand(offHand);
+                            lastNonNullTick.setOffHand(tick.getOffHand());
+                        }
+
+                        ItemStack head = getPlayerEquipment(player, EquipmentSlot.HEAD);
+                        if (!lastNonNullTick.getHelmet().equals(head) && tick.getHelmet() == null) {
+                            if (head == null)
+                                tick.setHelmet(new ItemStack(Material.AIR));
+                            else
+                                tick.setHelmet(head);
+                            lastNonNullTick.setHelmet(tick.getHelmet());
+                        }
+
+                        ItemStack chest = getPlayerEquipment(player, EquipmentSlot.CHEST);
+                        if (!lastNonNullTick.getChestplate().equals(chest) && tick.getChestplate() == null) {
+                            if (chest == null)
+                                tick.setChestplate(new ItemStack(Material.AIR));
+                            else
+                                tick.setChestplate(chest);
+                            lastNonNullTick.setChestplate(tick.getChestplate());
+                        }
+
+                        ItemStack legs = getPlayerEquipment(player, EquipmentSlot.LEGS);
+                        if (!lastNonNullTick.getLeggings().equals(legs) && tick.getLeggings() == null) {
+                            if (legs == null)
+                                tick.setLeggings(new ItemStack(Material.AIR));
+                            else
+                                tick.setLeggings(legs);
+                            lastNonNullTick.setLeggings(tick.getLeggings());
+                        }
+
+                        ItemStack feet = getPlayerEquipment(player, EquipmentSlot.FEET);
+                        if (!lastNonNullTick.getBoots().equals(feet) && tick.getBoots() == null) {
+                            if (feet == null)
+                                tick.setBoots(new ItemStack(Material.AIR));
+                            else
+                                tick.setBoots(feet);
+                            lastNonNullTick.setBoots(tick.getBoots());
+                        }
+
+                        if (lastNonNullTick.getBodyArrows() != player.getArrowsInBody()) {
+                            tick.setBodyArrows(player.getArrowsInBody());
+                            lastNonNullTick.setBodyArrows(player.getArrowsInBody());
+                        }
+
+                        PotionEffect potionEffect = null;
+                        for (PotionEffect effect : player.getActivePotionEffects()) {
+                            if (effect.hasParticles())
+                                potionEffect = effect;
+                        }
+                        if (potionEffect != null) {
+                            ItemStack potionItem = new ItemStack(XMaterial.POTION.parseMaterial());
+                            PotionMeta potionMeta = (PotionMeta) potionItem.getItemMeta();
+                            potionMeta.addCustomEffect(potionEffect, true);
+                            potionItem.setItemMeta(potionMeta);
+                            int potionColor = NMSUtils.getPotionColor(potionItem);
+                            if (lastNonNullTick.getEffectColor() != potionColor) {
+                                tick.setEffectColor(potionColor);
+                                lastNonNullTick.setEffectColor(potionColor);
                             }
-
-                            float yaw = player.getLocation().getYaw();
-                            if (lastNonNullTick.getYaw() != yaw) {
-                                tick.setYaw(yaw);
-                                lastNonNullTick.setYaw(tick.getYaw());
-                            }
-
-                            float pitch = player.getLocation().getPitch();
-                            if (lastNonNullTick.getPitch() != pitch) {
-                                tick.setPitch(pitch);
-                                lastNonNullTick.setPitch(tick.getPitch());
-                            }
-
-                            NPC.Pose pose = getPlayerPose(player);
-                            if (!lastNonNullTick.getPose().equals(pose)) {
-                                tick.setPose(pose);
-                                lastNonNullTick.setPose(tick.getPose());
-                            }
-
-                            setPlayerMetadataValues(player, tick);
-
-                            ItemStack hand = getPlayerEquipment(player, EquipmentSlot.HAND);
-                            if (!lastNonNullTick.getHand().equals(hand) && tick.getHand() == null) {
-                                if (hand == null)
-                                    tick.setHand(new ItemStack(Material.AIR));
-                                else
-                                    tick.setHand(hand);
-                                lastNonNullTick.setHand(tick.getHand());
-                            }
-
-                            ItemStack offHand = getPlayerEquipment(player, EquipmentSlot.OFF_HAND);
-                            if (!lastNonNullTick.getOffHand().equals(offHand) && tick.getOffHand() == null) {
-                                if (offHand == null)
-                                    tick.setOffHand(new ItemStack(Material.AIR));
-                                else
-                                    tick.setOffHand(offHand);
-                                lastNonNullTick.setOffHand(tick.getOffHand());
-                            }
-
-                            ItemStack head = getPlayerEquipment(player, EquipmentSlot.HEAD);
-                            if (!lastNonNullTick.getHelmet().equals(head) && tick.getHelmet() == null) {
-                                if (head == null)
-                                    tick.setHelmet(new ItemStack(Material.AIR));
-                                else
-                                    tick.setHelmet(head);
-                                lastNonNullTick.setHelmet(tick.getHelmet());
-                            }
-
-                            ItemStack chest = getPlayerEquipment(player, EquipmentSlot.CHEST);
-                            if (!lastNonNullTick.getChestplate().equals(chest) && tick.getChestplate() == null) {
-                                if (chest == null)
-                                    tick.setChestplate(new ItemStack(Material.AIR));
-                                else
-                                    tick.setChestplate(chest);
-                                lastNonNullTick.setChestplate(tick.getChestplate());
-                            }
-
-                            ItemStack legs = getPlayerEquipment(player, EquipmentSlot.LEGS);
-                            if (!lastNonNullTick.getLeggings().equals(legs) && tick.getLeggings() == null) {
-                                if (legs == null)
-                                    tick.setLeggings(new ItemStack(Material.AIR));
-                                else
-                                    tick.setLeggings(legs);
-                                lastNonNullTick.setLeggings(tick.getLeggings());
-                            }
-
-                            ItemStack feet = getPlayerEquipment(player, EquipmentSlot.FEET);
-                            if (!lastNonNullTick.getBoots().equals(feet) && tick.getBoots() == null) {
-                                if (feet == null)
-                                    tick.setBoots(new ItemStack(Material.AIR));
-                                else
-                                    tick.setBoots(feet);
-                                lastNonNullTick.setBoots(tick.getBoots());
-                            }
-
-                            if (lastNonNullTick.getBodyArrows() != player.getArrowsInBody()) {
-                                tick.setBodyArrows(player.getArrowsInBody());
-                                lastNonNullTick.setBodyArrows(player.getArrowsInBody());
-                            }
-
-                            PotionEffect potionEffect = null;
-                            for (PotionEffect effect : player.getActivePotionEffects()) {
-                                if (effect.hasParticles())
-                                    potionEffect = effect;
-                            }
-                            if (potionEffect != null) {
-                                ItemStack potionItem = new ItemStack(XMaterial.POTION.parseMaterial());
-                                PotionMeta potionMeta = (PotionMeta) potionItem.getItemMeta();
-                                potionMeta.addCustomEffect(potionEffect, true);
-                                potionItem.setItemMeta(potionMeta);
-                                int potionColor = NMSUtils.getPotionColor(potionItem);
-                                if (lastNonNullTick.getEffectColor() != potionColor) {
-                                    tick.setEffectColor(potionColor);
-                                    lastNonNullTick.setEffectColor(potionColor);
-                                }
-                            } else {
-                                if (lastNonNullTick.getEffectColor() != 0) {
-                                    tick.setEffectColor(0);
-                                    lastNonNullTick.setEffectColor(0);
-                                }
+                        } else {
+                            if (lastNonNullTick.getEffectColor() != 0) {
+                                tick.setEffectColor(0);
+                                lastNonNullTick.setEffectColor(0);
                             }
                         }
 
@@ -213,6 +235,8 @@ public class RecorderImpl implements Recorder {
 
                         getPlayerRecord(player).addRecordTick(tick);
                     }
+
+                    playersToAdd.clear();
 
                     entities.addAll(entitiesToAdd);
                     entitiesToAdd.clear();
@@ -314,7 +338,7 @@ public class RecorderImpl implements Recorder {
                             ((AreaEffectCloudRecordTick) tick).setRadius(((AreaEffectCloud) entity).getRadius());
                         }
                         if (!lastNonNullTicks.containsKey(entity.getUniqueId())) {
-                            tick.setLocation(Vector3UtilsBukkit.toVector3(entity.getLocation()));
+                            tick.setLocation(Vector3Utils.getTravelDistance(center, Vector3UtilsBukkit.toVector3(entity.getLocation())));
                             tick.setYaw(entity.getLocation().getYaw());
                             tick.setPitch(entity.getLocation().getPitch());
                             tick.setVelocity(Vector3.at(entity.getVelocity().getX(), entity.getVelocity().getY(), entity.getVelocity().getZ()));
@@ -323,7 +347,7 @@ public class RecorderImpl implements Recorder {
                         } else {
                             RecordTick lastNonNullTick = lastNonNullTicks.get(entity.getUniqueId());
 
-                            Vector3 location = Vector3UtilsBukkit.toVector3(entity.getLocation());
+                            Vector3 location = Vector3Utils.getTravelDistance(center, Vector3UtilsBukkit.toVector3(entity.getLocation()));
                             if (!lastNonNullTick.getLocation().equals(location)) {
                                 tick.setLocation(location);
                                 lastNonNullTick.setLocation(location);
@@ -379,20 +403,34 @@ public class RecorderImpl implements Recorder {
                     RecordManager.getInstance().getRecorders().remove(instance);
                     cancel();
                     e.printStackTrace();
-                    Ruom.error(StringUtils.colorize("&4Something wrong happened with the recorder. Record process is now terminated" +
+                    Ruom.error(StringUtils.colorize("&4Something wrong happened with the recorder. Record process is now suspended" +
                             " to prevent furthur errors. Please contact the developer and provide the errors you see above."));
                 }
             }
         }.runTaskTimer(Ruom.getPlugin(), 0, 1);
+        return true;
     }
 
-    public void stop() {
+    public boolean isStarted() {
+        return started;
+    }
+
+    public boolean stop() {
+        if (stopped && !started) {
+            return false;
+        }
+        stopped = true;
         PensieveRecorderStopEvent recorderStopEvent = new PensieveRecorderStopEvent(this);
         Ruom.getServer().getPluginManager().callEvent(recorderStopEvent);
 
         RecordManager.getInstance().getRecorders().remove(this);
         bukkitTask.cancel();
         recordContainer = new RecordContainer(getPlayerRecords(), getEntityRecords());
+        return true;
+    }
+
+    public boolean isStopped() {
+        return stopped;
     }
 
     private NPC.Pose getPlayerPose(Player player) {
@@ -414,19 +452,17 @@ public class RecorderImpl implements Recorder {
         return pose;
     }
 
-    private void setPlayerMetadataValues(Player player, RecordTick tick) {
-        PlayerRecordTick playerRecordTick = (PlayerRecordTick) tick;
-
-        playerRecordTick.setBurning(player.getFireTicks() > 0);
-        playerRecordTick.setCrouching(player.isSneaking());
-        playerRecordTick.setSprinting(player.isSprinting());
+    private void setPlayerMetadataValues(Player player, PlayerRecordTick tick) {
+        tick.setBurning(player.getFireTicks() > 0);
+        tick.setCrouching(player.isSneaking());
+        tick.setSprinting(player.isSprinting());
         if (ServerVersion.supports(13))
-            playerRecordTick.setSwimming(player.isSwimming());
-        playerRecordTick.setInvisible(player.isInvisible());
+            tick.setSwimming(player.isSwimming());
+        tick.setInvisible(player.isInvisible());
         if (ServerVersion.supports(9))
-            playerRecordTick.setGlowing(player.isGlowing());
+            tick.setGlowing(player.isGlowing());
         if (ServerVersion.supports(11))
-            playerRecordTick.setGliding(player.isGliding());
+            tick.setGliding(player.isGliding());
     }
 
     private ItemStack getPlayerEquipment(Player player, EquipmentSlot slot) {
@@ -466,7 +502,7 @@ public class RecorderImpl implements Recorder {
     }
 
     public PlayerRecordTick getCurrentTick(Player player) {
-        return (PlayerRecordTick) playerCurrentTick.get(player);
+        return playerCurrentTick.get(player);
     }
 
     public EntityRecordTick getCurrentTick(Entity entity) {
@@ -485,18 +521,68 @@ public class RecorderImpl implements Recorder {
         return entities;
     }
 
-    public void safeAddEntity(Entity entity) {
+    public boolean safeAddEntity(Entity entity) {
         PensieveEntityAddEvent entityAddEvent = new PensieveEntityAddEvent(this, entity);
         Ruom.getServer().getPluginManager().callEvent(entityAddEvent);
         if (!entityAddEvent.isCancelled())
             entitiesToAdd.add(entity);
+        return !entityAddEvent.isCancelled();
     }
 
-    public void safeRemoveEntity(Entity entity) {
+    public boolean safeRemoveEntity(Entity entity) {
         PensieveEntityRemoveEvent entityRemoveEvent = new PensieveEntityRemoveEvent(this, entity);
         Ruom.getServer().getPluginManager().callEvent(entityRemoveEvent);
         if (!entityRemoveEvent.isCancelled())
             entitiesToRemove.add(entity);
+        return !entityRemoveEvent.isCancelled();
+    }
+
+    public boolean containsEntity(Entity entity) {
+        return entities.contains(entity);
+    }
+
+    public boolean containsEntity(UUID uuid) {
+        for (Entity entity : entities) {
+            if (entity.getUniqueId().equals(uuid))
+                return true;
+        }
+        return false;
+    }
+
+    public boolean safeAddPlayer(Player player) {
+        PensievePlayerAddEvent playerAddEvent = new PensievePlayerAddEvent(this, player);
+        Ruom.getServer().getPluginManager().callEvent(playerAddEvent);
+        if (!playerAddEvent.isCancelled())
+            playersToAdd.add(player);
+        return !playerAddEvent.isCancelled();
+    }
+
+    public boolean safeRemovePlayer(Player player) {
+        PensievePlayerRemoveEvent playerRemoveEvent = new PensievePlayerRemoveEvent(this, player);
+        Ruom.getServer().getPluginManager().callEvent(playerRemoveEvent);
+        if (!playerRemoveEvent.isCancelled())
+            playersToRemove.add(player);
+        return !playerRemoveEvent.isCancelled();
+    }
+
+    public boolean containsPlayer(Player player) {
+        return players.contains(player);
+    }
+
+    public boolean containsPlayer(UUID uuid) {
+        for (Player player : players) {
+            if (player.getUniqueId().equals(uuid))
+                return true;
+        }
+        return false;
+    }
+
+    public boolean containsPlayer(String name) {
+        for (Player player : players) {
+            if (player.getName().equalsIgnoreCase(name))
+                return true;
+        }
+        return false;
     }
 
     public Set<PlayerRecord> getPlayerRecords() {

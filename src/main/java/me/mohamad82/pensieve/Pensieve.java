@@ -1,5 +1,8 @@
 package me.mohamad82.pensieve;
 
+import me.mohamad82.pensieve.commands.PensieveCommand;
+import me.mohamad82.pensieve.commands.PensieveTabCompleter;
+import me.mohamad82.pensieve.hooks.PlaceholderAPIHook;
 import me.mohamad82.pensieve.recording.RecordManager;
 import me.mohamad82.pensieve.recording.listeners.PlayerActionListener;
 import me.mohamad82.pensieve.recording.listeners.PlayerUseItemListener;
@@ -7,10 +10,12 @@ import me.mohamad82.pensieve.recording.listeners.RecordListeners;
 import me.mohamad82.pensieve.test.TestRecordCommand;
 import me.mohamad82.ruom.RUoMPlugin;
 import me.mohamad82.ruom.Ruom;
+import me.mohamad82.ruom.adventure.AdventureApi;
 import me.mohamad82.ruom.skin.SkinBuilder;
 import me.mohamad82.ruom.string.StringUtils;
 import org.bukkit.Bukkit;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,6 +26,7 @@ public final class Pensieve extends RUoMPlugin {
     @Override
     public void onEnable() {
         getDataFolder().mkdir();
+        new File(getDataFolder(), "storage").mkdir();
         instance = this;
         sendFiglet();
 
@@ -35,6 +41,9 @@ public final class Pensieve extends RUoMPlugin {
     }
 
     public void initializeCommands() {
+        PensieveCommand pensieveCommand = new PensieveCommand();
+        getCommand("pensieve").setExecutor(pensieveCommand);
+        getCommand("pensieve").setTabCompleter(new PensieveTabCompleter());
         //TODO: Debug command, Remove in future
         getCommand("record").setExecutor(new TestRecordCommand());
     }
@@ -48,7 +57,11 @@ public final class Pensieve extends RUoMPlugin {
     public void initializeInstances() {
         new RecordManager();
         new SkinBuilder();
+        AdventureApi.initialize();
         Ruom.initializePacketListener();
+        if (Ruom.hasPlugin("PlaceholderAPI")) {
+            new PlaceholderAPIHook();
+        }
     }
 
     public void sendFiglet() {

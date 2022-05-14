@@ -25,7 +25,7 @@ public class PensieveAPI {
     /**
      * Returns all the recorders that this NON-PLAYER entity is in.
      * Will return an empty set if the entity wasn't in any recorder.
-     * @param entity The NON-PLAYER entity.
+     * @param entity The non-player entity.
      * @return A set of recorders.
      */
     public static Set<Recorder> getEntityRecorders(Entity entity) {

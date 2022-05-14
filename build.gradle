@@ -25,6 +25,9 @@ repositories {
     maven {
         url = uri('https://repo.screamingsandals.org/public/')
     }
+    maven {
+        url = uri('https://repo.extendedclip.com/content/repositories/placeholderapi/')
+    }
 }
 
 dependencies {
@@ -32,6 +35,7 @@ dependencies {
     compileOnly 'org.spigotmc:spigot:1.16.5-R0.1-SNAPSHOT'
     compileOnly 'com.intellectualsites.fawe:FAWE-Bukkit:1.16-637'
     compileOnly 'org.jetbrains:annotations:23.0.0'
+    compileOnly 'me.clip:placeholderapi:2.11.1'
     //testCompileOnly 'org.spigotmc:spigot:1.18.1-R0.1-SNAPSHOT:remapped-mojang'
     testCompileOnly 'org.spigotmc:spigot-api:1.12.2-R0.1-SNAPSHOT'
 }

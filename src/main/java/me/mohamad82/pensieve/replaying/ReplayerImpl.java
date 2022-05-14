@@ -9,6 +9,8 @@ import me.mohamad82.pensieve.recording.record.*;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.adventure.ComponentUtils;
 import me.mohamad82.ruom.math.MathUtils;
+import me.mohamad82.ruom.math.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.math.vector.Vector3UtilsBukkit;
 import me.mohamad82.ruom.npc.EntityNPC;
 import me.mohamad82.ruom.npc.LivingEntityNPC;
@@ -16,8 +18,6 @@ import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.npc.PlayerNPC;
 import me.mohamad82.ruom.npc.entity.*;
 import me.mohamad82.ruom.utils.*;
-import me.mohamad82.ruom.math.vector.Vector3;
-import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.xseries.XMaterial;
 import me.mohamad82.ruom.xseries.XSound;
 import org.bukkit.*;
@@ -39,11 +39,15 @@ public class ReplayerImpl implements Replayer {
     private final Map<UUID, UUID> modifiedUuids = new HashMap<>();
     private final Map<Integer, Set<BlockChange>> blockChanges = new HashMap<>();
     private final Map<Integer, Map<UUID, TickAdditions>> tickAdditions = new HashMap<>();
-    private final Set<UUID> playedEntities = new HashSet<>();
-    private final Set<UUID> finishedEntities = new HashSet<>();
+    private final Set<UUID> startedEntityRecords = new HashSet<>();
+    private final Set<UUID> finishedEntityRecords = new HashSet<>();
+    private final Set<UUID> startedPlayerRecords = new HashSet<>();
+    private final Set<UUID> finishedPlayerRecords = new HashSet<>();
 
     private final World world;
     private final Vector3 center;
+    private boolean started;
+    private boolean stopped;
     private boolean prepared;
 
     private BukkitTask replayRunnable;
@@ -278,15 +282,26 @@ public class ReplayerImpl implements Replayer {
 
     public PlayBackControl start() {
         playbackControl.setProgress(0);
+        startedPlayerRecords.clear();
+        startedEntityRecords.clear();
+        finishedPlayerRecords.clear();
+        finishedEntityRecords.clear();
         if (!prepared) {
             throw new IllegalStateException("Cannot start a non-prepared replay.");
         }
+        if (started) {
+            throw new IllegalStateException("Cannot start a replay that is already started.");
+        }
+        started = true;
         int maxTicks = 0;
         for (PlayerRecord record : playerRecords.keySet()) {
             PlayerNPC npc = playerRecords.get(record);
-            npc.setTabList(null);
-            npc.setCustomNameVisible(false);
             npc.addViewers(Ruom.getOnlinePlayers());
+            Ruom.runAsync(() -> {
+                npc.setTabList(null);
+                //TODO: Remove if unnecessary
+                //npc.setCustomNameVisible(false);
+            }, 20);
 
             if (record.getRecordTicks().size() > maxTicks)
                 maxTicks = record.getRecordTicks().size();
@@ -297,7 +312,6 @@ public class ReplayerImpl implements Replayer {
             int lowSpeedHelpIndex = 0;
             boolean shouldPlayThisTick;
             boolean progressChanged;
-            int finishedRecords = 0;
             int stackRun = 0;
             final int totalRecords = playerRecords.size();
             PlayBackControl.Speed speed = playbackControl.getSpeed();
@@ -354,12 +368,12 @@ public class ReplayerImpl implements Replayer {
 
                     for (EntityRecord record : entityRecords.keySet()) {
                         UUID uuid = modifiedUuids.get(record.getUuid());
-                        if (playedEntities.contains(uuid) && finishedEntities.contains(uuid)) continue;
+                        if (startedEntityRecords.contains(uuid) && finishedEntityRecords.contains(uuid)) continue;
                         if (tickIndex < record.getStartingTick()) continue;
                         EntityNPC npc = entityRecords.get(record);
-                        if (!playedEntities.contains(uuid) && !finishedEntities.contains(uuid)) {
+                        if (!startedEntityRecords.contains(uuid) && !finishedEntityRecords.contains(uuid)) {
                             if (shouldPlayThisTick) {
-                                playedEntities.add(uuid);
+                                startedEntityRecords.add(uuid);
 
                                 if (speed == PlayBackControl.Speed.x050 || speed == PlayBackControl.Speed.x025)
                                     npc.setNoGravity(true);
@@ -413,7 +427,7 @@ public class ReplayerImpl implements Replayer {
                                         ((FireworkNPC) npc).explode();
                                     }
                                 }
-                                finishedEntities.add(uuid);
+                                finishedEntityRecords.add(uuid);
                                 npc.removeViewers(Ruom.getOnlinePlayers());
                             } else {
                                 RecordTick tick = record.getRecordTicks().get(entityTickIndex);
@@ -430,8 +444,7 @@ public class ReplayerImpl implements Replayer {
 
                                 if (!shouldPlayThisTick) continue;
 
-                                Location location = Vector3UtilsBukkit.toLocation(world,
-                                        center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), lastNonNullTick.getLocation())));
+                                Location location = Vector3UtilsBukkit.toLocation(world, center.clone().add(tick.getLocation()));
 
                                 if (tick.getVelocity() != null) {
                                     npc.setVelocity(tick.getVelocity());
@@ -495,14 +508,30 @@ public class ReplayerImpl implements Replayer {
                     }
 
                     for (PlayerRecord record : playerRecords.keySet()) {
-                        if (!finishedEntities.contains(record.getUuid())) {
-                            PlayerNPC npc = playerRecords.get(record);
-                            if (tickIndex == record.getTotalTicks()) {
-                                //This record is finished
+                        if (startedPlayerRecords.contains(record.getUuid()) && finishedPlayerRecords.contains(record.getUuid())) continue;
+                        if (tickIndex < record.getStartingTick()) continue;
+                        PlayerNPC npc = playerRecords.get(record);
+                        int playerTickIndex = tickIndex - (record.getStartingTick());
+                        boolean startedThisTick = false;
+                        if (!startedPlayerRecords.contains(record.getUuid()) && !finishedPlayerRecords.contains(record.getUuid())) {
+                            /*
+                                Player initiate
+                             */
+                            if (shouldPlayThisTick) {
+                                startedPlayerRecords.add(record.getUuid());
+                                startedThisTick = true;
+
+                                initiatePlayer(record, npc);
+                                npc.addViewers(Ruom.getOnlinePlayers());
+                            }
+                        } else {
+                            if (playerTickIndex >= record.getTotalTicks()) {
+                                /*
+                                    Player record end
+                                 */
                                 npc.removeViewers(Ruom.getOnlinePlayers());
-                                finishedEntities.add(record.getUuid());
-                                finishedRecords++;
-                                if (finishedRecords == totalRecords) {
+                                finishedPlayerRecords.add(record.getUuid());
+                                if (finishedPlayerRecords.size() >= totalRecords) {
                                     entityRecords.forEach((entityRecord, entityNPC) -> {
                                         entityNPC.removeViewers(Ruom.getOnlinePlayers());
                                     });
@@ -511,256 +540,247 @@ public class ReplayerImpl implements Replayer {
                                 }
                                 continue;
                             }
-                            PlayerRecordTick tick = (PlayerRecordTick) record.getRecordTicks().get(tickIndex);
-                            PlayerRecordTick lastNonNullTick;
+                        }
+                        /*
+                            Player tick
+                         */
+                        PlayerRecordTick tick = (PlayerRecordTick) record.getRecordTicks().get(playerTickIndex);
+                        PlayerRecordTick lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(record.getUuid()).get(startedThisTick ? 0 : playerTickIndex - 1);
 
-                            if (tickIndex == 0) {
-                                npc.setPose(tick.getPose());
-                                npc.setSprinting(tick.wasSprinting());
-                                npc.setGlowing(tick.wasGlowing());
-                                npc.setInvisible(tick.wasInvisible());
-                                npc.setOnFire(tick.wasBurning());
+                        if (!startedThisTick) {
+                            moveNPC(tick, lastNonNullTick, npc, record.getCenter(), shouldPlayThisTick, lowSpeedHelpIndex, speed, true);
 
-                                setAllEquipments(npc, tick);
+                            if (tick.wasCrouching())
+                                npc.setPose(NPC.Pose.CROUCHING);
+                            else if (tick.wasGliding())
+                                npc.setPose(NPC.Pose.SWIMMING);
+                            else if (tick.wasSwimming())
+                                npc.setPose(NPC.Pose.SWIMMING);
+                            else
+                                npc.setPose(NPC.Pose.STANDING);
 
-                                lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(record.getUuid()).get(tickIndex);
-                            } else {
-                                lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(record.getUuid()).get(tickIndex - 1);
+                            npc.setSprinting(tick.wasSprinting());
+                            npc.setInvisible(tick.wasInvisible());
+                            npc.setOnFire(tick.wasBurning());
+                            npc.setGlowing(tick.wasGlowing());
 
-                                moveNPC(tick, lastNonNullTick, npc, record.getCenter(), shouldPlayThisTick, lowSpeedHelpIndex, speed, true);
+                            setAllEquipments(npc, tick);
+                        }
 
-                                if (tick.wasCrouching())
-                                    npc.setPose(NPC.Pose.CROUCHING);
-                                else if (tick.wasGliding())
-                                    npc.setPose(NPC.Pose.SWIMMING);
-                                else if (tick.wasSwimming())
-                                    npc.setPose(NPC.Pose.SWIMMING);
-                                else
-                                    npc.setPose(NPC.Pose.STANDING);
+                        if (!shouldPlayThisTick) continue;
 
-                                npc.setSprinting(tick.wasSprinting());
-                                npc.setInvisible(tick.wasInvisible());
-                                npc.setOnFire(tick.wasBurning());
-                                npc.setGlowing(tick.wasGlowing());
+                        Location location = Vector3UtilsBukkit.toLocation(world, center.clone().add(tick.getLocation()));
 
-                                setAllEquipments(npc, tick);
-                            }
+                        if (tick.didSwing()) {
+                            npc.animate(NPC.Animation.SWING_MAIN_ARM);
+                        }
+                        if (tick.getTakenDamageType() != null) {
+                            npc.animate(NPC.Animation.TAKE_DAMAGE);
+                            SoundContainer hurtSound = SoundContainer.soundContainer(XSound.ENTITY_PLAYER_HURT).withVolume(playbackControl.getVolume());
 
-                            if (!shouldPlayThisTick) continue;
-
-                            Location location = Vector3UtilsBukkit.toLocation(world,
-                                    center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), lastNonNullTick.getLocation())));
-
-                            if (tick.didSwing()) {
-                                npc.animate(NPC.Animation.SWING_MAIN_ARM);
-                            }
-                            if (tick.getTakenDamageType() != null) {
-                                npc.animate(NPC.Animation.TAKE_DAMAGE);
-                                SoundContainer hurtSound = SoundContainer.soundContainer(XSound.ENTITY_PLAYER_HURT).withVolume(playbackControl.getVolume());
-
-                                switch (tick.getTakenDamageType()) {
-                                    case CRITICAL: {
-                                        npc.animate(NPC.Animation.CRITICAL_EFFECT);
-                                        SoundContainer.soundContainer(XSound.ENTITY_PLAYER_ATTACK_CRIT).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
-                                        hurtSound.play(location, npc.getViewers());
-                                        break;
-                                    }
-                                    case SPRINT_ATTACK: {
-                                        SoundContainer.soundContainer(XSound.ENTITY_PLAYER_ATTACK_STRONG).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
-                                        hurtSound.play(location, npc.getViewers());
-                                        break;
-                                    }
-                                    case BURN: {
-                                        SoundContainer.soundContainer(XSound.ENTITY_PLAYER_HURT_ON_FIRE).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
-                                        break;
-                                    }
-                                    case PROJECTILE: {
-                                        SoundContainer.soundContainer(XSound.ENTITY_ARROW_HIT).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
-                                        hurtSound.play(location, npc.getViewers());
-                                        break;
-                                    }
-                                    case NORMAL: {
-                                        hurtSound.play(location, npc.getViewers());
-                                        break;
-                                    }
+                            switch (tick.getTakenDamageType()) {
+                                case CRITICAL: {
+                                    npc.animate(NPC.Animation.CRITICAL_EFFECT);
+                                    SoundContainer.soundContainer(XSound.ENTITY_PLAYER_ATTACK_CRIT).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
+                                    hurtSound.play(location, npc.getViewers());
+                                    break;
+                                }
+                                case SPRINT_ATTACK: {
+                                    SoundContainer.soundContainer(XSound.ENTITY_PLAYER_ATTACK_STRONG).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
+                                    hurtSound.play(location, npc.getViewers());
+                                    break;
+                                }
+                                case BURN: {
+                                    SoundContainer.soundContainer(XSound.ENTITY_PLAYER_HURT_ON_FIRE).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
+                                    break;
+                                }
+                                case PROJECTILE: {
+                                    SoundContainer.soundContainer(XSound.ENTITY_ARROW_HIT).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
+                                    hurtSound.play(location, npc.getViewers());
+                                    break;
+                                }
+                                case NORMAL: {
+                                    hurtSound.play(location, npc.getViewers());
+                                    break;
                                 }
                             }
-                            if (tick.thrownProjectile() && tick.getUsedItemTime() == -1 && !tick.shotCrossbow()) {
-                                //Throw sounds are all the same
-                                SoundContainer.soundContainer(XSound.ENTITY_SPLASH_POTION_THROW).withVolume(playbackControl.getVolume()).withPitch(0.1f).play(location, npc.getViewers());
-                            }
-                            if (tick.getUseItemInteractionHand() > 0) {
-                                switch (tick.getUseItemInteractionHand()) {
-                                    case 1: {
-                                        npc.startUsingItem(LivingEntityNPC.InteractionHand.MAIN_HAND);
-                                        SoundContainer.soundContainer(XSound.ITEM_ARMOR_EQUIP_GENERIC).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
-                                        break;
-                                    }
-                                    case 2: {
-                                        npc.startUsingItem(LivingEntityNPC.InteractionHand.OFF_HAND);
-                                        SoundContainer.soundContainer(XSound.ITEM_ARMOR_EQUIP_GENERIC).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
-                                        break;
-                                    }
-                                    case 3: {
-                                        npc.stopUsingItem();
-                                        if (!tick.drawnCrossbow()) {
-                                            if (tick.thrownProjectile()) {
-                                                if (tick.thrownTrident()) {
-                                                    SoundContainer.soundContainer(XSound.ITEM_TRIDENT_THROW).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
-                                                } else {
-                                                    float f = tick.getUsedItemTime() / 20.0F;
-                                                    f = (f * f + f * 2.0F) / 3.0F;
-                                                    f = Math.min(f, 1F);
-                                                    if (f > 0.1D && tick.thrownProjectile()) {
-                                                        SoundContainer.soundContainer(XSound.ENTITY_ARROW_SHOOT).withVolume(playbackControl.getVolume()).withPitch(1.0F / (random.nextFloat() * 0.4F + 1.2F) + f * 0.5F).play(location, npc.getViewers());
-                                                    }
+                        }
+                        if (tick.thrownProjectile() && tick.getUsedItemTime() == -1 && !tick.shotCrossbow()) {
+                            //Throw sounds are all the same
+                            SoundContainer.soundContainer(XSound.ENTITY_SPLASH_POTION_THROW).withVolume(playbackControl.getVolume()).withPitch(0.1f).play(location, npc.getViewers());
+                        }
+                        if (tick.getUseItemInteractionHand() > 0) {
+                            switch (tick.getUseItemInteractionHand()) {
+                                case 1: {
+                                    npc.startUsingItem(LivingEntityNPC.InteractionHand.MAIN_HAND);
+                                    SoundContainer.soundContainer(XSound.ITEM_ARMOR_EQUIP_GENERIC).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
+                                    break;
+                                }
+                                case 2: {
+                                    npc.startUsingItem(LivingEntityNPC.InteractionHand.OFF_HAND);
+                                    SoundContainer.soundContainer(XSound.ITEM_ARMOR_EQUIP_GENERIC).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
+                                    break;
+                                }
+                                case 3: {
+                                    npc.stopUsingItem();
+                                    if (!tick.drawnCrossbow()) {
+                                        if (tick.thrownProjectile()) {
+                                            if (tick.thrownTrident()) {
+                                                SoundContainer.soundContainer(XSound.ITEM_TRIDENT_THROW).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
+                                            } else {
+                                                float f = tick.getUsedItemTime() / 20.0F;
+                                                f = (f * f + f * 2.0F) / 3.0F;
+                                                f = Math.min(f, 1F);
+                                                if (f > 0.1D) {
+                                                    SoundContainer.soundContainer(XSound.ENTITY_ARROW_SHOOT).withVolume(playbackControl.getVolume()).withPitch(1.0F / (random.nextFloat() * 0.4F + 1.2F) + f * 0.5F).play(location, npc.getViewers());
                                                 }
                                             }
                                         }
-                                        break;
                                     }
-                                }
-                            }
-                            if (tick.ateFood()) {
-                                SoundContainer.soundContainer(XSound.ENTITY_PLAYER_BURP).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
-                            }
-                            if (tick.shotCrossbow()) {
-                                SoundContainer.soundContainer(XSound.ITEM_CROSSBOW_SHOOT).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
-                            }
-                            if (tick.thrownFishingRod()) {
-                                SoundContainer.soundContainer(XSound.ENTITY_FISHING_BOBBER_THROW).withPitch(0.1f).withVolume(playbackControl.getVolume() - 0.3f).play(location, npc.getViewers());
-                            }
-                            if (tick.retrievedFishingRod()) {
-                                SoundContainer.soundContainer(XSound.ENTITY_FISHING_BOBBER_RETRIEVE).withPitch(0.4f + (random.nextBoolean() ? 0.1f : 0)).withVolume(playbackControl.getVolume() - 0.3f).play(location, npc.getViewers());
-                            }
-                            if (tick.thrownFirework()) {
-                                SoundContainer.soundContainer(XSound.ENTITY_FIREWORK_ROCKET_LAUNCH).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
-                            }
-                            XSound crossbowLoadingSound = null;
-                            switch (tick.getCrossbowChargeLevel()) {
-                                case 2: {
-                                    crossbowLoadingSound = XSound.ITEM_CROSSBOW_LOADING_END;
-                                    break;
-                                }
-                                case 1: {
-                                    crossbowLoadingSound = XSound.ITEM_CROSSBOW_LOADING_MIDDLE;
-                                    break;
-                                }
-                                case 0: {
-                                    crossbowLoadingSound = XSound.ITEM_CROSSBOW_LOADING_START;
                                     break;
                                 }
                             }
-                            if (crossbowLoadingSound != null) {
-                                SoundContainer.soundContainer(crossbowLoadingSound).withVolume(playbackControl.getVolume() - 0.3f).play(location, npc.getViewers());
+                        }
+                        if (tick.ateFood()) {
+                            SoundContainer.soundContainer(XSound.ENTITY_PLAYER_BURP).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
+                        }
+                        if (tick.shotCrossbow()) {
+                            SoundContainer.soundContainer(XSound.ITEM_CROSSBOW_SHOOT).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
+                        }
+                        if (tick.thrownFishingRod()) {
+                            SoundContainer.soundContainer(XSound.ENTITY_FISHING_BOBBER_THROW).withPitch(0.1f).withVolume(playbackControl.getVolume() - 0.3f).play(location, npc.getViewers());
+                        }
+                        if (tick.retrievedFishingRod()) {
+                            SoundContainer.soundContainer(XSound.ENTITY_FISHING_BOBBER_RETRIEVE).withPitch(0.4f + (random.nextBoolean() ? 0.1f : 0)).withVolume(playbackControl.getVolume() - 0.3f).play(location, npc.getViewers());
+                        }
+                        if (tick.thrownFirework()) {
+                            SoundContainer.soundContainer(XSound.ENTITY_FIREWORK_ROCKET_LAUNCH).withVolume(playbackControl.getVolume()).play(location, npc.getViewers());
+                        }
+                        XSound crossbowLoadingSound = null;
+                        switch (tick.getCrossbowChargeLevel()) {
+                            case 2: {
+                                crossbowLoadingSound = XSound.ITEM_CROSSBOW_LOADING_END;
+                                break;
                             }
-                            if (tick.getBodyArrows() >= 0) {
-                                npc.setArrowsOnBody(tick.getBodyArrows());
+                            case 1: {
+                                crossbowLoadingSound = XSound.ITEM_CROSSBOW_LOADING_MIDDLE;
+                                break;
                             }
-                            if (tick.getEffectColor() != -1) {
-                                npc.setEffectColor(tick.getEffectColor());
-                                npc.setEffectsAsAmbients(false);
+                            case 0: {
+                                crossbowLoadingSound = XSound.ITEM_CROSSBOW_LOADING_START;
+                                break;
                             }
+                        }
+                        if (crossbowLoadingSound != null) {
+                            SoundContainer.soundContainer(crossbowLoadingSound).withVolume(playbackControl.getVolume() - 0.3f).play(location, npc.getViewers());
+                        }
+                        if (tick.getBodyArrows() >= 0) {
+                            npc.setArrowsOnBody(tick.getBodyArrows());
+                        }
+                        if (tick.getEffectColor() != -1) {
+                            npc.setEffectColor(tick.getEffectColor());
+                            npc.setEffectsAsAmbients(false);
+                        }
 
-                            if (tickIndex != 0) {
-                                TickAdditions tickAddition = tickAdditions.get(tickIndex).get(record.getUuid());
+                        if (tickIndex != 0) {
+                            TickAdditions tickAddition = tickAdditions.get(tickIndex).get(record.getUuid());
 
-                                if (tick.getPendingBlockBreak() != null) {
-                                    PendingBlockBreak pendingBlockBreak = tick.getPendingBlockBreak();
+                            if (tick.getPendingBlockBreak() != null) {
+                                PendingBlockBreak pendingBlockBreak = tick.getPendingBlockBreak();
 
-                                    if (tickAddition.didSwing()) {
-                                        npc.animate(NPC.Animation.SWING_MAIN_ARM);
-                                    }
-                                    if (tickAddition.getBlockBreakParticle() != null) {
-                                        pendingBlockBreak.spawnParticle(world, tickAddition.getBlockBreakParticle());
-                                    }
-                                    if (tickAddition.getBlockDestructionStage() != null) {
-                                        Map.Entry<Vector3, Integer> entry = tickAddition.getBlockDestructionStage();
-                                        pendingBlockBreak.animateBlockBreak(npc.getViewers(), entry.getValue(), entry.getKey());
-                                    }
+                                if (tickAddition.didSwing()) {
+                                    npc.animate(NPC.Animation.SWING_MAIN_ARM);
                                 }
-
-                                if (tick.getEatingMaterial() != null) {
-                                    if (tickAddition.isFoodEatParticle()) {
-                                        Location locationYawFixed = location.clone();
-                                        locationYawFixed.setYaw(lastNonNullTick.getYaw());
-                                        PlayerUtils.spawnFoodEatParticles(locationYawFixed, tick.getEatingMaterial());
-                                    }
-                                    if (tickAddition.isFoodEatSound()) {
-                                        SoundContainer.soundContainer(XSound.ENTITY_GENERIC_EAT).withVolume(playbackControl.getVolume()).withPitch(1f).play(location, npc.getViewers());
-                                    }
+                                if (tickAddition.getBlockBreakParticle() != null) {
+                                    pendingBlockBreak.spawnParticle(world, tickAddition.getBlockBreakParticle());
                                 }
-                            }
-
-                            if (blockChanges.containsKey(tickIndex)) {
-                                for (BlockChange blockChange : blockChanges.get(tickIndex)) {
-                                    blockChange.apply();
-
-                                    SoundContainer soundContainer = null;
-                                    switch (blockChange.getChangeType()) {
-                                        case PLACE: {
-                                            soundContainer = SoundContainer.soundContainer(blockChange.getAfterBlockData().getSoundGroup().getPlaceSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
-                                            break;
-                                        }
-                                        case BREAK: {
-                                            soundContainer = SoundContainer.soundContainer(blockChange.getBeforeBlockData().getSoundGroup().getBreakSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
-                                            NMSUtils.sendBlockDestruction(npc.getViewers(), Vector3UtilsBukkit.toVector3(blockChange.getLocation()), -1);
-                                            BlockUtils.spawnBlockBreakParticles(blockChange.getLocation(), blockChange.getBeforeBlockData().getMaterial());
-                                            break;
-                                        }
-                                        case MODIFY: {
-                                            Optional<SoundContainer> blockDataSound = BlockUtils.getBlockDataSound(blockChange.getAfterBlockData());
-                                            if (blockDataSound.isPresent())
-                                                soundContainer = blockDataSound.get();
-                                            if (blockChange.getAfterBlockData().getMaterial().toString().contains("BUTTON")) {
-                                                scheduleButtonAutoPowerOff(blockChange.getLocation().getBlock());
-                                            }
-                                            break;
-                                        }
-                                    }
-                                    if (soundContainer != null) {
-                                        soundContainer.play(blockChange.getLocation(), npc.getViewers());
-                                    }
+                                if (tickAddition.getBlockDestructionStage() != null) {
+                                    Map.Entry<Vector3, Integer> entry = tickAddition.getBlockDestructionStage();
+                                    pendingBlockBreak.animateBlockBreak(npc.getViewers(), entry.getValue(), entry.getKey());
                                 }
                             }
 
-                            if (tick.getBlockInteractionLocation() != null) {
-                                Vector3 blockLocFinal = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), tick.getBlockInteractionLocation()));
-                                Location blockLocation = Vector3UtilsBukkit.toLocation(world, blockLocFinal);
-                                NMSUtils.sendChestAnimation(npc.getViewers(), blockLocFinal, tick.getBlockInteractionType(), tick.didOpenChestInteraction());
+                            if (tick.getEatingMaterial() != null) {
+                                if (tickAddition.isFoodEatParticle()) {
+                                    Location locationYawFixed = location.clone();
+                                    locationYawFixed.setYaw(lastNonNullTick.getYaw());
+                                    PlayerUtils.spawnFoodEatParticles(locationYawFixed, tick.getEatingMaterial());
+                                }
+                                if (tickAddition.isFoodEatSound()) {
+                                    SoundContainer.soundContainer(XSound.ENTITY_GENERIC_EAT).withVolume(playbackControl.getVolume()).withPitch(1f).play(location, npc.getViewers());
+                                }
+                            }
+                        }
 
-                                float pitch = 0.9f + (random.nextBoolean() ? 0.1f : 0);
-                                boolean shouldDelaySound = false;
-                                XSound interactionSound;
-                                switch (tick.getBlockInteractionType()) {
-                                    case TRAPPED_CHEST:
-                                    case CHEST: {
-                                        interactionSound = tick.didOpenChestInteraction() ? XSound.BLOCK_CHEST_OPEN : XSound.BLOCK_CHEST_CLOSE;
-                                        if (!tick.didOpenChestInteraction()) shouldDelaySound = true;
+                        if (blockChanges.containsKey(tickIndex)) {
+                            for (BlockChange blockChange : blockChanges.get(tickIndex)) {
+                                blockChange.apply();
+
+                                SoundContainer soundContainer = null;
+                                switch (blockChange.getChangeType()) {
+                                    case PLACE: {
+                                        soundContainer = SoundContainer.soundContainer(blockChange.getAfterBlockData().getSoundGroup().getPlaceSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
                                         break;
                                     }
-                                    case ENDER_CHEST: {
-                                        interactionSound = tick.didOpenChestInteraction() ? XSound.BLOCK_ENDER_CHEST_OPEN : XSound.BLOCK_ENDER_CHEST_CLOSE;
-                                        if (!tick.didOpenChestInteraction()) shouldDelaySound = true;
+                                    case BREAK: {
+                                        soundContainer = SoundContainer.soundContainer(blockChange.getBeforeBlockData().getSoundGroup().getBreakSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
+                                        NMSUtils.sendBlockDestruction(npc.getViewers(), Vector3UtilsBukkit.toVector3(blockChange.getLocation()), -1);
+                                        BlockUtils.spawnBlockBreakParticles(blockChange.getLocation(), blockChange.getBeforeBlockData().getMaterial());
                                         break;
                                     }
-                                    default: {
-                                        interactionSound = tick.didOpenChestInteraction() ? XSound.BLOCK_SHULKER_BOX_OPEN : XSound.BLOCK_SHULKER_BOX_CLOSE;
+                                    case MODIFY: {
+                                        Optional<SoundContainer> blockDataSound = BlockUtils.getBlockDataSound(blockChange.getAfterBlockData());
+                                        if (blockDataSound.isPresent())
+                                            soundContainer = blockDataSound.get();
+                                        if (blockChange.getAfterBlockData().getMaterial().toString().contains("BUTTON")) {
+                                            scheduleButtonAutoPowerOff(blockChange.getLocation().getBlock());
+                                        }
+                                        break;
                                     }
                                 }
-                                if (shouldDelaySound) {
-                                    Ruom.runSync(() -> {
-                                        SoundContainer.soundContainer(interactionSound).withVolume(playbackControl.getVolume() - 0.3f).withPitch(pitch).play(blockLocation, npc.getViewers());
-                                    }, 6);
-                                } else {
+                                if (soundContainer != null) {
+                                    soundContainer.play(blockChange.getLocation(), npc.getViewers());
+                                }
+                            }
+                        }
+
+                        if (tick.getBlockInteractionLocation() != null) {
+                            Vector3 blockLocFinal = center.clone().add(Vector3Utils.getTravelDistance(record.getCenter(), tick.getBlockInteractionLocation()));
+                            Location blockLocation = Vector3UtilsBukkit.toLocation(world, blockLocFinal);
+                            NMSUtils.sendChestAnimation(npc.getViewers(), blockLocFinal, tick.getBlockInteractionType(), tick.didOpenChestInteraction());
+
+                            float pitch = 0.9f + (random.nextBoolean() ? 0.1f : 0);
+                            boolean shouldDelaySound = false;
+                            XSound interactionSound;
+                            switch (tick.getBlockInteractionType()) {
+                                case TRAPPED_CHEST:
+                                case CHEST: {
+                                    interactionSound = tick.didOpenChestInteraction() ? XSound.BLOCK_CHEST_OPEN : XSound.BLOCK_CHEST_CLOSE;
+                                    if (!tick.didOpenChestInteraction()) shouldDelaySound = true;
+                                    break;
+                                }
+                                case ENDER_CHEST: {
+                                    interactionSound = tick.didOpenChestInteraction() ? XSound.BLOCK_ENDER_CHEST_OPEN : XSound.BLOCK_ENDER_CHEST_CLOSE;
+                                    if (!tick.didOpenChestInteraction()) shouldDelaySound = true;
+                                    break;
+                                }
+                                default: {
+                                    interactionSound = tick.didOpenChestInteraction() ? XSound.BLOCK_SHULKER_BOX_OPEN : XSound.BLOCK_SHULKER_BOX_CLOSE;
+                                }
+                            }
+                            if (shouldDelaySound) {
+                                Ruom.runSync(() -> {
                                     SoundContainer.soundContainer(interactionSound).withVolume(playbackControl.getVolume() - 0.3f).withPitch(pitch).play(blockLocation, npc.getViewers());
-                                }
+                                }, 6);
+                            } else {
+                                SoundContainer.soundContainer(interactionSound).withVolume(playbackControl.getVolume() - 0.3f).withPitch(pitch).play(blockLocation, npc.getViewers());
                             }
                         }
                     }
 
-                    if (shouldPlayThisTick)
+                    if (shouldPlayThisTick) {
                         tickIndex++;
+                    }
 
                     if (!isCancelled()) {
                         if (speed == PlayBackControl.Speed.x2) {
@@ -797,12 +817,20 @@ public class ReplayerImpl implements Replayer {
         return playbackControl;
     }
 
-    public void suspend() {
-        replayRunnable.cancel();
+    public boolean suspend() {
+        if (!started || stopped) {
+            return false;
+        }
+        started = false;
+        stopped = true;
+        if (replayRunnable != null) {
+            replayRunnable.cancel();
+        }
         for (PlayerRecord record : playerRecords.keySet()) {
             PlayerNPC npc = playerRecords.get(record);
             npc.removeViewers(Ruom.getOnlinePlayers());
         }
+        return true;
     }
 
     public void applyProgress(int currentTick, int newTick) {
@@ -814,31 +842,61 @@ public class ReplayerImpl implements Replayer {
                     }
                 }
             }
+            for (PlayerRecord playerRecord : playerRecords.keySet()) {
+                PlayerNPC npc = playerRecords.get(playerRecord);
+                if ((newTick - (playerRecord.getStartingTick())) >= playerRecord.getTotalTicks()) {
+                    npc.removeViewers(Ruom.getOnlinePlayers());
+                    finishedPlayerRecords.add(playerRecord.getUuid());
+                } else {
+                    if (!finishedPlayerRecords.contains(playerRecord.getUuid())) {
+                        //TODO: This might make issues, remove if nothing happend in progress change
+                        PlayerRecordTick lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(playerRecord.getUuid()).get(newTick - playerRecord.getStartingTick() - 1);
+                        Vector3 location = center.clone().add(lastNonNullTick.getLocation());
+                        if (newTick - playerRecord.getStartingTick() - 1 >= 0) {
+                            if (!startedPlayerRecords.contains(playerRecord.getUuid())) {
+                                startedPlayerRecords.add(playerRecord.getUuid());
+                                npc.addViewers(Ruom.getOnlinePlayers());
+                            }
+                            npc.teleport(location, lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
+
+                            setPlayerStates(npc, lastNonNullTick);
+                            setAllEquipments(npc, lastNonNullTick);
+
+                            startedPlayerRecords.add(playerRecord.getUuid());
+                        } else {
+                            npc.teleport(playerRecord.getStartLocation());
+                            setPlayerStates(npc, lastNonNullTick);
+                            setAllEquipments(npc, lastNonNullTick);
+                        }
+                    }
+                }
+            }
             for (EntityRecord entityRecord : entityRecords.keySet()) {
                 NPC npc = entityRecords.get(entityRecord);
                 UUID uuid = modifiedUuids.get(entityRecord.getUuid());
-                if ((newTick - (entityRecord.getStartingTick())) >= entityRecord.getRecordTicks().size()) {
+                if ((newTick - (entityRecord.getStartingTick())) >= entityRecord.getTotalTicks()) {
                     npc.removeViewers(Ruom.getOnlinePlayers());
-                    finishedEntities.add(uuid);
+                    finishedEntityRecords.add(uuid);
                 } else {
-                    if (!finishedEntities.contains(uuid)) {
+                    if (!finishedEntityRecords.contains(uuid)) {
                         if (newTick - entityRecord.getStartingTick() - 1 >= 0) {
-                            if (!playedEntities.contains(uuid)) {
-                                playedEntities.add(uuid);
+                            if (!startedEntityRecords.contains(uuid)) {
+                                startedEntityRecords.add(uuid);
                                 npc.addViewers(Ruom.getOnlinePlayers());
                             }
                             RecordTick lastNonNullTick = preparedLastNonNullTicks.get(entityRecord.getUuid()).get(newTick - entityRecord.getStartingTick() - 1);
-                            Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(entityRecord.getCenter(), lastNonNullTick.getLocation()));
+                            Vector3 location = center.clone().add(lastNonNullTick.getLocation());
                             npc.teleport(location, lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
                             npc.setVelocity(lastNonNullTick.getVelocity());
 
-                            playedEntities.add(uuid);
+                            startedEntityRecords.add(uuid);
                         } else {
                             npc.teleport(entityRecord.getStartLocation());
                         }
                     }
                 }
             }
+            /* Deprecated because of: Dynamic Player Adding Update
             for (PlayerRecord playerRecord : playerRecords.keySet()) {
                 PlayerNPC npc = playerRecords.get(playerRecord);
                 npc.stopUsingItem();
@@ -850,12 +908,43 @@ public class ReplayerImpl implements Replayer {
                     Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(playerRecord.getCenter(), lastNonNullTick.getLocation()));
                     npc.teleport(location, lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
                 }
-            }
+            }*/
         } else {
             for (int i = currentTick; i > newTick; i--) {
                 if (blockChanges.containsKey(i)) {
                     for (BlockChange blockChange : blockChanges.get(i)) {
                         blockChange.rollback();
+                    }
+                }
+            }
+            for (PlayerRecord playerRecord : playerRecords.keySet()) {
+                PlayerNPC npc = playerRecords.get(playerRecord);
+                if (newTick < playerRecord.getStartingTick()) {
+                    npc.removeViewers(Ruom.getOnlinePlayers());
+                    npc.teleport(playerRecord.getStartLocation(), 0, 0);
+                    finishedPlayerRecords.remove(playerRecord.getUuid());
+                    startedPlayerRecords.remove(playerRecord.getUuid());
+                } else {
+                    boolean nowDone = newTick - playerRecord.getStartingTick() >= playerRecord.getRecordTicks().size();
+                    boolean wasDone = currentTick - playerRecord.getStartingTick() >= playerRecord.getRecordTicks().size();
+
+                    if (newTick - playerRecord.getStartingTick() - 1 >= 0) {
+                        if (wasDone && !nowDone) {
+                            npc.addViewers(Ruom.getOnlinePlayers());
+                            startedPlayerRecords.add(playerRecord.getUuid());
+                            finishedEntityRecords.remove(playerRecord.getUuid());
+                        }
+                        if (newTick - playerRecord.getStartingTick() - 1 < playerRecord.getRecordTicks().size()) {
+                            PlayerRecordTick lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(playerRecord.getUuid()).get(newTick - playerRecord.getStartingTick() - 1);
+                            Vector3 location = center.clone().add(lastNonNullTick.getLocation());
+                            npc.teleport(location, lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
+                            setPlayerStates(npc, lastNonNullTick);
+                            setAllEquipments(npc, lastNonNullTick);
+
+                        }
+                    } else {
+                        startedPlayerRecords.remove(playerRecord.getUuid());
+                        finishedPlayerRecords.remove(playerRecord.getUuid());
                     }
                 }
             }
@@ -865,8 +954,8 @@ public class ReplayerImpl implements Replayer {
                 if (newTick < entityRecord.getStartingTick()) {
                     npc.removeViewers(Ruom.getOnlinePlayers());
                     npc.teleport(entityRecord.getStartLocation(), 0, 0);
-                    finishedEntities.remove(uuid);
-                    playedEntities.remove(uuid);
+                    finishedEntityRecords.remove(uuid);
+                    startedEntityRecords.remove(uuid);
                 } else {
                     boolean nowDone = newTick - entityRecord.getStartingTick() >= entityRecord.getRecordTicks().size();
                     boolean wasDone = currentTick - entityRecord.getStartingTick() >= entityRecord.getRecordTicks().size();
@@ -874,29 +963,41 @@ public class ReplayerImpl implements Replayer {
                     if (newTick - entityRecord.getStartingTick() - 1 >= 0) {
                         if (wasDone && !nowDone) {
                             npc.addViewers(Ruom.getOnlinePlayers());
-                            playedEntities.add(uuid);
-                            finishedEntities.remove(uuid);
+                            startedEntityRecords.add(uuid);
+                            finishedEntityRecords.remove(uuid);
                         }
                         if (newTick - entityRecord.getStartingTick() - 1 < entityRecord.getRecordTicks().size()) {
                             RecordTick lastNonNullTick = preparedLastNonNullTicks.get(entityRecord.getUuid()).get(newTick - entityRecord.getStartingTick() - 1);
-                            Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(entityRecord.getCenter(), lastNonNullTick.getLocation()));
+                            Vector3 location = center.clone().add(lastNonNullTick.getLocation());
                             npc.teleport(location, lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
                             npc.setVelocity(lastNonNullTick.getVelocity());
                         }
                     } else {
-                        playedEntities.remove(uuid);
-                        finishedEntities.remove(uuid);
+                        startedEntityRecords.remove(uuid);
+                        finishedEntityRecords.remove(uuid);
                     }
                 }
             }
+            /* Deprecated for dynamic player adding update
             for (PlayerRecord playerRecord : playerRecords.keySet()) {
                 NPC npc = playerRecords.get(playerRecord);
                 PlayerRecordTick lastNonNullTick = (PlayerRecordTick) preparedLastNonNullTicks.get(playerRecord.getUuid()).get(newTick - 1);
                 setAllEquipments(npc, lastNonNullTick);
                 Vector3 location = center.clone().add(Vector3Utils.getTravelDistance(playerRecord.getCenter(), lastNonNullTick.getLocation()));
                 npc.teleport(location, lastNonNullTick.getYaw(), lastNonNullTick.getPitch());
-            }
+            }*/
         }
+    }
+
+    public PlayBackControl getPlaybackControl() {
+        return playbackControl;
+    }
+
+    private void initiatePlayer(PlayerRecord record, PlayerNPC npc) {
+        PlayerRecordTick tick = (PlayerRecordTick) record.getRecordTicks().get(0);
+
+        setPlayerStates(npc, tick);
+        setAllEquipments(npc, tick);
     }
 
     private void moveNPC(RecordTick tick, RecordTick lastNonNullTick, NPC npc, Vector3 recordCenter, boolean shouldPlayThisTick, int lowSpeedHelpIndex, PlayBackControl.Speed speed, boolean onGround) {
@@ -925,9 +1026,8 @@ public class ReplayerImpl implements Replayer {
         }
 
         if (tick.getLocation() != null) {
-            Vector3 centerOffSet = Vector3Utils.getTravelDistance(recordCenter, tick.getLocation());
-            Vector3 lastPoint = lastNonNullTick.getLocation().clone().add(centerOffSet);
-            Vector3 newPoint = tick.getLocation().clone().add(centerOffSet);
+            Vector3 lastPoint = center.clone().add(lastNonNullTick.getLocation());
+            Vector3 newPoint = center.clone().add(tick.getLocation());
             Vector3 travelDistance = getCalculatedTravelDistance(lastPoint, newPoint, speed, lowSpeedHelpIndex);
 
             PensieveNPCMoveAndLookEvent moveAndLookEvent = new PensieveNPCMoveAndLookEvent(npc, Vector3UtilsBukkit.toLocation(world, lastPoint), Vector3UtilsBukkit.toLocation(world, newPoint));
@@ -996,7 +1096,6 @@ public class ReplayerImpl implements Replayer {
 
     private float getCalculatedLookAngle(float oldAngle, float newAngle, PlayBackControl.Speed speed, int lowSpeedHelpIndex) {
         float angle = -1;
-
         float centerAngle = MathUtils.getCenterAngle(oldAngle, newAngle);
 
         if (speed.equals(PlayBackControl.Speed.x050)) {
@@ -1024,6 +1123,15 @@ public class ReplayerImpl implements Replayer {
             }
         }
         return angle;
+    }
+
+    private void setPlayerStates(PlayerNPC npc, PlayerRecordTick tick) {
+        npc.stopUsingItem();
+        npc.setPose(tick.getPose());
+        npc.setSprinting(tick.wasSprinting());
+        npc.setGlowing(tick.wasGlowing());
+        npc.setInvisible(tick.wasInvisible());
+        npc.setOnFire(tick.wasBurning());
     }
 
     private void setAllEquipments(NPC npc, PlayerRecordTick tick) {

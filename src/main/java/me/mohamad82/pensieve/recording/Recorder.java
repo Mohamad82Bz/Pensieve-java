@@ -33,25 +33,88 @@ public interface Recorder {
 
     /**
      * Starts the recorder.
+     * @return True if the recorder was successfully started. (If the recorder was already started, it will return false)
      */
-    void start();
+    boolean start();
+
+    /**
+     * Checks if the recorder is currently recording.
+     * @return True if the recorder is recording.
+     */
+    boolean isStarted();
 
     /**
      * Stops the recorder.
+     * @return True if the recorder was successfully stopped. (If the recorder was already stopped, it will return false)
      */
-    void stop();
+    boolean stop();
+
+    /**
+     * Checks if the recorder is stopped.
+     * @return True if the recorder is stopped.
+     */
+    boolean isStopped();
 
     /**
      * Adds a new entity to the recorder. Please look at the supported entity types before adding.
      * If the plugin does not support your desired entity type, feel free to contant us, and we will try to implement it.
+     * @param entity The entity to add.
      */
-    void safeAddEntity(Entity entity);
+    boolean safeAddEntity(Entity entity);
 
     /**
      * Removes an entity (if it exists) from the recorder.
      * Useful tip: Entities will get automatically removed if they were dead.
+     * @param entity The entity to remove.
      */
-    void safeRemoveEntity(Entity entity);
+    boolean safeRemoveEntity(Entity entity);
+
+    /**
+     * Returns if the recorder contained the given entity.
+     * @param entity The entity to check.
+     * @return True if the recorder contained the entity.
+     */
+    boolean containsEntity(Entity entity);
+
+    /**
+     * Returns if the recorder contained the given entity.
+     * @param uuid The UUID of the entity to check.
+     * @return True if the recorder contained the entity.
+     */
+    boolean containsEntity(UUID uuid);
+
+    /**
+     * Adds a player to the recorder.
+     * @param player The player to add.
+     */
+    boolean safeAddPlayer(Player player);
+
+    /**
+     * Removes a player (if it exists) from the recorder.
+     * @param player The player to remove.
+     */
+    boolean safeRemovePlayer(Player player);
+
+    /**
+     * Returns if the recorder contained the given player.
+     * @param player The player to check.
+     * @return True if the recorder contained the player.
+     */
+    boolean containsPlayer(Player player);
+
+    /**
+     * Returns if the recorder contained the given player.
+     * @param uuid The UUID of the player to check.
+     * @return True if the recorder contained the player.
+     */
+    boolean containsPlayer(UUID uuid);
+
+    /**
+     * Returns if the recorder contained the given player.
+     * @param name The name of the player to check.
+     * @return True if the recorder contained the player.
+     */
+    boolean containsPlayer(String name);
 
     /**
      * Returns the center of the recorder.

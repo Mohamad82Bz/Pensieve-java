@@ -21,6 +21,7 @@ import me.mohamad82.ruom.world.Schematic;
 import me.mohamad82.ruom.world.WorldEdit;
 import me.mohamad82.ruom.xseries.NMSExtras;
 import org.bukkit.*;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -52,6 +53,94 @@ public class TestRecordCommand implements CommandExecutor, Listener {
         Player player = (Player) sender;
 
         switch (args[0].toLowerCase()) {
+            case "pasteshoot": {
+                Schematic schematic = new Schematic(WorldEdit.getClipboardFromSchematic(new File(Ruom.getPlugin().getDataFolder(), "arena.schem")).get(), player.getLocation(), true);
+                schematic.prepare().whenComplete((v, e) -> {
+                    if (e != null) {
+                        e.printStackTrace();
+                    }
+                    new BukkitRunnable() {
+                        double v0 = 0.5;
+                        double angle = Math.toRadians(45);
+                        double g = 0.01;
+                        Vector3 center = PlayerUtils.getPlayerVector3Location(player);
+
+                        Map<FallingBlockNPC, Integer> map = new HashMap<>();
+                        Map<FallingBlockNPC, Location> map2 = new HashMap<>();
+                        Map<FallingBlockNPC, BlockData> map3 = new HashMap<>();
+                        HashSet<FallingBlockNPC> toRemove = new HashSet<>();
+                        public void run() {
+                            Vector3 randomBlockLocation = schematic.getNearestBlock(schematic.nextLayerIndex(), center);
+                            Ruom.log(randomBlockLocation.toString());
+                            schematic.remove(randomBlockLocation);
+
+                            double x = v0 * 50 * Math.cos(angle);
+                            double v0y = v0 * Math.sin(angle);
+                            double y = ((double) -1 / 2 * g * 50 * 50) + (v0y * 50 * Math.sin(angle));
+
+                            FallingBlockNPC fallingBlock = FallingBlockNPC.fallingBlockNPC(Vector3UtilsBukkit.toLocation(player.getWorld(), center.clone().add(x, y, 0)), schematic.getBlockData(randomBlockLocation).getMaterial());
+                            fallingBlock.setNoGravity(true);
+                            fallingBlock.addViewers(Ruom.getOnlinePlayers());
+
+                            map.put(fallingBlock, 50);
+                            map2.put(fallingBlock, Vector3UtilsBukkit.toLocation(player.getWorld(), randomBlockLocation));
+                            map3.put(fallingBlock, schematic.getBlockData(randomBlockLocation));
+
+                            for (Map.Entry<FallingBlockNPC, Integer> entry : map.entrySet()) {
+                                FallingBlockNPC npc = entry.getKey();
+                                int tick = entry.getValue() - 1;
+                                map.put(npc, tick);
+                                if (tick == 0) {
+                                    npc.discard();
+                                    player.getWorld().getBlockAt(map2.get(npc)).setBlockData(map3.get(npc));
+
+                                    toRemove.add(npc);
+                                } else {
+
+                                    double x1 = v0 * tick * Math.cos(angle);
+                                    double v0y1 = v0 * Math.sin(angle);
+                                    double y1 = ((double) -1 / 2 * g * tick * tick) + (v0y1 * tick * Math.sin(angle));
+
+                                    npc.move(Vector3Utils.getTravelDistance(npc.getPosition(), center.clone().add(x1, y1, 0)));
+                                }
+                            }
+                            for (FallingBlockNPC npc : toRemove) {
+                                map.remove(npc);
+                                map2.remove(npc);
+                                map3.remove(npc);
+                            }
+                            toRemove.clear();
+                        }
+                    }.runTaskTimer(Ruom.getPlugin(), 0, 3);
+                });
+                break;
+            }
+            case "shoot": {
+                Location location = player.getLocation().clone();
+                double v0 = Double.parseDouble(args[1]);
+                double angle = Math.toRadians(Integer.parseInt(args[2]));
+                double g = Double.parseDouble(args[3]);
+                int tick = 1;
+                while (tick != 100) {
+                /*new BukkitRunnable() {
+                    public void run() {*/
+                    double x = v0 * tick * Math.cos(angle);
+                    double v0y = v0 * Math.sin(angle);
+                    double y = ((double) -1 / 2 * g * Math.pow(tick, 2)) + (v0y * tick * Math.sin(angle));
+
+                    player.getWorld().spawnParticle(Particle.REDSTONE, location.clone().add(x, y, 0), 1, new Particle.DustOptions(Color.BLUE, 1));
+                    Ruom.log(location.clone().add(x, y, 0).toString());
+
+                    tick++;
+                    if (tick >= 100) {
+                        //cancel();
+                        Ruom.broadcast("Done");
+                    }
+                }
+                    /*}
+                }.runTaskTimer(Ruom.getPlugin(), 0, 1);*/
+                break;
+            }
             case "itemholo": {
                 Ruom.runSync(new Runnable() {
                     Map<Player, Item> shownItems = new HashMap<>();
@@ -240,7 +329,12 @@ public class TestRecordCommand implements CommandExecutor, Listener {
             }
             case "load": {
                 Ruom.runAsync(() -> {
-                    RecordContainer container = PensieveGsonSerializer.get().deserialize(new File(Ruom.getPlugin().getDataFolder(), "testReplay.json"));
+                    RecordContainer container = null;
+                    try {
+                        container = PensieveGsonSerializer.get().deserialize(new File(Ruom.getPlugin().getDataFolder(), "testReplay.json"));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                     replayer = Replayer.replayer(container, player.getWorld(), Vector3.at(0, 0, 0));
 
                     try {

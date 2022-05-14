@@ -13,15 +13,13 @@ import java.util.*;
 
 public class RecordManager {
 
+    private static RecordManager instance;
+
+    private final Map<String, Recorder> internalRecorders = new HashMap<>();
     private final Set<RecorderImpl> recorders = new HashSet<>();
 
     private final Map<Player, PendingBlockBreak> breakingPlayers = new HashMap<>();
     private final Map<Player, ItemStack> eatingPlayers = new HashMap<>();
-
-    private static RecordManager instance;
-    public static RecordManager getInstance() {
-        return instance;
-    }
 
     public RecordManager() {
         instance = this;
@@ -94,6 +92,10 @@ public class RecordManager {
         return collection;
     }
 
+    public Map<String, Recorder> getInternalRecorders() {
+        return internalRecorders;
+    }
+
     public Set<RecorderImpl> getRecorders() {
         return recorders;
     }
@@ -104,6 +106,13 @@ public class RecordManager {
 
     public Map<Player, ItemStack> getEatingPlayers() {
         return eatingPlayers;
+    }
+
+    public static RecordManager getInstance() {
+        if (instance == null) {
+            instance = new RecordManager();
+        }
+        return instance;
     }
 
 }

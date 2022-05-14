@@ -91,14 +91,9 @@ public class PensieveGsonSerializer {
         return recordContainer;
     }
 
-    public RecordContainer deserialize(File file) {
-        try {
-            BufferedReader bufferedReader = new BufferedReader(new FileReader(file));
-            return deserialize(bufferedReader.readLine());
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
+    public RecordContainer deserialize(File file) throws IOException {
+        BufferedReader bufferedReader = new BufferedReader(new FileReader(file));
+        return deserialize(bufferedReader.readLine());
     }
 
 }
