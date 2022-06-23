@@ -41,9 +41,32 @@ public interface Replayer {
     PlayBackControl getPlaybackControl();
 
     /**
+     * Checks if replayer is started.
+     * @return true if replayer is started, false otherwise.
+     */
+    boolean isStarted();
+
+    /**
+     * Checks if replayer is stopped.
+     * @return true if replayer is stopped, false otherwise.
+     */
+    boolean isStopped();
+
+    /**
+     * Checks if replayer is prepared.
+     * @return true if replayer is prepared, false otherwise.
+     */
+    boolean isPrepared();
+
+    /**
      * Suspends the replayer.
      * @return false if the replayer is already stopped or not started, true otherwise.
      */
     boolean suspend();
+
+    /**
+     * Rollbacks all the block changes that may have done by the replayer.
+     */
+    void rollbackBlockChanges();
 
 }

@@ -1,36 +1,28 @@
-package me.mohamad82.pensieve.replaying;
+package me.mohamad82.pensieve.replaying.block;
 
 import me.mohamad82.ruom.utils.BlockUtils;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Location;
 import org.bukkit.block.data.BlockData;
 
-public class BlockChange {
+public class BlockDataChange implements BlockModification {
 
     public final static BlockData AIR_BLOCKDATA = XMaterial.AIR.parseMaterial().createBlockData();
 
     private final Location location;
     private final BlockData beforeBlockData;
     private final BlockData afterBlockData;
-    private final ChangeType changeType;
+    private final BlockModificationType changeType;
 
-    private BlockChange(Location location, BlockData beforeBlockData, BlockData afterBlockData, ChangeType changeType) {
+    private BlockDataChange(Location location, BlockData beforeBlockData, BlockData afterBlockData, BlockModificationType changeType) {
         this.location = location.clone();
         this.beforeBlockData = beforeBlockData.clone();
         this.afterBlockData = afterBlockData.clone();
         this.changeType = changeType;
     }
-    
-    public static BlockChange breakChange(Location location, BlockData beforeBlockData) {
-        return new BlockChange(location, beforeBlockData, AIR_BLOCKDATA, ChangeType.BREAK);
-    }
 
-    public static BlockChange placeChange(Location location, BlockData afterBlockData) {
-        return new BlockChange(location, AIR_BLOCKDATA, afterBlockData, ChangeType.PLACE);
-    }
-
-    public static BlockChange blockChange(Location location, BlockData afterBlockData) {
-        return new BlockChange(location, location.getBlock().getBlockData(), afterBlockData, ChangeType.MODIFY);
+    public static BlockDataChange blockChange(Location location, BlockData afterBlockData) {
+        return new BlockDataChange(location, location.getBlock().getBlockData(), afterBlockData, BlockModificationType.DATA_CHANGE);
     }
 
     public Location getLocation() {
@@ -45,7 +37,7 @@ public class BlockChange {
         return afterBlockData;
     }
 
-    public ChangeType getChangeType() {
+    public BlockModificationType getType() {
         return changeType;
     }
 
@@ -79,12 +71,6 @@ public class BlockChange {
         } else {
             location.getBlock().setBlockData(beforeBlockData);
         }
-    }
-
-    public enum ChangeType {
-        PLACE,
-        BREAK,
-        MODIFY
     }
 
 }

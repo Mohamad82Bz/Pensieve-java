@@ -10,8 +10,11 @@ import me.mohamad82.ruom.math.vector.Vector3;
 import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.math.vector.Vector3UtilsBukkit;
 import me.mohamad82.ruom.utils.ListUtils;
+import me.mohamad82.ruom.utils.NMSUtils;
 import me.mohamad82.ruom.utils.ServerVersion;
 import me.mohamad82.ruom.utils.item.CrossbowUtils;
+import me.mohamad82.ruom.world.wrappedblock.WrappedBlockUtils;
+import me.mohamad82.ruom.xseries.XBlock;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -56,7 +59,7 @@ public class RecordListeners implements Listener {
         collection.forEach(playerRecordTick -> {
             if (playerRecordTick.getBlockPlaces() == null)
                 playerRecordTick.initializeBlockPlaces();
-            playerRecordTick.getBlockPlaces().put(location, block.getState().getBlockData());
+            playerRecordTick.getBlockPlaces().put(location, WrappedBlockUtils.create(block));
             playerRecordTick.swing();
         });
     }
@@ -74,7 +77,7 @@ public class RecordListeners implements Listener {
             PlayerRecordTick playerRecordTick = recorder.getCurrentTick(player);
             if (playerRecordTick.getBlockBreaks() == null)
                 playerRecordTick.initializeBlockBreaks();
-            playerRecordTick.getBlockBreaks().put(Vector3UtilsBukkit.toVector3(block.getLocation()), block.getState().getBlockData());
+            playerRecordTick.getBlockBreaks().put(Vector3UtilsBukkit.toVector3(block.getLocation()), WrappedBlockUtils.create(block));
         });
 
         //Pending Block Break (Block break animations)
@@ -221,7 +224,7 @@ public class RecordListeners implements Listener {
         if (event.getAction().equals(Action.LEFT_CLICK_AIR) || event.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
             collection.forEach(PlayerRecordTick::swing);
         }
-        if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK) && block.getType().isInteractable()) {
+        if (ServerVersion.supports(13) && event.getAction().equals(Action.RIGHT_CLICK_BLOCK) && block.getType().isInteractable()) {
             collection.forEach(PlayerRecordTick::swing);
             Ruom.runSync(() -> {
                 collection.forEach(playerRecordTick -> {
@@ -231,7 +234,7 @@ public class RecordListeners implements Listener {
                 });
                 if (!(block.getType().toString().contains("BUTTON") && buttonInteractionCooldowns.contains(block.getLocation()))) {
                     collection.forEach(playerRecordTick -> playerRecordTick.getBlockData().put(Vector3UtilsBukkit.toVector3(block.getLocation()),
-                            block.getBlockData().getMaterial().toString().contains("_DOOR") ? Bukkit.createBlockData(block.getBlockData().getAsString().replace("half=upper", "half=lower")) : block.getBlockData()));
+                            WrappedBlockUtils.DOORS.contains(XMaterial.matchXMaterial(block.getType())) ? Bukkit.createBlockData(block.getBlockData().getAsString().replace("half=upper", "half=lower")) : block.getBlockData()));
                     if (block.getType().toString().contains("BUTTON")) {
                         buttonInteractionCooldowns.add(block.getLocation());
                         Ruom.runSync(() -> {
@@ -242,13 +245,10 @@ public class RecordListeners implements Listener {
             }, 1);
         }
         if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
-            if (block.getType().equals(XMaterial.FURNACE.parseMaterial()) ||
+            if (ServerVersion.supports(13) && block.getType().equals(XMaterial.FURNACE.parseMaterial()) ||
                     (ServerVersion.supports(14) && (block.getType().equals(XMaterial.BLAST_FURNACE.parseMaterial()) || block.getType().equals(XMaterial.SMOKER.parseMaterial())))) {
                 furnaceInteractions.put(player.getUniqueId(), block.getLocation());
-            } else if (block.getType().equals(XMaterial.CHEST.parseMaterial()) ||
-                    block.getType().equals(XMaterial.TRAPPED_CHEST.parseMaterial()) ||
-                    block.getType().equals(XMaterial.ENDER_CHEST.parseMaterial()) ||
-                    block.getType().toString().contains("SHULKER_BOX")) {
+            } else if (XBlock.isContainer(block)) {
                 chestInteractionRunnables.put(player.getUniqueId(), new Runnable() {
                     @Override
                     public void run() {
@@ -294,7 +294,7 @@ public class RecordListeners implements Listener {
         Collection<RecorderImpl> collection = RecordManager.getInstance().getPlayerRecorder(player);
         if (collection.isEmpty()) return;
 
-        if (furnaceInteractions.containsKey(player.getUniqueId())) {
+        if (ServerVersion.supports(13) && furnaceInteractions.containsKey(player.getUniqueId())) {
             if (event.getInventory().getType().equals(InventoryType.FURNACE) || (ServerVersion.supports(14) && (event.getInventory().getType().equals(InventoryType.BLAST_FURNACE)) || event.getInventory().getType().equals(InventoryType.SMOKER))) {
                 Block block = furnaceInteractions.get(player.getUniqueId()).getBlock();
                 if (block.getType().equals(XMaterial.FURNACE.parseMaterial()) || (ServerVersion.supports(14) && (block.getType().equals(XMaterial.BLAST_FURNACE.parseMaterial()) || block.getType().equals(XMaterial.SMOKER.parseMaterial())))) {
@@ -341,12 +341,12 @@ public class RecordListeners implements Listener {
                 //Hit by an arrow
                 if (event.getDamager().getType().toString().contains("ARROW")) {
                     playerRecordTick.damage(DamageType.PROJECTILE);
-                    playerRecordTick.setBodyArrows(victim.getArrowsInBody() + 1);
+                    playerRecordTick.setBodyArrows(NMSUtils.getBodyArrows(victim) + 1);
                     RecordManager.getInstance().getPlayerRecorder(victim).forEach(recorder -> {
-                        ((PlayerRecordTick) recorder.getLastNonNullTick(victim.getUniqueId())).setBodyArrows(victim.getArrowsInBody() + 1);
+                        ((PlayerRecordTick) recorder.getLastNonNullTick(victim.getUniqueId())).setBodyArrows(NMSUtils.getBodyArrows(victim) + 1);
                     });
                 }
-            } else {
+            } else if (ServerVersion.supports(9)) {
                 Player damager = (Player) event.getDamager();
                 if (isCritical(damager)) {
                     playerRecordTick.damage(DamageType.CRITICAL);

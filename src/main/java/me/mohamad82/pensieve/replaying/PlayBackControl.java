@@ -21,7 +21,7 @@ public class PlayBackControl {
     }
 
     public void setProgress(int progress) {
-        this.progress = Math.min(Math.max(progress, 1), maxProgress);
+        this.progress = Math.min(Math.max(progress, 1), maxProgress - 1);
     }
 
     public void addProgress(int progressToAdd) {

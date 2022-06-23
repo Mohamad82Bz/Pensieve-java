@@ -1,16 +1,17 @@
 package me.mohamad82.pensieve.recording.record;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import me.mohamad82.pensieve.recording.PendingBlockBreak;
+import me.mohamad82.pensieve.recording.enums.ActionType;
 import me.mohamad82.pensieve.recording.enums.DamageType;
 import me.mohamad82.pensieve.utils.Utils;
-import me.mohamad82.ruom.Ruom;
-import me.mohamad82.ruom.npc.NPC;
-import me.mohamad82.ruom.utils.NMSUtils;
 import me.mohamad82.ruom.math.vector.Vector3;
 import me.mohamad82.ruom.math.vector.Vector3Utils;
+import me.mohamad82.ruom.npc.NPC;
+import me.mohamad82.ruom.utils.NMSUtils;
+import me.mohamad82.ruom.world.wrappedblock.WrappedBlock;
+import me.mohamad82.ruom.world.wrappedblock.WrappedBlockUtils;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -23,8 +24,8 @@ import java.util.Map;
 
 public class PlayerRecordTick extends RecordTick {
 
-    private Map<Vector3, BlockData> blockPlaces;
-    private Map<Vector3, BlockData> blockBreaks;
+    private Map<Vector3, WrappedBlock> blockPlaces;
+    private Map<Vector3, WrappedBlock> blockBreaks;
     private Map<Vector3, BlockData> blockData;
 
     private PendingBlockBreak pendingBlockBreak;
@@ -34,23 +35,16 @@ public class PlayerRecordTick extends RecordTick {
     private NPC.Pose pose;
     private DamageType takenDamageType;
 
-    private boolean swing;
-    private boolean eatFood;
-    private boolean throwProjectile;
-    private boolean throwTrident;
-    private boolean throwFishingRod;
-    private boolean throwFirework;
-    private boolean retrieveFishingRod;
-    private boolean drawCrossbow;
-    private boolean shootCrossbow;
-    private boolean openChestInteraction;
-    private boolean burning;
-    private boolean crouching;
-    private boolean sprinting;
-    private boolean swimming;
-    private boolean invisible;
-    private boolean glowing;
-    private boolean gliding;
+    /**
+     * Bitmask of actions
+     * @see ActionType
+     */
+    private int actions;
+    /**
+     * Bitmask of actions
+     * @see NPC.Pose
+     */
+    private int poses;
 
     private double health = -1;
     private int hunger = -1;
@@ -67,7 +61,7 @@ public class PlayerRecordTick extends RecordTick {
     private ItemStack leggings;
     private ItemStack boots;
 
-    public Map<Vector3, BlockData> getBlockPlaces() {
+    public Map<Vector3, WrappedBlock> getBlockPlaces() {
         return blockPlaces;
     }
 
@@ -75,7 +69,7 @@ public class PlayerRecordTick extends RecordTick {
         blockPlaces = new HashMap<>();
     }
 
-    public Map<Vector3, BlockData> getBlockBreaks() {
+    public Map<Vector3, WrappedBlock> getBlockBreaks() {
         return blockBreaks;
     }
 
@@ -140,139 +134,187 @@ public class PlayerRecordTick extends RecordTick {
     }
 
     public boolean didSwing() {
-        return swing;
+        return (actions & ActionType.SWING.getBitMask()) != 0;
     }
 
     public void swing() {
-        this.swing = true;
+        actions |= ActionType.SWING.getBitMask();
     }
 
     public boolean ateFood() {
-        return eatFood;
+        return (actions & ActionType.EAT_FOOD.getBitMask()) != 0;
     }
 
     public void eatFood() {
-        this.eatFood = true;
+        actions |= ActionType.EAT_FOOD.getBitMask();
     }
 
     public boolean thrownProjectile() {
-        return throwProjectile;
+        return (actions & ActionType.THROW_PROJECTILE.getBitMask()) != 0;
     }
 
     public void throwProjectile() {
-        this.throwProjectile = true;
+        actions |= ActionType.THROW_PROJECTILE.getBitMask();
     }
 
     public boolean thrownTrident() {
-        return throwTrident;
+        return (actions & ActionType.THROW_TRIDENT.getBitMask()) != 0;
     }
 
     public void throwTrident() {
-        this.throwTrident = true;
+        actions |= ActionType.THROW_TRIDENT.getBitMask();
     }
 
     public boolean thrownFishingRod() {
-        return throwFishingRod;
+        return (actions & ActionType.THROW_FISHING_ROD.getBitMask()) != 0;
     }
 
     public void throwFishingRod() {
-        this.throwFishingRod = true;
+        actions |= ActionType.THROW_FISHING_ROD.getBitMask();
     }
 
     public boolean thrownFirework() {
-        return throwFirework;
+        return (actions & ActionType.THROW_FIREWORK.getBitMask()) != 0;
     }
 
     public void throwFirework() {
-        throwFirework = true;
+        actions |= ActionType.THROW_FIREWORK.getBitMask();
     }
 
     public boolean retrievedFishingRod() {
-        return retrieveFishingRod;
+        return (actions & ActionType.RETRIEVE_FISHING_ROD.getBitMask()) != 0;
     }
 
     public void retrieveFishingRod() {
-        this.retrieveFishingRod = true;
+        actions |= ActionType.RETRIEVE_FISHING_ROD.getBitMask();
     }
 
     public boolean drawnCrossbow() {
-        return drawCrossbow;
+        return (actions & ActionType.DRAW_CROSSBOW.getBitMask()) != 0;
     }
 
     public void drawCrossbow() {
-        this.drawCrossbow = true;
+        actions |= ActionType.DRAW_CROSSBOW.getBitMask();
     }
 
     public boolean shotCrossbow() {
-        return shootCrossbow;
+        return (actions & ActionType.SHOOT_CROSSBOW.getBitMask()) != 0;
     }
 
     public void shootCrossbow() {
-        this.shootCrossbow = true;
+        actions |= ActionType.SHOOT_CROSSBOW.getBitMask();
     }
 
     public boolean didOpenChestInteraction() {
-        return openChestInteraction;
+        return (actions & ActionType.OPEN_CHEST_INTERACTION.getBitMask()) != 0;
     }
 
     public void setOpenChestInteraction(boolean openChestInteraction) {
-        this.openChestInteraction = openChestInteraction;
+        if (openChestInteraction) {
+            actions |= ActionType.OPEN_CHEST_INTERACTION.getBitMask();
+        } else {
+            if (didOpenChestInteraction()) {
+                actions &= ~ActionType.OPEN_CHEST_INTERACTION.getBitMask();
+            }
+        }
     }
 
     public boolean wasBurning() {
-        return burning;
+        return (actions & ActionType.BURN.getBitMask()) != 0;
     }
 
     public void setBurning(boolean burning) {
-        this.burning = burning;
+        if (burning) {
+            actions |= ActionType.BURN.getBitMask();
+        } else {
+            if (wasBurning()) {
+                actions &= ~ActionType.BURN.getBitMask();
+            }
+        }
     }
 
     public boolean wasCrouching() {
-        return crouching;
+        return (actions & ActionType.CROUCH.getBitMask()) != 0;
     }
 
     public void setCrouching(boolean crouching) {
-        this.crouching = crouching;
+        if (crouching) {
+            actions |= ActionType.CROUCH.getBitMask();
+        } else {
+            if (wasCrouching()) {
+                actions &= ~ActionType.CROUCH.getBitMask();
+            }
+        }
     }
 
     public boolean wasSprinting() {
-        return sprinting;
+        return (actions & ActionType.SPRINT.getBitMask()) != 0;
     }
 
     public void setSprinting(boolean sprinting) {
-        this.sprinting = sprinting;
+        if (sprinting) {
+            actions |= ActionType.SPRINT.getBitMask();
+        } else {
+            if (wasSprinting()) {
+                actions &= ~ActionType.SPRINT.getBitMask();
+            }
+        }
     }
 
     public boolean wasSwimming() {
-        return swimming;
+        return (actions & ActionType.SWIM.getBitMask()) != 0;
     }
 
     public void setSwimming(boolean swimming) {
-        this.swimming = swimming;
+        if (swimming) {
+            actions |= ActionType.SWIM.getBitMask();
+        } else {
+            if (wasSwimming()) {
+                actions &= ~ActionType.SWIM.getBitMask();
+            }
+        }
     }
 
     public boolean wasInvisible() {
-        return invisible;
+        return (actions & ActionType.INVISIBLE.getBitMask()) != 0;
     }
 
     public void setInvisible(boolean invisible) {
-        this.invisible = invisible;
+        if (invisible) {
+            actions |= ActionType.INVISIBLE.getBitMask();
+        } else {
+            if (wasInvisible()) {
+                actions &= ~ActionType.INVISIBLE.getBitMask();
+            }
+        }
     }
 
     public boolean wasGlowing() {
-        return glowing;
+        return (actions & ActionType.GLOW.getBitMask()) != 0;
     }
 
     public void setGlowing(boolean glowing) {
-        this.glowing = glowing;
+        if (glowing) {
+            actions |= ActionType.GLOW.getBitMask();
+        } else {
+            if (wasGlowing()) {
+                actions &= ~ActionType.GLOW.getBitMask();
+            }
+        }
     }
 
     public boolean wasGliding() {
-        return gliding;
+        return (actions & ActionType.GLIDE.getBitMask()) != 0;
     }
 
     public void setGliding(boolean gliding) {
-        this.gliding = gliding;
+        if (gliding) {
+            actions |= ActionType.GLIDE.getBitMask();
+        } else {
+            if (wasGliding()) {
+                actions &= ~ActionType.GLIDE.getBitMask();
+            }
+        }
     }
 
     public double getHealth() {
@@ -436,104 +478,85 @@ public class PlayerRecordTick extends RecordTick {
     public JsonObject toJson(JsonObject jsonObject) {
         if (blockPlaces != null) {
             JsonObject blockPlacesJson = new JsonObject();
-            for (Map.Entry<Vector3, BlockData> entry : blockPlaces.entrySet()) {
-                blockPlacesJson.addProperty(entry.getKey().toString(), entry.getValue().getAsString());
+            for (Map.Entry<Vector3, WrappedBlock> entry : blockPlaces.entrySet()) {
+                blockPlacesJson.addProperty(entry.getKey().toString(), entry.getValue().toJson().toString());
             }
-            jsonObject.add("blockplaces", blockPlacesJson);
+            jsonObject.add("bp", blockPlacesJson);
         }
         if (blockBreaks != null) {
             JsonObject blockBreaksJson = new JsonObject();
-            for (Map.Entry<Vector3, BlockData> entry : blockBreaks.entrySet()) {
-                blockBreaksJson.addProperty(entry.getKey().toString(), entry.getValue().getAsString());
+            for (Map.Entry<Vector3, WrappedBlock> entry : blockBreaks.entrySet()) {
+                blockBreaksJson.addProperty(entry.getKey().toString(), entry.getValue().toJson().toString());
             }
-            jsonObject.add("blockbreaks", blockBreaksJson);
+            jsonObject.add("bb", blockBreaksJson);
         }
         if (blockData != null) {
             JsonObject blockDataJson = new JsonObject();
             for (Map.Entry<Vector3, BlockData> entry : blockData.entrySet()) {
                 blockDataJson.addProperty(entry.getKey().toString(), entry.getValue().getAsString());
             }
-            jsonObject.add("blockdata", blockDataJson);
+            jsonObject.add("bd", blockDataJson);
         }
         if (pendingBlockBreak != null) {
-            jsonObject.add("pendingblockbreak", pendingBlockBreak.toJson());
+            jsonObject.add("pbb", pendingBlockBreak.toJson());
         }
         if (eatingMaterial != null) {
-            jsonObject.addProperty("eatingmaterial", XMaterial.matchXMaterial(eatingMaterial).name());
+            jsonObject.addProperty("em", XMaterial.matchXMaterial(eatingMaterial).name());
         }
         if (blockInteractionLocation != null) {
-            jsonObject.addProperty("blockinteractionlocation", blockInteractionLocation.toString());
+            jsonObject.addProperty("bil", blockInteractionLocation.toString());
         }
         if (blockInteractionType != null) {
-            jsonObject.addProperty("blockinteractiontype", XMaterial.matchXMaterial(blockInteractionType).name());
+            jsonObject.addProperty("bit", XMaterial.matchXMaterial(blockInteractionType).name());
         }
         if (pose != null) {
-            jsonObject.addProperty("pose", pose.toString());
+            jsonObject.addProperty("ps", pose.toString());
         }
         if (takenDamageType != null) {
-            jsonObject.addProperty("takendamagetype", takenDamageType.toString());
+            jsonObject.addProperty("tdt", takenDamageType.toString());
         }
-
-        JsonArray jsonArray = new JsonArray();
-        if (swing) jsonArray.add("swang");
-        if (eatFood) jsonArray.add("atefood");
-        if (throwProjectile) jsonArray.add("thrownprojectile");
-        if (throwTrident) jsonArray.add("throwntrident");
-        if (throwFishingRod) jsonArray.add("thrownfishingrod");
-        if (throwFirework) jsonArray.add("thrownfirework");
-        if (retrieveFishingRod) jsonArray.add("retrievedfishingrod");
-        if (drawCrossbow) jsonArray.add("drawncrossbow");
-        if (shootCrossbow) jsonArray.add("shotcrossbow");
-        if (openChestInteraction) jsonArray.add("openchestinteraction");
-        if (burning) jsonArray.add("burning");
-        if (crouching) jsonArray.add("crouching");
-        if (sprinting) jsonArray.add("sprinting");
-        if (swimming) jsonArray.add("swimming");
-        if (invisible) jsonArray.add("invisible");
-        if (glowing) jsonArray.add("glowing");
-        if (gliding) jsonArray.add("gliding");
-        if (jsonArray.size() != 0)
-            jsonObject.add("actions", jsonArray);
-
+        if (actions != 0) {
+            jsonObject.addProperty("a", actions);
+        }
         if (health != -1) {
-            jsonObject.addProperty("health", health);
+            jsonObject.addProperty("heal", health);
         }
         if (hunger != -1) {
-            jsonObject.addProperty("hunger", hunger);
+            jsonObject.addProperty("hung", hunger);
         }
         if (ping != -1) {
-            jsonObject.addProperty("ping", ping);
+            jsonObject.addProperty("pg", ping);
         }
         if (useItemInteraction != -1) {
-            jsonObject.addProperty("useiteminteraction", useItemInteraction);
+            jsonObject.addProperty("uii", useItemInteraction);
         }
         if (usedItemTime != -1) {
-            jsonObject.addProperty("useditemtime", usedItemTime);
+            jsonObject.addProperty("uit", usedItemTime);
         }
         if (bodyArrows != -1) {
-            jsonObject.addProperty("bodyarrows", bodyArrows);
+            jsonObject.addProperty("ba", bodyArrows);
         }
         if (crossbowChargeLevel != -1) {
-            jsonObject.addProperty("crossbowchargelevel", crossbowChargeLevel);
+            jsonObject.addProperty("ccl", crossbowChargeLevel);
         }
 
         if (hand != null) {
-            jsonObject.addProperty("hand", NMSUtils.getItemStackNBTJson(hand));
+            jsonObject.addProperty("h", NMSUtils.getItemStackNBTJson(hand));
         }
         if (offHand != null) {
-            jsonObject.addProperty("offhand", NMSUtils.getItemStackNBTJson(offHand));
+            jsonObject.addProperty("oh", NMSUtils.getItemStackNBTJson(offHand));
         }
         if (helmet != null) {
-            jsonObject.addProperty("helmet", NMSUtils.getItemStackNBTJson(helmet));
+            jsonObject.addProperty("helm", NMSUtils.getItemStackNBTJson(helmet));
         }
         if (chestplate != null) {
-            jsonObject.addProperty("chestplate", NMSUtils.getItemStackNBTJson(chestplate));
+            jsonObject.addProperty("chest", NMSUtils.getItemStackNBTJson(chestplate));
         }
         if (leggings != null) {
-            jsonObject.addProperty("leggings", NMSUtils.getItemStackNBTJson(leggings));
+            jsonObject.addProperty("leg", NMSUtils.getItemStackNBTJson(leggings));
         }
         if (boots != null) {
-            jsonObject.addProperty("boots", NMSUtils.getItemStackNBTJson(boots));
+            jsonObject.addProperty("boot", NMSUtils.getItemStackNBTJson(boots));
         }
 
         return super.toJson(jsonObject);
@@ -543,114 +566,88 @@ public class PlayerRecordTick extends RecordTick {
     public PlayerRecordTick fromJson(SerializableRecordTick serializableRecordTick, JsonObject jsonObject) {
         PlayerRecordTick tick = (PlayerRecordTick) serializableRecordTick;
 
-        if (jsonObject.has("blockplaces")) {
-            Map<Vector3, BlockData> blockPlaces = new HashMap<>();
-            for (Map.Entry<String, JsonElement> entry : jsonObject.get("blockplaces").getAsJsonObject().entrySet()) {
-                blockPlaces.put(Vector3Utils.toVector3(entry.getKey()), Bukkit.createBlockData(entry.getValue().getAsString()));
+        if (jsonObject.has("bp")) {
+            Map<Vector3, WrappedBlock> blockPlaces = new HashMap<>();
+            for (Map.Entry<String, JsonElement> entry : jsonObject.get("bp").getAsJsonObject().entrySet()) {
+                blockPlaces.put(Vector3Utils.toVector3(entry.getKey()), WrappedBlockUtils.fromJson(entry.getValue().getAsJsonObject()));
             }
             tick.blockPlaces = blockPlaces;
         }
-        if (jsonObject.has("blockbreaks")) {
-            Map<Vector3, BlockData> blockBreaks = new HashMap<>();
-            for (Map.Entry<String, JsonElement> entry : jsonObject.get("blockbreaks").getAsJsonObject().entrySet()) {
-                blockBreaks.put(Vector3Utils.toVector3(entry.getKey()), Bukkit.createBlockData(entry.getValue().getAsString()));
+        if (jsonObject.has("bb")) {
+            Map<Vector3, WrappedBlock> blockBreaks = new HashMap<>();
+            for (Map.Entry<String, JsonElement> entry : jsonObject.get("bb").getAsJsonObject().entrySet()) {
+                blockBreaks.put(Vector3Utils.toVector3(entry.getKey()), WrappedBlockUtils.fromJson(entry.getValue().getAsJsonObject()));
             }
             tick.blockBreaks = blockBreaks;
         }
-        if (jsonObject.has("blockdata")) {
+        if (jsonObject.has("bd")) {
             Map<Vector3, BlockData> blockData = new HashMap<>();
-            for (Map.Entry<String, JsonElement> entry : jsonObject.get("blockdata").getAsJsonObject().entrySet()) {
+            for (Map.Entry<String, JsonElement> entry : jsonObject.get("bd").getAsJsonObject().entrySet()) {
                 blockData.put(Vector3Utils.toVector3(entry.getKey()), Bukkit.createBlockData(entry.getValue().getAsString()));
             }
             tick.blockData = blockData;
         }
 
-        if (jsonObject.has("pendingblockbreak")) {
-            tick.pendingBlockBreak = PendingBlockBreak.fromJson(jsonObject.get("pendingblockbreak").getAsJsonObject());
+        if (jsonObject.has("pbb")) {
+            tick.pendingBlockBreak = PendingBlockBreak.fromJson(jsonObject.get("pbb").getAsJsonObject());
         }
-        if (jsonObject.has("eatingmaterial")) {
-            tick.eatingMaterial = XMaterial.matchXMaterial(jsonObject.get("eatingmaterial").getAsString().toUpperCase()).get().parseMaterial();
+        if (jsonObject.has("em")) {
+            tick.eatingMaterial = XMaterial.matchXMaterial(jsonObject.get("em").getAsString().toUpperCase()).orElse(null).parseMaterial();
         }
-        if (jsonObject.has("blockinteractionlocation")) {
-            tick.blockInteractionLocation = Vector3Utils.toVector3(jsonObject.get("blockinteractionlocation").getAsString());
+        if (jsonObject.has("bil")) {
+            tick.blockInteractionLocation = Vector3Utils.toVector3(jsonObject.get("bil").getAsString());
         }
-        if (jsonObject.has("blockinteractiontype")) {
-            tick.blockInteractionType = XMaterial.matchXMaterial(jsonObject.get("blockinteractiontype").getAsString().toUpperCase()).get().parseMaterial();
+        if (jsonObject.has("bit")) {
+            tick.blockInteractionType = XMaterial.matchXMaterial(jsonObject.get("bit").getAsString().toUpperCase()).orElse(null).parseMaterial();
         }
-        if (jsonObject.has("pose")) {
-            tick.pose = NPC.Pose.valueOf(jsonObject.get("pose").getAsString());
+        if (jsonObject.has("ps")) {
+            tick.pose = NPC.Pose.valueOf(jsonObject.get("ps").getAsString());
         }
-        if (jsonObject.has("takendamagetype")) {
-            tick.takenDamageType = DamageType.valueOf(jsonObject.get("takendamagetype").getAsString());
+        if (jsonObject.has("tdt")) {
+            tick.takenDamageType = DamageType.valueOf(jsonObject.get("tdt").getAsString());
         }
-
-        if (jsonObject.has("actions")) {
-            for (JsonElement jsonElement : jsonObject.get("actions").getAsJsonArray()) {
-                String actionType = jsonElement.getAsString();
-                switch (actionType) {
-                    case "swang": tick.swing = true; break;
-                    case "atefood": tick.eatFood = true; break;
-                    case "thrownprojectile": tick.throwProjectile = true; break;
-                    case "throwntrident": tick.throwTrident = true; break;
-                    case "thrownfirework": tick.throwFirework = true; break;
-                    case "thrownfishingrod": tick.throwFishingRod = true; break;
-                    case "retrievedfishingrod": tick.retrieveFishingRod = true; break;
-                    case "drawncrossbow": tick.drawCrossbow = true; break;
-                    case "shotcrossbow": tick.shootCrossbow(); break;
-                    case "openchestinteraction": tick.openChestInteraction = true; break;
-                    case "burning": tick.burning = true; break;
-                    case "crouching": tick.crouching = true; break;
-                    case "sprinting": tick.sprinting = true; break;
-                    case "swimming": tick.swimming = true; break;
-                    case "invisible": tick.invisible = true; break;
-                    case "glowing": tick.glowing = true; break;
-                    case "gliding": tick.gliding = true; break;
-                    default: {
-                        Ruom.warn("Unused action in pensieve file: " + actionType);
-                    }
-                }
-            }
+        if (jsonObject.has("a")) {
+            tick.actions = jsonObject.get("a").getAsInt();
+        }
+        if (jsonObject.has("heal")) {
+            tick.health = jsonObject.get("heal").getAsDouble();
+        }
+        if (jsonObject.has("hung")) {
+            tick.hunger = jsonObject.get("hung").getAsInt();
+        }
+        if (jsonObject.has("pg")) {
+            tick.ping = jsonObject.get("pg").getAsInt();
+        }
+        if (jsonObject.has("uii")) {
+            tick.useItemInteraction = jsonObject.get("uii").getAsByte();
+        }
+        if (jsonObject.has("uit")) {
+            tick.usedItemTime = jsonObject.get("uit").getAsInt();
+        }
+        if (jsonObject.has("ba")) {
+            tick.bodyArrows = jsonObject.get("ba").getAsInt();
+        }
+        if (jsonObject.has("ccl")) {
+            tick.crossbowChargeLevel = jsonObject.get("ccl").getAsInt();
         }
 
-        if (jsonObject.has("health")) {
-            tick.health = jsonObject.get("health").getAsDouble();
+        if (jsonObject.has("h")) {
+            tick.hand = NMSUtils.getItemStackFromNBTJson(jsonObject.get("h").getAsString());
         }
-        if (jsonObject.has("hunger")) {
-            tick.hunger = jsonObject.get("hunger").getAsInt();
+        if (jsonObject.has("oh")) {
+            tick.offHand = NMSUtils.getItemStackFromNBTJson(jsonObject.get("oh").getAsString());
         }
-        if (jsonObject.has("ping")) {
-            tick.ping = jsonObject.get("ping").getAsInt();
+        if (jsonObject.has("helm")) {
+            tick.helmet = NMSUtils.getItemStackFromNBTJson(jsonObject.get("helm").getAsString());
         }
-        if (jsonObject.has("useiteminteraction")) {
-            tick.useItemInteraction = jsonObject.get("useiteminteraction").getAsByte();
+        if (jsonObject.has("chest")) {
+            tick.chestplate = NMSUtils.getItemStackFromNBTJson(jsonObject.get("chest").getAsString());
         }
-        if (jsonObject.has("useditemtime")) {
-            tick.usedItemTime = jsonObject.get("useditemtime").getAsInt();
+        if (jsonObject.has("leg")) {
+            tick.leggings = NMSUtils.getItemStackFromNBTJson(jsonObject.get("leg").getAsString());
         }
-        if (jsonObject.has("bodyarrows")) {
-            tick.bodyArrows = jsonObject.get("bodyarrows").getAsInt();
-        }
-        if (jsonObject.has("crossbowchargelevel")) {
-            tick.crossbowChargeLevel = jsonObject.get("crossbowchargelevel").getAsInt();
-        }
-
-        if (jsonObject.has("hand")) {
-            tick.hand = NMSUtils.getItemStackFromNBTJson(jsonObject.get("hand").getAsString());
-        }
-        if (jsonObject.has("offhand")) {
-            tick.offHand = NMSUtils.getItemStackFromNBTJson(jsonObject.get("offhand").getAsString());
-        }
-        if (jsonObject.has("helmet")) {
-            tick.helmet = NMSUtils.getItemStackFromNBTJson(jsonObject.get("helmet").getAsString());
-        }
-        if (jsonObject.has("chestplate")) {
-            tick.chestplate = NMSUtils.getItemStackFromNBTJson(jsonObject.get("chestplate").getAsString());
-        }
-        if (jsonObject.has("leggings")) {
-            tick.leggings = NMSUtils.getItemStackFromNBTJson(jsonObject.get("leggings").getAsString());
-        }
-        if (jsonObject.has("boots")) {
-            tick.boots = NMSUtils.getItemStackFromNBTJson(jsonObject.get("boots").getAsString());
+        if (jsonObject.has("boot")) {
+            tick.boots = NMSUtils.getItemStackFromNBTJson(jsonObject.get("boot").getAsString());
         }
 
         return (PlayerRecordTick) super.fromJson(tick, jsonObject);

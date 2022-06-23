@@ -1,49 +1,35 @@
 package me.mohamad82.pensieve.test;
 
-import me.mohamad82.pensieve.recording.RecordContainer;
+import com.google.gson.JsonObject;
 import me.mohamad82.pensieve.recording.Recorder;
 import me.mohamad82.pensieve.replaying.PlayBackControl;
 import me.mohamad82.pensieve.replaying.Replayer;
-import me.mohamad82.pensieve.serializer.PensieveGsonSerializer;
+import me.mohamad82.ruom.utils.GsonUtils;
+import me.mohamad82.ruom.world.wrappedblock.WrappedBlock;
+import me.mohamad82.ruom.world.wrappedblock.WrappedBlockUtils;
 import me.mohamad82.ruom.Ruom;
-import me.mohamad82.ruom.adventure.ComponentUtils;
-import me.mohamad82.ruom.hologram.Hologram;
-import me.mohamad82.ruom.math.MathUtils;
-import me.mohamad82.ruom.math.vector.Vector3;
-import me.mohamad82.ruom.math.vector.Vector3Utils;
-import me.mohamad82.ruom.math.vector.Vector3UtilsBukkit;
-import me.mohamad82.ruom.npc.entity.FallingBlockNPC;
-import me.mohamad82.ruom.npc.entity.FishingHookNPC;
-import me.mohamad82.ruom.npc.entity.ThrowableProjectileNPC;
-import me.mohamad82.ruom.utils.NMSUtils;
-import me.mohamad82.ruom.utils.PlayerUtils;
-import me.mohamad82.ruom.world.Schematic;
-import me.mohamad82.ruom.world.WorldEdit;
-import me.mohamad82.ruom.xseries.NMSExtras;
-import org.bukkit.*;
-import org.bukkit.block.data.BlockData;
+import me.mohamad82.ruom.npc.NPC;
+import me.mohamad82.ruom.npc.entity.ArmorStandNPC;
+import me.mohamad82.ruom.utils.Rotations;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
-
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class TestRecordCommand implements CommandExecutor, Listener {
 
     Recorder recorder;
     Replayer replayer;
     PlayBackControl playBackControl;
+    ArmorStandNPC armorStand;
+    boolean applyPhysics = false;
 
     public TestRecordCommand() {
         Ruom.registerListener(this);
@@ -53,7 +39,71 @@ public class TestRecordCommand implements CommandExecutor, Listener {
         Player player = (Player) sender;
 
         switch (args[0].toLowerCase()) {
-            case "pasteshoot": {
+            case "jsontest": {
+                JsonObject json = new JsonObject();
+                json.addProperty("test", "khikhi");
+                Ruom.broadcast(json.toString());
+                Ruom.broadcast(GsonUtils.get().toJson(json));
+                break;
+            }
+            case "armorstand": {
+                armorStand = ArmorStandNPC.armorStandNPC(player.getLocation());
+                armorStand.setNoBasePlate(true);
+                armorStand.setNoGravity(true);
+                armorStand.setShowArms(true);
+                armorStand.addViewers(player);
+                armorStand.setEquipment(NPC.EquipmentSlot.HEAD, new ItemStack(Material.DIAMOND_HELMET));
+                break;
+            }
+            case "asanim": {
+                armorStand.setRightArmPose(Rotations.rotations(0, 0, 5));
+                armorStand.setLeftArmPose(Rotations.rotations(0, 0, -5));
+                new BukkitRunnable() {
+                    int tickIndex = 0;
+                    int x = 0;
+                    float changePerTick = 2f;
+                    boolean goingUp = true;
+                    public void run() {
+                        if (goingUp) x += changePerTick; else x -= changePerTick;
+
+                        armorStand.setRightArmPose(Rotations.rotations(x, 0, 5));
+                        armorStand.setLeftArmPose(Rotations.rotations(-x, 0, -5));
+
+                        if (x >= 30) goingUp = false;
+                        else if (x <= -30) goingUp = true;
+                        tickIndex++;
+                        if (tickIndex == 200) {
+                            cancel();
+                        }
+                    }
+                }.runTaskTimerAsynchronously(Ruom.getPlugin(), 0, 1);
+                break;
+            }
+            case "asrightarm": {
+                armorStand.setRightArmPose(Rotations.rotations(Float.parseFloat(args[1]), Float.parseFloat(args[2]), Float.parseFloat(args[3])));
+                break;
+            }
+            case "asleftarm": {
+                armorStand.setLeftArmPose(Rotations.rotations(Float.parseFloat(args[1]), Float.parseFloat(args[2]), Float.parseFloat(args[3])));
+                break;
+            }
+            case "asrightleg": {
+                armorStand.setRightLegPose(Rotations.rotations(Float.parseFloat(args[1]), Float.parseFloat(args[2]), Float.parseFloat(args[3])));
+                break;
+            }
+            case "asleftleg": {
+                armorStand.setLeftLegPose(Rotations.rotations(Float.parseFloat(args[1]), Float.parseFloat(args[2]), Float.parseFloat(args[3])));
+                break;
+            }
+            case "ashead": {
+                armorStand.setHeadPose(Rotations.rotations(Float.parseFloat(args[1]), Float.parseFloat(args[2]), Float.parseFloat(args[3])));
+                break;
+            }
+            case "asbody": {
+                armorStand.setBodyPose(Rotations.rotations(Float.parseFloat(args[1]), Float.parseFloat(args[2]), Float.parseFloat(args[3])));
+                break;
+            }
+            /*case "pasteshoot": {
                 Schematic schematic = new Schematic(WorldEdit.getClipboardFromSchematic(new File(Ruom.getPlugin().getDataFolder(), "arena.schem")).get(), player.getLocation(), true);
                 schematic.prepare().whenComplete((v, e) -> {
                     if (e != null) {
@@ -122,8 +172,8 @@ public class TestRecordCommand implements CommandExecutor, Listener {
                 double g = Double.parseDouble(args[3]);
                 int tick = 1;
                 while (tick != 100) {
-                /*new BukkitRunnable() {
-                    public void run() {*/
+                *//*new BukkitRunnable() {
+                    public void run() {*//*
                     double x = v0 * tick * Math.cos(angle);
                     double v0y = v0 * Math.sin(angle);
                     double y = ((double) -1 / 2 * g * Math.pow(tick, 2)) + (v0y * tick * Math.sin(angle));
@@ -137,8 +187,8 @@ public class TestRecordCommand implements CommandExecutor, Listener {
                         Ruom.broadcast("Done");
                     }
                 }
-                    /*}
-                }.runTaskTimer(Ruom.getPlugin(), 0, 1);*/
+                    *//*}
+                }.runTaskTimer(Ruom.getPlugin(), 0, 1);*//*
                 break;
             }
             case "itemholo": {
@@ -331,7 +381,7 @@ public class TestRecordCommand implements CommandExecutor, Listener {
                 Ruom.runAsync(() -> {
                     RecordContainer container = null;
                     try {
-                        container = PensieveGsonSerializer.get().deserialize(new File(Ruom.getPlugin().getDataFolder(), "testReplay.json"));
+                        container = PensieveGsonSerializer.get().deserialize(new File(Ruom.getPlugin().getDataFolder(), "testReplay.json"), false);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -386,7 +436,7 @@ public class TestRecordCommand implements CommandExecutor, Listener {
                     player.sendMessage("Wrong speed. Available speeds: " + Arrays.toString(PlayBackControl.Speed.values()));
                 }
                 break;
-            }
+            }*/
         }
         return true;
     }

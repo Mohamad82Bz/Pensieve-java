@@ -10,4 +10,5 @@ commands:
   pensieve:
     aliases:
       - pensieve-noreply
+      - pensieve-panel
   record:

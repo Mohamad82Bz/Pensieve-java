@@ -1,6 +1,5 @@
 package me.mohamad82.pensieve.commands;
 
-import com.google.common.collect.Lists;
 import me.mohamad82.pensieve.recording.RecordManager;
 import me.mohamad82.pensieve.replaying.ReplayManager;
 import me.mohamad82.ruom.Ruom;
@@ -18,15 +17,15 @@ public class PensieveTabCompleter implements TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command cmd, String label, String[] args) {
-        if (args.length == 0) {
+        if (args.length == 1) {
             return getTabComplete(args[0], ListUtils.toList("recorder", "replayer"));
-        } else if (args.length == 1) {
+        } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("recorder")) {
                 return getTabComplete(args[1], ListUtils.toList("create", "delete", "addplayer", "removeplayer", "start", "stop", "save", "list"));
             } else if (args[0].equalsIgnoreCase("replayer")) {
-                return getTabComplete(args[1], ListUtils.toList("load", "start", "pause", "resume", "suspend", "skip", "rewind", "list"));
+                return getTabComplete(args[1], ListUtils.toList("load", "start", "pause", "resume", "stop", "skip", "rewind", "list"));
             }
-        } else if (args.length == 2) {
+        } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("recorder")) {
                 switch (args[1].toLowerCase()) {
                     case "create":
@@ -52,12 +51,12 @@ public class PensieveTabCompleter implements TabCompleter {
                         return getTabComplete(args[2], ReplayManager.getInstance().getInternalReplayers().keySet());
                 }
             }
-        } else if (args.length == 3) {
+        } else if (args.length == 4) {
             if (args[0].equalsIgnoreCase("recorder")) {
                 switch (args[1].toLowerCase()) {
                     case "removeplayer":
                     case "addplayer":
-                        return getTabComplete(args[2], Ruom.getOnlinePlayers().stream().map(HumanEntity::getName).collect(Collectors.toList()));
+                        return getTabComplete(args[3], Ruom.getOnlinePlayers().stream().map(HumanEntity::getName).collect(Collectors.toList()));
                     case "save":
                         return ListUtils.toList("<file>");
                 }
@@ -70,19 +69,19 @@ public class PensieveTabCompleter implements TabCompleter {
                         return ListUtils.toList("<time in ticks (20 ticks = 1 second)>");
                 }
             }
-        } else if (args.length == 4) {
+        } else if (args.length == 5) {
             if (args[0].equalsIgnoreCase("replayer")) {
                 if (args[1].equalsIgnoreCase("load")) {
                     return ListUtils.toList("(x) (y) (z)");
                 }
             }
-        } else if (args.length == 5) {
+        } else if (args.length == 6) {
             if (args[0].equalsIgnoreCase("replayer")) {
                 if (args[1].equalsIgnoreCase("load")) {
                     return ListUtils.toList("(y) (z)");
                 }
             }
-        } else if (args.length == 6) {
+        } else if (args.length == 7) {
             if (args[0].equalsIgnoreCase("replayer")) {
                 if (args[1].equalsIgnoreCase("load")) {
                     return ListUtils.toList("(z)");

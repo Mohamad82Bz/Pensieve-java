@@ -1,9 +1,9 @@
 package me.mohamad82.pensieve.recording.record;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import me.mohamad82.ruom.math.vector.Vector3;
-import me.mohamad82.ruom.math.vector.Vector3Utils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -76,12 +76,22 @@ public abstract class RecordTick extends SerializableRecordTick {
             for (Map.Entry<String, String> entry : customDataMap.entrySet()) {
                 customDataMapJson.addProperty(entry.getKey(), entry.getValue());
             }
-            jsonObject.add("customdatamap", customDataMapJson);
+            jsonObject.add("cdm", customDataMapJson);
         }
-        if (location != null)
-            jsonObject.addProperty("l", location.toString());
-        if (velocity != null)
-            jsonObject.addProperty("v", velocity.toString());
+        if (location != null) {
+            JsonArray locationJson = new JsonArray();
+            locationJson.add(location.getX());
+            locationJson.add(location.getY());
+            locationJson.add(location.getZ());
+            jsonObject.add("l", locationJson);
+        }
+        if (velocity != null) {
+            JsonArray velocityJson = new JsonArray();
+            velocityJson.add(velocity.getX());
+            velocityJson.add(velocity.getY());
+            velocityJson.add(velocity.getZ());
+            jsonObject.add("v", velocityJson);
+        }
         if (yaw != -1)
             jsonObject.addProperty("y", yaw);
         if (pitch != -1)
@@ -94,7 +104,7 @@ public abstract class RecordTick extends SerializableRecordTick {
 
     public RecordTick fromJson(SerializableRecordTick serializableRecordTick, JsonObject jsonObject) {
         RecordTick tick = (RecordTick) serializableRecordTick;
-        if (jsonObject.has("customdatamap")) {
+        if (jsonObject.has("cdm")) {
             JsonObject customDataMapJson = jsonObject.get("customdatamap").getAsJsonObject();
             Map<String, String> customDataMap = new HashMap<>();
             for (Map.Entry<String, JsonElement> entry : customDataMapJson.entrySet()) {
@@ -103,10 +113,12 @@ public abstract class RecordTick extends SerializableRecordTick {
             tick.customDataMap = customDataMap;
         }
         if (jsonObject.has("l")) {
-            tick.location = Vector3Utils.toVector3(jsonObject.get("l").getAsString());
+            JsonArray locationJson = jsonObject.get("l").getAsJsonArray();
+            tick.location = Vector3.at(locationJson.get(0).getAsDouble(), locationJson.get(1).getAsDouble(), locationJson.get(2).getAsDouble());
         }
         if (jsonObject.has("v")) {
-            tick.velocity = Vector3Utils.toVector3(jsonObject.get("v").getAsString());
+            JsonArray velocityJson = jsonObject.get("v").getAsJsonArray();
+            tick.velocity = Vector3.at(velocityJson.get(0).getAsDouble(), velocityJson.get(1).getAsDouble(), velocityJson.get(2).getAsDouble());
         }
         if (jsonObject.has("y")) {
             tick.yaw = jsonObject.get("y").getAsFloat();

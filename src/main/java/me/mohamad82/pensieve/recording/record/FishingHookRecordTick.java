@@ -25,7 +25,7 @@ public class FishingHookRecordTick extends EntityRecordTick {
     @Override
     public JsonObject toJson(JsonObject jsonObject) {
         if (hookedEntity != null) {
-            jsonObject.addProperty("hookedentity", hookedEntity.toString());
+            jsonObject.addProperty("he", hookedEntity.toString());
         }
 
         return super.toJson(jsonObject);
@@ -34,8 +34,8 @@ public class FishingHookRecordTick extends EntityRecordTick {
     public FishingHookRecordTick fromJson(SerializableRecordTick recordTick, JsonObject jsonObject) {
         FishingHookRecordTick tick = (FishingHookRecordTick) recordTick;
 
-        if (jsonObject.has("hooked1ntity")) {
-            tick.hookedEntity = UUID.fromString(jsonObject.get("hookedentity").getAsString());
+        if (jsonObject.has("he")) {
+            tick.hookedEntity = UUID.fromString(jsonObject.get("he").getAsString());
         }
 
         return (FishingHookRecordTick) super.fromJson(tick, jsonObject);

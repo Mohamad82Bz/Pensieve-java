@@ -33,9 +33,9 @@ public interface Recorder {
 
     /**
      * Starts the recorder.
-     * @return True if the recorder was successfully started. (If the recorder was already started, it will return false)
+     * @throws IllegalStateException If the recorder is already started.
      */
-    boolean start();
+    void start();
 
     /**
      * Checks if the recorder is currently recording.

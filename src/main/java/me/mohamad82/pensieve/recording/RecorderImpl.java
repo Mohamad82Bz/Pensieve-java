@@ -4,17 +4,16 @@ import me.mohamad82.pensieve.api.event.*;
 import me.mohamad82.pensieve.recording.record.*;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.adventure.ComponentUtils;
+import me.mohamad82.ruom.math.vector.Vector3;
+import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.math.vector.Vector3UtilsBukkit;
 import me.mohamad82.ruom.nmsaccessors.EntityAccessor;
 import me.mohamad82.ruom.nmsaccessors.FireworkRocketEntityAccessor;
 import me.mohamad82.ruom.nmsaccessors.SynchedEntityDataAccessor;
 import me.mohamad82.ruom.nmsaccessors.ThrownTridentAccessor;
-import me.mohamad82.ruom.npc.NPC;
+import me.mohamad82.ruom.string.StringUtils;
 import me.mohamad82.ruom.utils.NMSUtils;
 import me.mohamad82.ruom.utils.ServerVersion;
-import me.mohamad82.ruom.string.StringUtils;
-import me.mohamad82.ruom.math.vector.Vector3;
-import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.xseries.XEnchantment;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Material;
@@ -23,6 +22,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.Nullable;
@@ -59,20 +59,17 @@ public class RecorderImpl implements Recorder {
         this.center = Vector3Utils.simplifyToCenter(center);
     }
 
-    /**
-     * Constructs a RecorderImpl for one player.
-     * @apiNote DO NOT use this constructor if you want to add more players. ONLY use this for a single player.
-     * @apiNote Center will be set to a zero value by default. Means that if you add more players when using this constructor it will be more difficult to offset positions (replaying in different cordinates)
-     * @param player The player that is going to get recorded
-     */
     RecorderImpl(Player player) {
         playersToAdd.add(player);
         this.center = Vector3.at(0.5, 100, 0.5);
     }
 
-    public boolean start() {
+    public void start() {
         if (started) {
-            return false;
+            throw new IllegalStateException("Cannot start a recorder that is already started");
+        }
+        if (stopped) {
+            throw new IllegalStateException("Cannot start a recorder that is stopped");
         }
         started = true;
         PensieveRecorderStartEvent recorderStartEvent = new PensieveRecorderStartEvent(this);
@@ -98,7 +95,6 @@ public class RecorderImpl implements Recorder {
                         tick.setYaw(player.getLocation().getYaw());
                         tick.setPitch(player.getLocation().getPitch());
                         tick.setPing(NMSUtils.getPing(player));
-                        tick.setPose(getPlayerPose(player));
                         tick.setHealth(player.getHealth());
                         tick.setHunger(player.getFoodLevel());
                         tick.setHand(getPlayerEquipment(player, EquipmentSlot.HAND));
@@ -121,6 +117,7 @@ public class RecorderImpl implements Recorder {
                         } else {
                             tick = new PlayerRecordTick();
                         }
+                        playerCurrentTick.put(player, tick);
                         PlayerRecordTick lastNonNullTick = (PlayerRecordTick) lastNonNullTicks.get(player.getUniqueId());
 
                         Vector3 location = Vector3Utils.getTravelDistance(center, Vector3UtilsBukkit.toVector3(player.getLocation()));
@@ -141,13 +138,13 @@ public class RecorderImpl implements Recorder {
                             lastNonNullTick.setPitch(tick.getPitch());
                         }
 
-                        NPC.Pose pose = getPlayerPose(player);
-                        if (!lastNonNullTick.getPose().equals(pose)) {
-                            tick.setPose(pose);
-                            lastNonNullTick.setPose(tick.getPose());
+                        int ping = NMSUtils.getPing(player);
+                        if (ping != lastNonNullTick.getPing()) {
+                            tick.setPing(ping);
+                            lastNonNullTick.setPing(ping);
                         }
 
-                        setPlayerMetadataValues(player, tick);
+                        setPlayerMetadataValues(player, tick, lastNonNullTick);
 
                         ItemStack hand = getPlayerEquipment(player, EquipmentSlot.HAND);
                         if (!lastNonNullTick.getHand().equals(hand) && tick.getHand() == null) {
@@ -203,9 +200,10 @@ public class RecorderImpl implements Recorder {
                             lastNonNullTick.setBoots(tick.getBoots());
                         }
 
-                        if (lastNonNullTick.getBodyArrows() != player.getArrowsInBody()) {
-                            tick.setBodyArrows(player.getArrowsInBody());
-                            lastNonNullTick.setBodyArrows(player.getArrowsInBody());
+                        int bodyArrows = getBodyArrows(player);
+                        if (lastNonNullTick.getBodyArrows() != bodyArrows) {
+                            tick.setBodyArrows(bodyArrows);
+                            lastNonNullTick.setBodyArrows(bodyArrows);
                         }
 
                         PotionEffect potionEffect = null;
@@ -408,7 +406,6 @@ public class RecorderImpl implements Recorder {
                 }
             }
         }.runTaskTimer(Ruom.getPlugin(), 0, 1);
-        return true;
     }
 
     public boolean isStarted() {
@@ -416,7 +413,7 @@ public class RecorderImpl implements Recorder {
     }
 
     public boolean stop() {
-        if (stopped && !started) {
+        if (stopped || !started) {
             return false;
         }
         stopped = true;
@@ -433,36 +430,32 @@ public class RecorderImpl implements Recorder {
         return stopped;
     }
 
-    private NPC.Pose getPlayerPose(Player player) {
-        NPC.Pose pose;
-
-        if (player.isSneaking())
-            pose = NPC.Pose.CROUCHING;
-        else if (player.isSleeping())
-            pose = NPC.Pose.SLEEPING;
-        else if (ServerVersion.supports(13) && player.isSwimming())
-            pose = NPC.Pose.SWIMMING;
-        else if (player.isDead())
-            pose = NPC.Pose.DYING;
-        else if (ServerVersion.supports(9) && player.isGliding())
-            pose = NPC.Pose.SWIMMING;
-        else
-            pose = NPC.Pose.STANDING;
-
-        return pose;
-    }
-
-    private void setPlayerMetadataValues(Player player, PlayerRecordTick tick) {
-        tick.setBurning(player.getFireTicks() > 0);
-        tick.setCrouching(player.isSneaking());
-        tick.setSprinting(player.isSprinting());
-        if (ServerVersion.supports(13))
+    private void setPlayerMetadataValues(Player player, PlayerRecordTick tick, PlayerRecordTick lastNonNullTick) {
+        if (!lastNonNullTick.wasBurning()) {
+            tick.setBurning(player.getFireTicks() > 0);
+        }
+        if (!lastNonNullTick.wasCrouching()) {
+            tick.setCrouching(player.isSneaking());
+        }
+        if (!lastNonNullTick.wasSprinting()) {
+            tick.setSprinting(player.isSprinting());
+        }
+        if (ServerVersion.supports(13) && !lastNonNullTick.wasSwimming()) {
             tick.setSwimming(player.isSwimming());
-        tick.setInvisible(player.isInvisible());
-        if (ServerVersion.supports(9))
+        }
+        if (!lastNonNullTick.wasInvisible()) {
+            if (ServerVersion.supports(13)) {
+                tick.setInvisible(player.isInvisible());
+            } else {
+                tick.setInvisible(player.hasPotionEffect(PotionEffectType.INVISIBILITY));
+            }
+        }
+        if (ServerVersion.supports(9) && !lastNonNullTick.wasGlowing()) {
             tick.setGlowing(player.isGlowing());
-        if (ServerVersion.supports(11))
+        }
+        if (ServerVersion.supports(11) && !lastNonNullTick.wasGliding()) {
             tick.setGliding(player.isGliding());
+        }
     }
 
     private ItemStack getPlayerEquipment(Player player, EquipmentSlot slot) {
@@ -470,6 +463,14 @@ public class RecorderImpl implements Recorder {
             return new ItemStack(Material.AIR);
         else
             return player.getInventory().getItem(slot).clone();
+    }
+
+    private int getBodyArrows(Player player) {
+        if (ServerVersion.supports(13)) {
+            return player.getArrowsInBody();
+        } else {
+            return NMSUtils.getBodyArrows(player);
+        }
     }
 
     public PlayerRecord getPlayerRecord(Player player) {

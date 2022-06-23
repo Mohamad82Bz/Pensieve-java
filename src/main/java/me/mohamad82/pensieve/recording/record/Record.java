@@ -17,6 +17,7 @@ public abstract class Record extends SerializableRecord {
     private Vector3 center;
     private Vector3 startLocation;
     private int startingTick;
+    private int length;
 
     private final Map<String, String> customDataMap = new HashMap<>();
 
@@ -55,6 +56,10 @@ public abstract class Record extends SerializableRecord {
         return startingTick;
     }
 
+    public int getLength() {
+        return length;
+    }
+
     public void setStartLocation(Vector3 startLocation) {
         this.startLocation = startLocation;
     }
@@ -79,6 +84,7 @@ public abstract class Record extends SerializableRecord {
         jsonObject.addProperty("center", center.toString());
         jsonObject.addProperty("startlocation", startLocation.toString());
         jsonObject.addProperty("startingtick", startingTick);
+        jsonObject.addProperty("length", recordTicks.size());
 
         if (!customDataMap.isEmpty()) {
             JsonObject customDataMapJson = new JsonObject();
@@ -94,7 +100,6 @@ public abstract class Record extends SerializableRecord {
             int tickIndex = 0;
             for (RecordTick tick : recordTicks) {
                 JsonObject recordTickJsonObject = (JsonObject) recordTickToJsonMethod.invoke(tick, new JsonObject());
-                Ruom.log(recordTickJsonObject.toString());
                 if (recordTickJsonObject.size() != 0) {
                     ticksJsonObject.add(String.valueOf(tickIndex), recordTickJsonObject);
                 }
@@ -116,22 +121,25 @@ public abstract class Record extends SerializableRecord {
         record.center = Vector3Utils.toVector3(jsonObject.get("center").getAsString());
         record.startLocation = Vector3Utils.toVector3(jsonObject.get("startlocation").getAsString());
         record.startingTick = jsonObject.get("startingtick").getAsInt();
+        record.length = jsonObject.get("length").getAsInt();
 
         try {
             Method recordTickFromJsonMethod = record.getType().getRecordTickClass().getMethod("fromJson", SerializableRecordTick.class, JsonObject.class);
-            Object tickObject = record.getType().getRecordTickClass().getConstructor().newInstance();
+            Object tickObject;
             JsonObject ticksJsonObject = jsonObject.get("ticks").getAsJsonObject();
             int tickIndex = 0;
             boolean hasNext = ticksJsonObject.has(String.valueOf(tickIndex));
             List<RecordTick> recordTicks = new ArrayList<>();
             while (hasNext) {
+                tickObject = record.getType().getRecordTickClass().getConstructor().newInstance();
                 if (ticksJsonObject.has(String.valueOf(tickIndex))) {
                     JsonObject tickJsonObject = ticksJsonObject.get(String.valueOf(tickIndex)).getAsJsonObject();
                     recordTicks.add((RecordTick) recordTickFromJsonMethod.invoke(tickObject, tickObject, tickJsonObject));
-                    tickObject = record.getType().getRecordTickClass().getConstructor().newInstance();
+                } else {
+                    recordTicks.add((RecordTick) tickObject);
                 }
 
-                hasNext = ticksJsonObject.has(String.valueOf(++tickIndex)) || ticksJsonObject.size() + 1 != tickIndex;
+                hasNext = ticksJsonObject.has(String.valueOf(++tickIndex)) || tickIndex < record.length;
             }
             record.recordTicks = recordTicks;
         } catch (Exception e) {

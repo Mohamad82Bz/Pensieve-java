@@ -23,7 +23,7 @@ public class DroppedItemRecordTick extends EntityRecordTick {
     @Override
     public JsonObject toJson(JsonObject jsonObject) {
         if (itemAmount != -1) {
-            jsonObject.addProperty("itemamount", itemAmount);
+            jsonObject.addProperty("ia", itemAmount);
         }
 
         return super.toJson(jsonObject);
@@ -32,8 +32,8 @@ public class DroppedItemRecordTick extends EntityRecordTick {
     public DroppedItemRecordTick fromJson(SerializableRecordTick recordTick, JsonObject jsonObject) {
         DroppedItemRecordTick tick = (DroppedItemRecordTick) recordTick;
 
-        if (jsonObject.has("itemamount")) {
-            tick.itemAmount = jsonObject.get("itemamount").getAsInt();
+        if (jsonObject.has("ia")) {
+            tick.itemAmount = jsonObject.get("ia").getAsInt();
         }
 
         return (DroppedItemRecordTick) super.fromJson(tick, jsonObject);

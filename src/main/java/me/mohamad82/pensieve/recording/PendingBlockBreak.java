@@ -1,6 +1,9 @@
 package me.mohamad82.pensieve.recording;
 
 import com.google.gson.JsonObject;
+import me.mohamad82.particle.ParticleBuilder;
+import me.mohamad82.particle.ParticleEffect;
+import me.mohamad82.particle.data.texture.ItemTexture;
 import me.mohamad82.ruom.utils.NMSUtils;
 import me.mohamad82.ruom.math.vector.Vector3;
 import me.mohamad82.ruom.math.vector.Vector3Utils;
@@ -10,6 +13,7 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.util.*;
@@ -94,8 +98,7 @@ public class PendingBlockBreak {
             else if (blockDirection.equals(BlockDirection.WEST))
                 clone.add(0, first, second);
 
-            centerBlock.getWorld().spawnParticle(Particle.BLOCK_DUST,
-                    clone, 1, material.createBlockData());
+            new ParticleBuilder(ParticleEffect.BLOCK_DUST, clone).setParticleData(new ItemTexture(new ItemStack(material))).display();
         }
     }
 

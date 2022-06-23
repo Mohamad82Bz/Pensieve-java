@@ -20,7 +20,7 @@ public class AreaEffectCloudRecordTick extends EntityRecordTick {
     }
 
     public JsonObject toJson(JsonObject jsonObject) {
-        jsonObject.addProperty("radius", radius);
+        jsonObject.addProperty("r", radius);
 
         return super.toJson(jsonObject);
     }
@@ -28,7 +28,7 @@ public class AreaEffectCloudRecordTick extends EntityRecordTick {
     public AreaEffectCloudRecordTick fromJson(SerializableRecordTick recordTick, JsonObject jsonObject) {
         AreaEffectCloudRecordTick tick = (AreaEffectCloudRecordTick) recordTick;
 
-        tick.radius = jsonObject.get("radius").getAsFloat();
+        tick.radius = jsonObject.get("r").getAsFloat();
 
         return (AreaEffectCloudRecordTick) super.fromJson(tick, jsonObject);
     }

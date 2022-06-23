@@ -5,12 +5,18 @@ import com.google.gson.JsonObject;
 import me.mohamad82.pensieve.recording.RecordContainer;
 import me.mohamad82.pensieve.recording.record.Record;
 import me.mohamad82.pensieve.recording.record.*;
+import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.utils.GsonUtils;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 
 import java.io.*;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 public class PensieveGsonSerializer {
 
@@ -53,15 +59,17 @@ public class PensieveGsonSerializer {
      * @throws IllegalArgumentException If the given file was a directory (folder).
      * @throws IOException If the operation fails for file-related issues.
      */
-    public void serialize(File file, RecordContainer recordContainer) throws IOException {
+    public void serialize(File file, RecordContainer recordContainer, boolean compress) throws IOException {
         if (file.isDirectory()) {
             throw new IllegalArgumentException("Given file is a directory (folder).");
         }
         file.createNewFile();
-        FileWriter writer = new FileWriter(file);
-        writer.write(serialize(recordContainer));
-        writer.flush();
-        writer.close();
+
+        if (compress) {
+            FileUtils.writeByteArrayToFile(file, compress(serialize(recordContainer)));
+        } else {
+            FileUtils.writeStringToFile(file, serialize(recordContainer), StandardCharsets.UTF_8);
+        }
     }
 
     public RecordContainer deserialize(String jsonString) {
@@ -91,9 +99,26 @@ public class PensieveGsonSerializer {
         return recordContainer;
     }
 
-    public RecordContainer deserialize(File file) throws IOException {
-        BufferedReader bufferedReader = new BufferedReader(new FileReader(file));
-        return deserialize(bufferedReader.readLine());
+    public RecordContainer deserialize(File file, boolean compressed) throws IOException {
+        if (compressed) {
+            return deserialize(decompress(FileUtils.readFileToByteArray(file)));
+        } else {
+            return deserialize(FileUtils.readFileToString(file, StandardCharsets.UTF_8));
+        }
+    }
+
+    private byte[] compress(String json) throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream);
+        gzipOutputStream.write(json.getBytes(StandardCharsets.UTF_8));
+        gzipOutputStream.close();
+        return byteArrayOutputStream.toByteArray();
+    }
+
+    private String decompress(byte[] bytes) throws IOException {
+        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
+        GZIPInputStream gzipInputStream = new GZIPInputStream(byteArrayInputStream);
+        return IOUtils.toString(gzipInputStream, StandardCharsets.UTF_8);
     }
 
 }

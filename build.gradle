@@ -8,6 +8,7 @@ plugins {
 group = 'me.mohamad82.pensieve'
 version = '1.0'
 description = 'A well-supported recording and replaying system for Minecraft'
+compileJava.options.encoding = "UTF-8"
 
 repositories {
     mavenCentral()
@@ -31,18 +32,20 @@ repositories {
 }
 
 dependencies {
-    implementation 'me.mohamad82:ruom-bukkit:4.5.3'
+    implementation 'me.mohamad82:ruom-bukkit:4.9.1'
+    implementation 'commons-io:commons-io:2.11.0'
     compileOnly 'org.spigotmc:spigot:1.16.5-R0.1-SNAPSHOT'
     compileOnly 'com.intellectualsites.fawe:FAWE-Bukkit:1.16-637'
     compileOnly 'org.jetbrains:annotations:23.0.0'
     compileOnly 'me.clip:placeholderapi:2.11.1'
-    //testCompileOnly 'org.spigotmc:spigot:1.18.1-R0.1-SNAPSHOT:remapped-mojang'
-    testCompileOnly 'org.spigotmc:spigot-api:1.12.2-R0.1-SNAPSHOT'
+    testCompileOnly 'org.spigotmc:spigot:1.18.1-R0.1-SNAPSHOT:remapped-mojang'
+    //testCompileOnly 'org.spigotmc:spigot:1.12.2-R0.1-SNAPSHOT'
 }
 
 shadowJar {
     minimize()
     relocate('me.mohamad82.ruom', 'me.mohamad82.pensieve.ruom')
+    relocate('org.apache.commons.io', 'me.mohamad82.pensieve.commons.io')
     dependencies {
         exclude(dependency('net.kyori:.*:.*'))
         exclude(dependency('com.zaxxer:HikariCP:.*'))
