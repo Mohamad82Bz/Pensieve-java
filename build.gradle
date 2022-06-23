@@ -2,7 +2,6 @@ plugins {
     id 'java'
     id 'maven-publish'
     id 'com.github.johnrengelman.shadow' version '7.1.0'
-    id 'org.screamingsandals.nms-mapper' version '1.1.1'
 }
 
 group = 'me.mohamad82.pensieve'
@@ -32,7 +31,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'me.mohamad82:ruom-bukkit:4.9.1'
+    implementation 'me.mohamad82:ruom-bukkit:4.9.2'
     implementation 'commons-io:commons-io:2.11.0'
     compileOnly 'org.spigotmc:spigot:1.16.5-R0.1-SNAPSHOT'
     compileOnly 'com.intellectualsites.fawe:FAWE-Bukkit:1.16-637'
@@ -61,12 +60,4 @@ java {
     if (JavaVersion.current() < javaVersion) {
         toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }
-}
-
-sourceSets.main.java.srcDirs = ['src/generated/java', 'src/main/java']
-
-nmsGen {
-    basePackage = 'me.mohamad82.pensieve.nmsaccessors'
-    sourceSet = 'src/generated/java'
-    cleanOnRebuild = true
 }
