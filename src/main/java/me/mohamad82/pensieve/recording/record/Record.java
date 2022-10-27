@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.math.vector.Vector3;
 import me.mohamad82.ruom.math.vector.Vector3Utils;
+import me.mohamad82.ruom.utils.GsonUtils;
 
 import java.lang.reflect.Method;
 import java.util.*;

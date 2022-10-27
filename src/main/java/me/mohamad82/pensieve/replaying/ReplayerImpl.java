@@ -12,7 +12,6 @@ import me.mohamad82.pensieve.replaying.block.BlockChange;
 import me.mohamad82.pensieve.replaying.block.BlockDataChange;
 import me.mohamad82.pensieve.replaying.block.BlockModification;
 import me.mohamad82.ruom.Ruom;
-import me.mohamad82.ruom.adventure.ComponentUtils;
 import me.mohamad82.ruom.math.MathUtils;
 import me.mohamad82.ruom.math.vector.Vector3;
 import me.mohamad82.ruom.math.vector.Vector3Utils;
@@ -22,8 +21,8 @@ import me.mohamad82.ruom.npc.LivingEntityNPC;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.npc.PlayerNPC;
 import me.mohamad82.ruom.npc.entity.*;
-import me.mohamad82.ruom.utils.*;
 import me.mohamad82.ruom.utils.SoundGroup;
+import me.mohamad82.ruom.utils.*;
 import me.mohamad82.ruom.world.wrappedblock.WrappedBlock;
 import me.mohamad82.ruom.xseries.XMaterial;
 import me.mohamad82.ruom.xseries.XSound;
@@ -42,9 +41,7 @@ public class ReplayerImpl implements Replayer {
 
     /*
     TODO BUGS:
-    Right click, Left click (swing, eating food, placing blocks, fishing rods),
-    Blocks do not work at all
-    Command: do not allow to pause when replay isn't playing
+    Double check: if block break animations are working as expected
      */
 
     private final Map<PlayerRecord, PlayerNPC> playerRecords = new HashMap<>();
@@ -212,11 +209,15 @@ public class ReplayerImpl implements Replayer {
                                     pendingFoodEatSkippedTicks.put(record.getUuid(), 0);
                                 }
                                 int skippedFoodTicks = pendingFoodEatSkippedTicks.get(record.getUuid());
+                                boolean isDrinkable = isDrinkableItem(playerRecordTick.getEatingMaterial());
                                 if (skippedFoodTicks % 7 == 0) {
-                                    tickAdditions.setFoodEatParticle(true);
+                                    if (!isDrinkable) {
+                                        tickAdditions.setFoodEatParticle(true);
+                                    }
                                 }
                                 if (skippedFoodTicks % 4 == 0) {
                                     tickAdditions.setFoodEatSound(true);
+                                    tickAdditions.setDrinking(true);
                                 }
                                 pendingFoodEatSkippedTicks.put(record.getUuid(), skippedFoodTicks + 1);
                             } else {
@@ -328,9 +329,6 @@ public class ReplayerImpl implements Replayer {
             PlayBackControl.Speed speed = playbackControl.getSpeed();
             public void run() {
                 try {
-                    for (Player player : Ruom.getOnlinePlayers()) {
-                        NMSUtils.sendActionBar(player, ComponentUtils.parse("<gradient:red:dark_red>Playing tick " + tickIndex + " / " + playbackControl.getMaxProgress()));
-                    }
                     if (playbackControl.getProgress() + 1 == tickIndex) {
                         playbackControl.addProgress(1);
                     } else if (tickIndex != 0) {
@@ -541,11 +539,7 @@ public class ReplayerImpl implements Replayer {
                                 npc.removeViewers(Ruom.getOnlinePlayers());
                                 finishedPlayerRecords.add(record.getUuid());
                                 if (finishedPlayerRecords.size() >= totalRecords) {
-                                    entityRecords.forEach((entityRecord, entityNPC) -> {
-                                        entityNPC.removeViewers(Ruom.getOnlinePlayers());
-                                    });
-                                    started = false;
-                                    cancel();
+                                    suspend();
                                     return;
                                 }
                                 continue;
@@ -559,7 +553,6 @@ public class ReplayerImpl implements Replayer {
 
                         if (!startedThisTick) {
                             moveNPC(tick, lastNonNullTick, npc, record.getCenter(), shouldPlayThisTick, lowSpeedHelpIndex, speed, true);
-
                             setAllEquipments(npc, tick);
                         }
                         setPlayerPoses(npc, tick);
@@ -704,7 +697,13 @@ public class ReplayerImpl implements Replayer {
                                     PlayerUtils.spawnFoodEatParticles(locationYawFixed, tick.getEatingMaterial());
                                 }
                                 if (tickAddition.isFoodEatSound()) {
-                                    SoundContainer.soundContainer(XSound.ENTITY_GENERIC_EAT).withVolume(playbackControl.getVolume()).withPitch(1f).play(location, npc.getViewers());
+                                    SoundContainer soundContainer;
+                                    if (tickAddition.isDrinking()) {
+                                        soundContainer = SoundContainer.soundContainer(XSound.ENTITY_GENERIC_DRINK);
+                                    } else {
+                                        soundContainer = SoundContainer.soundContainer(XSound.ENTITY_GENERIC_EAT);
+                                    }
+                                    soundContainer.withVolume(playbackControl.getVolume()).withPitch(1f).play(location, npc.getViewers());
                                 }
                             }
                         }
@@ -714,17 +713,27 @@ public class ReplayerImpl implements Replayer {
                                 blockModification.apply();
 
                                 SoundContainer soundContainer = null;
-                                SoundGroup soundGroup = NMSUtils.getSoundGroup(blockModification.getLocation().getBlock());
+                                SoundGroup soundGroup = null;
+                                if (!ServerVersion.supports(13)) {
+                                    //Getting sound group with the block from location makes issues for break sounds (A default sound will be played because it's air)
+                                    //No known fix for this
+                                    soundGroup = NMSUtils.getSoundGroup(blockModification.getLocation().getBlock());
+                                }
                                 switch (blockModification.getType()) {
                                     case PLACE: {
+                                        if (ServerVersion.supports(13)) {
+                                            soundGroup = new SoundGroup(((BlockChange) blockModification).getAfterBlockData().getMaterial().parseMaterial().createBlockData().getSoundGroup());
+                                        }
                                         soundContainer = SoundContainer.soundContainer(soundGroup.getPlaceSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
                                         break;
                                     }
                                     case BREAK: {
+                                        if (ServerVersion.supports(13)) {
+                                            soundGroup = new SoundGroup(((BlockChange) blockModification).getBeforeBlockData().getMaterial().parseMaterial().createBlockData().getSoundGroup());
+                                        }
                                         soundContainer = SoundContainer.soundContainer(soundGroup.getBreakSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
                                         NMSUtils.sendBlockDestruction(npc.getViewers(), Vector3UtilsBukkit.toVector3(blockModification.getLocation()), -1);
-                                        //TODO: This will not work in 1.8.8, requires RUoM update (to use the new particle lib)
-                                        BlockUtils.spawnBlockBreakParticles(blockModification.getLocation(), blockModification.getLocation().getBlock().getType());
+                                        BlockUtils.spawnBlockBreakParticles(blockModification.getLocation(), ((BlockChange) blockModification).getBeforeBlockData().getMaterial().parseMaterial());
                                         break;
                                     }
                                     case DATA_CHANGE: {
@@ -831,6 +840,10 @@ public class ReplayerImpl implements Replayer {
         }
         for (PlayerRecord record : playerRecords.keySet()) {
             PlayerNPC npc = playerRecords.get(record);
+            npc.removeViewers(Ruom.getOnlinePlayers());
+        }
+        for (EntityRecord record : entityRecords.keySet()) {
+            EntityNPC npc = entityRecords.get(record);
             npc.removeViewers(Ruom.getOnlinePlayers());
         }
         playbackControl.setProgress(0);
@@ -1189,6 +1202,11 @@ public class ReplayerImpl implements Replayer {
                 BlockUtils.getBlockDataSound(button.getBlockData()).ifPresent(soundContainer -> soundContainer.withVolume(0.5f).play(button.getLocation()));
             }
         }, 25);
+    }
+
+    private boolean isDrinkableItem(Material material) {
+        //TODO: Drinking is not working properly
+        return material.equals(XMaterial.POTION.parseMaterial()) || material.equals(XMaterial.MILK_BUCKET.parseMaterial());
     }
 
     private int getEntityId(UUID uuid) {

@@ -3,6 +3,7 @@ package me.mohamad82.pensieve.recording;
 import me.mohamad82.pensieve.api.event.*;
 import me.mohamad82.pensieve.recording.record.*;
 import me.mohamad82.ruom.Ruom;
+import me.mohamad82.ruom.adventure.AdventureApi;
 import me.mohamad82.ruom.adventure.ComponentUtils;
 import me.mohamad82.ruom.math.vector.Vector3;
 import me.mohamad82.ruom.math.vector.Vector3Utils;
@@ -109,7 +110,7 @@ public class RecorderImpl implements Recorder {
                         players.add(player);
                     }
                     for (Player player : players) {
-                        NMSUtils.sendActionBar(player, ComponentUtils.parse("<gradient:blue:dark_purple>Recorded " + currentTickIndex + " ticks."));
+                        AdventureApi.get().player(player).sendActionBar(ComponentUtils.parse("<gradient:blue:dark_purple>Recorded " + currentTickIndex + " ticks."));
 
                         PlayerRecordTick tick;
                         if (playersToAdd.contains(player)) {
@@ -520,6 +521,14 @@ public class RecorderImpl implements Recorder {
 
     public Set<Entity> getEntities() {
         return entities;
+    }
+
+    public Set<Player> getPlayersToAdd() {
+        return playersToAdd;
+    }
+
+    public Set<Entity> getEntitiesToAdd() {
+        return entitiesToAdd;
     }
 
     public boolean safeAddEntity(Entity entity) {

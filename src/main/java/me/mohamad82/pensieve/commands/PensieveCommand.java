@@ -2,8 +2,8 @@ package me.mohamad82.pensieve.commands;
 
 import me.mohamad82.pensieve.recording.RecordManager;
 import me.mohamad82.pensieve.recording.Recorder;
-import me.mohamad82.pensieve.replaying.ReplayManager;
-import me.mohamad82.pensieve.replaying.Replayer;
+import me.mohamad82.pensieve.recording.RecorderImpl;
+import me.mohamad82.pensieve.replaying.*;
 import me.mohamad82.pensieve.serializer.PensieveGsonSerializer;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.adventure.AdventureApi;
@@ -20,16 +20,14 @@ import org.bukkit.entity.Player;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class PensieveCommand implements CommandExecutor {
 
     private final Map<String, Recorder> recorders = RecordManager.getInstance().getInternalRecorders();
     private final Map<String, Replayer> replayers = ReplayManager.getInstance().getInternalReplayers();
+    private final Map<Player, ReplayUI> replayUIs = new HashMap<>();
 
     private final boolean compress = false;
 
@@ -44,6 +42,10 @@ public class PensieveCommand implements CommandExecutor {
         if (!player.hasPermission("pensieve.use")) {
             ComponentUtils.send(player, ComponentUtils.parse(prefix + "<dark_red>You don't have permission to use this command!"));
             return true;
+        }
+
+        if (label.equalsIgnoreCase("pensieve-panel")) {
+            player.sendMessage("");
         }
 
         if (args.length == 0) {
@@ -78,9 +80,11 @@ public class PensieveCommand implements CommandExecutor {
                                             location = Vector3.getZero();
                                         }
                                         recorders.put(name.get(), Recorder.recorder(new HashSet<>(), location));
+                                        sendRecordPanel(player, name.get());
                                         sendMessage(player, label, prefix + "<green>Recorder created! Use <click:suggest_command:'/pensieve recorder addplayer '><yellow>/pensieve recorder addplayer " + name.get() + " <name></yellow></click> to add players.");
+                                        sendRecordPanel(player, name.get());
                                         if (sender instanceof Player) {
-                                            sendMessage(player, label, String.format("%s <gray>Click <click:run_command:'/pensieve recorder addplayer %s %s'><green><bold><underlined>HERE</underlined></bold></green></click> to add yourself to the recorder.", prefix, name.get(), player.getName()));
+                                            sendMessage(player, label, String.format("%s<gray>Click <click:run_command:'/pensieve recorder addplayer %s %s'><green><bold><underlined>HERE</underlined></bold></green></click> to add yourself to the recorder.", prefix, name.get(), player.getName()));
                                         }
                                     }
                                 } else {
@@ -89,13 +93,12 @@ public class PensieveCommand implements CommandExecutor {
                                 break;
                             }
                             case "restart": {
-                                //TODO: Seems not working
                                 Optional<String> name = getNameFromArgs(args);
                                 if (name.isPresent()) {
                                     if (recorders.containsKey(name.get())) {
                                         recorders.put(name.get(), Recorder.recorder(new HashSet<>(), recorders.get(name.get()).getCenter()));
                                         sendMessage(player, label, prefix + "<green>Recorder has been <red>reset</red>! Use <click:suggest_command:'/pensieve recorder addplayer '><yellow><underlined>/pensieve recorder addplayer " + name.get() + "<name></yellow></underlined></click> to add players.");
-                                        sendMessage(player, label, String.format("%s <gray>Click <click:run_command:'/pensieve recorder addplayer %s %s'><green><bold><underlined>HERE</underlined></bold></green></click> to add yourself to the recorder.", prefix, name.get(), player.getName()));
+                                        sendMessage(player, label, String.format("%s<gray>Click <click:run_command:'/pensieve recorder addplayer %s %s'><green><bold><underlined>HERE</underlined></bold></green></click> to add yourself to the recorder.", prefix, name.get(), player.getName()));
                                     }
                                 }
                                 break;
@@ -163,8 +166,14 @@ public class PensieveCommand implements CommandExecutor {
                                         ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Could not find recorder with name: " + name.get()));
                                     } else {
                                         try {
-                                            recorders.get(name.get()).start();
-                                            sendMessage(player, label, prefix + "<green>Successfully started recorder " + name.get());
+                                            RecorderImpl recorder = (RecorderImpl) recorders.get(name.get());
+                                            if (recorder.getPlayers().isEmpty() && recorder.getPlayersToAdd().isEmpty() &&
+                                                    recorder.getEntities().isEmpty() && recorder.getEntitiesToAdd().isEmpty()) {
+                                                sendMessage(player, label, prefix + "<red>Recorder " + name.get() + " has no players or entities to record!");
+                                            } else {
+                                                recorder.start();
+                                                sendMessage(player, label, prefix + "<green>Successfully started recorder " + name.get());
+                                            }
                                         } catch (IllegalStateException e) {
                                             if (recorders.get(name.get()).isStopped()) {
                                                 ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Cannot start recorder " + name.get() + " because it is already stopped!"));
@@ -242,7 +251,9 @@ public class PensieveCommand implements CommandExecutor {
                             }
                             case "list": {
                                 ComponentUtils.send(player, ComponentUtils.parse(prefix + "<blue>Recorders:" + (recorders.isEmpty() ? " <red>None" : "") + "\n" +
-                                        recorders.keySet().stream().map(s -> "<aqua>" + s).collect(Collectors.joining("\n"))));
+                                        recorders.keySet().stream().map(
+                                                s ->"<hover:show_text:'<green>Click here to open this recorder's panel.'><click:run_command:'/pensieve recorder " + s + "'><green>" + s + "</hover></click>"
+                                        ).collect(Collectors.joining("\n"))));
                                 break;
                             }
                             default: {
@@ -261,6 +272,7 @@ public class PensieveCommand implements CommandExecutor {
                     /replayer load <fileName> <name> (x, y, z)
                     /replayer <start/pause/stop> <name>
                     /replayer <skip/rewind> <name> <amount>
+                    /replayer speed <name> <speed-preset>
                      */
                     if (args.length == 1) {
                         //TODO: List replayer commands
@@ -281,7 +293,7 @@ public class PensieveCommand implements CommandExecutor {
                                     ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Replayer with name " + name.get() + " already exists!"));
                                     break;
                                 }
-                                Vector3 center = Vector3.at(0.5, 0, 0.5);
+                                Vector3 center = Vector3.getZero();
                                 if (args.length == 7) {
                                     try {
                                         center = Vector3.at(
@@ -302,6 +314,7 @@ public class PensieveCommand implements CommandExecutor {
                                             Replayer replayer = Replayer.replayer(PensieveGsonSerializer.get().deserialize(file, compress), player.getWorld(), center);
                                             replayers.put(name.get(), replayer);
                                             ComponentUtils.send(player, ComponentUtils.parse(prefix + "<green>Replayer " + name.get() + " loaded successfully!"));
+                                            sendReplayPanel(player, name.get());
                                         } catch (IOException e) {
                                             ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Could not load replayer " + fileName.get() + ": " + e.getMessage()));
                                         }
@@ -330,6 +343,8 @@ public class PensieveCommand implements CommandExecutor {
                                                     try {
                                                         replayers.get(name.get()).start();
                                                         sendMessage(player, label, prefix + "<green>Replayer " + name.get() + " started!");
+                                                        ReplayUI replayUI = new ReplayUI(replayers.get(name.get()));
+                                                        replayUI.addPlayer(player);
                                                     } catch (IllegalStateException e) {
                                                         ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Could not start replayer: " + e.getMessage()));
                                                     }
@@ -348,7 +363,9 @@ public class PensieveCommand implements CommandExecutor {
                                     if (!replayers.containsKey(name.get())) {
                                         ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Replayer with name " + name.get() + " does not exist!"));
                                     } else {
-                                        if (replayers.get(name.get()).getPlaybackControl().isPause()) {
+                                        if (replayers.get(name.get()).isStopped() && !replayers.get(name.get()).isStarted()) {
+                                            ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Replayer " + name.get() + " is not running!"));
+                                        } else if (replayers.get(name.get()).getPlaybackControl().isPause()) {
                                             ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Replayer " + name.get() + " is already paused!"));
                                         } else {
                                             replayers.get(name.get()).getPlaybackControl().setPause(true);
@@ -412,7 +429,12 @@ public class PensieveCommand implements CommandExecutor {
                                                 break;
                                             }
                                             replayers.get(name.get()).getPlaybackControl().setProgress(replayers.get(name.get()).getPlaybackControl().getProgress() + ticks);
-                                            sendMessage(player, label, prefix + "<green>Replayer " + name.get() + " skipped " + ticks + " ticks!");
+                                            String skippedTick = ticks % 20 == 0 ? ticks % 20 == 1 ? "1 second" : ticks / 20 + " seconds" : ticks == 1 ? "1 tick" : ticks + " ticks";
+                                            sendMessage(player, label, prefix + "<green>Replayer " + name.get() + " skipped " +
+                                                    skippedTick + "!");
+                                            if (label.equalsIgnoreCase("pensieve-noreply")) {
+                                                AdventureApi.get().player(player).sendActionBar(ComponentUtils.parse("<green>Skipped " + skippedTick + "!"));
+                                            }
                                         }
                                     }
                                 }
@@ -437,18 +459,70 @@ public class PensieveCommand implements CommandExecutor {
                                                 break;
                                             }
                                             replayers.get(name.get()).getPlaybackControl().setProgress(replayers.get(name.get()).getPlaybackControl().getProgress() - ticks);
-                                            sendMessage(player, label, prefix + "<green>Replayer " + name.get() + " rewound " + ticks + " ticks!");
+                                            String rewoundTicks = ticks % 20 == 0 ? ticks % 20 == 1 ? "1 second" : ticks / 20 + " seconds" : ticks == 1 ? "1 tick" : ticks + " ticks";
+                                            sendMessage(player, label, prefix + "<green>Replayer " + name.get() + " rewound " +
+                                                    rewoundTicks + "!");
+                                            if (label.equalsIgnoreCase("pensieve-noreply")) {
+                                                AdventureApi.get().player(player).sendActionBar(ComponentUtils.parse("<green>Rewound " + rewoundTicks + "!"));
+                                            }
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                            case "speed": {
+                                Optional<String> name = getNameFromArgs(args);
+                                if (!name.isPresent()) {
+                                    ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Please specify a name for the replayer!"));
+                                } else {
+                                    if (!replayers.containsKey(name.get())) {
+                                        ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Replayer with name " + name.get() + " does not exist!"));
+                                    } else {
+                                        if (args.length != 4) {
+                                            ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Please specify a speed multiplier"));
+                                        } else {
+                                            PlayBackControl.Speed speed;
+                                            try {
+                                                speed = PlayBackControl.Speed.valueOf(args[3]);
+                                            } catch (IllegalArgumentException e) {
+                                                ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Speed must be one of: " + Arrays.toString(PlayBackControl.Speed.values())));
+                                                break;
+                                            }
+                                            replayers.get(name.get()).getPlaybackControl().setSpeed(speed);
+                                            sendMessage(player, label, prefix + "<green>Replayer " + name.get() + " speed set to " + speed + "!");
                                         }
                                     }
                                 }
                                 break;
                             }
                             case "list": {
-                                ComponentUtils.send(player, ComponentUtils.parse(prefix + "<blue>Replayer list:"));
-                                for (String name : replayers.keySet()) {
-                                    ComponentUtils.send(player, ComponentUtils.parse("<green>- " + name));
+                                ComponentUtils.send(player, ComponentUtils.parse(prefix + "<blue>Replayers:" + (replayers.isEmpty() ? " <red>None" : "") + "\n" +
+                                        replayers.keySet().stream().map(
+                                                s ->"<hover:show_text:'<green>Click here to open this replayer's panel.'><click:run_command:'/pensieve replayer " + s + "'><green>" + s + "</hover></click>"
+                                        ).collect(Collectors.joining("\n"))));
+                                break;
+                            }
+                            case "delete": {
+                                Optional<String> name = getNameFromArgs(args);
+                                if (!name.isPresent()) {
+                                    ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Please specify a name for the replayer!"));
+                                } else {
+                                    if (!replayers.containsKey(name.get())) {
+                                        ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Replayer with name " + name.get() + " does not exist!"));
+                                    } else {
+                                        replayers.get(name.get()).suspend();
+                                        replayers.remove(name.get());
+                                        sendMessage(player, label, prefix + "<green>Replayer " + name.get() + " deleted!");
+                                    }
                                 }
                                 break;
+                            }
+                            default: {
+                                if (replayers.containsKey(args[1])) {
+                                    sendReplayPanel(player, args[1]);
+                                } else {
+                                    ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Unknown subcommand! Use <yellow>/pensieve<red> to see the list of available commands."));
+                                }
                             }
                         }
                     }
@@ -471,7 +545,7 @@ public class PensieveCommand implements CommandExecutor {
     }
 
     private void sendRecordPanel(Player player, String recorderName) {
-        Recorder recorder = recorders.get(recorderName);
+        RecorderImpl recorder = (RecorderImpl) recorders.get(recorderName);
         String startButton = "";
         String startText = "<#79A7D3>Start";
         String restartText = "<gold>Restart";
@@ -479,6 +553,8 @@ public class PensieveCommand implements CommandExecutor {
         String stopButton = "";
         String saveButton = "";
         String status = "";
+        String players = "<hover:show_text:'<gray>" + recorder.getPlayers().stream().map(Player::getName).collect(Collectors.joining(", ")) + "<dark_gray>" + recorder.getPlayersToAdd().stream().map(Player::getName).collect(Collectors.joining(", ")) + "'><white>" + (recorder.getPlayers().size() + recorder.getPlayersToAdd().size());
+        String entities = "<white>" + (recorder.getEntities().size() + recorder.getEntitiesToAdd().size());
         String green = "<#CBD18F>";
         String red = "<#CC313D>";
         if (!recorder.isStarted() && !recorder.isStopped()) {
@@ -496,7 +572,7 @@ public class PensieveCommand implements CommandExecutor {
             shouldSendRestartText = true;
             startButton = String.format("<#CC313D><click:run_command:'/pensieve-panel recorder restart %s'><hover:show_text:'<dark_purple>• <green>Click here to restart the recorder.\n<red>NOTE: Recorder\\'s data will be lost if it is unsaved.'>[•]</hover></click>", recorderName);
             stopButton = "<#CC313D><hover:show_text:'<dark_purple>• <red>Recorder is already stopped.'>[•]</hover>";
-            saveButton = String.format("<#8A307F><click:run_command:'/pensieve-panel recorder save %s'><hover:show_text:'<dark_purple>• <green>Click here to restart the recorder.\n<red>NOTE: Recorder\\'s data will be lost if it is unsaved.'>[•]</hover></click>", recorderName);
+            saveButton = String.format("<#8A307F><click:run_command:'/pensieve-panel recorder save %s'><hover:show_text:'<dark_purple>• <green>Click here to save the recorder.'>[•]</hover></click>", recorderName);
         }
         for (String message : ListUtils.toList(
                 "",
@@ -504,6 +580,8 @@ public class PensieveCommand implements CommandExecutor {
                 "<#CBD18F>>",
                 "<#CBD18F>>   <#8A307F>[•] <#E3B448>Name: <#CBD18F> " + recorderName,
                 "<#CBD18F>>   <#8A307F>[•] <#E3B448>Status: " + status,
+                "<#CBD18F>>   <#8A307F>[•] <#E3B448>Players: " + players,
+                "<#CBD18F>>   <#8A307F>[•] <#E3B448>Entities: " + entities,
                 "<#CBD18F>>",
                 String.format("<#CBD18F>>   %s %s           %s <#79A7D3>Stop           %s <#79A7D3>Save ", startButton, shouldSendRestartText ? restartText : startText, stopButton, saveButton),
                 String.format("<#CBD18F>>   <#8A307F><click:suggest_command:'/pensieve-panel recorder addplayer %s'><hover:show_text:'<dark_purple>• <green>Click here to add a player to the recorder.'>[•]</hover></click> <#79A7D3>Add Player" +
@@ -515,8 +593,63 @@ public class PensieveCommand implements CommandExecutor {
         }
     }
 
-    private void sendReplayPanel(Player player, String recorderName) {
-
+    private void sendReplayPanel(Player player, String replayerName) {
+        Ruom.runSync(() -> {
+            ReplayerImpl replayer = (ReplayerImpl) replayers.get(replayerName);
+            String startButton = "";
+            String stopButton = "";
+            String pauseButton = "";
+            String speedButton = "";
+            String skipRewindButtons = "";
+            String status = "";
+            String green = "<#CBD18F>";
+            String red = "<#CC313D>";
+            skipRewindButtons = String.format("<bold><#79A7D3><click:run_command:'/pensieve-noreply replayer rewind %s 1200'><hover:show_text:'<dark_purple>• <red>Click here to rewind 1 minute'> <<< </hover></click>" +
+                    "    <#79A7D3><click:run_command:'/pensieve-noreply replayer rewind %s 200'><hover:show_text:'<dark_purple>• <red>Click here to rewind 10 seconds'> << </hover></click>" +
+                    "    <#79A7D3><click:run_command:'/pensieve-noreply replayer rewind %s 20'><hover:show_text:'<dark_purple>• <red>Click here to rewind 1 second'> < </hover></click>" +
+                    "    <#79A7D3><click:run_command:'/pensieve-noreply replayer skip %s 20'><hover:show_text:'<dark_purple>• <red>Click here to skip 1 second'> > </hover></click>" +
+                    "    <#79A7D3><click:run_command:'/pensieve-noreply replayer skip %s 200'><hover:show_text:'<dark_purple>• <red>Click here to skip 10 seconds'> >> </hover></click>" +
+                    "    <#79A7D3><click:run_command:'/pensieve-noreply replayer skip %s 1200'><hover:show_text:'<dark_purple>• <red>Click here to skip 1 minute'> >>> </hover></click>", replayerName, replayerName, replayerName, replayerName, replayerName, replayerName);
+            if (!replayer.isStarted() && !replayer.isStopped()) {
+                status = green + "Ready";
+                startButton = String.format("<#8A307F><click:run_command:'/pensieve-panel replayer start %s'><hover:show_text:'<dark_purple>• <green>Click here to start the replayer.'>[•]</hover></click> <#79A7D3>Start", replayerName);
+                stopButton = "<#CC313D><hover:show_text:'<dark_purple>• <red>Replayer is not started.'>[•]</hover>";
+                pauseButton = "<#CC313D><hover:show_text:'<dark_purple>• <red>Replayer is not started.'>[•]</hover> <#79A7D3>Pause  ";
+                speedButton = "<#CC313D><hover:show_text:'<dark_purple>• <red>Replayer is not started.'>[•]</hover> <#79A7D3>Speed";
+            } else if (replayer.isStarted() && !replayer.isStopped()) {
+                status = green + "Replaying" + (replayer.getPlaybackControl().isPause() ? " <dark_aqua>- " + red + "Paused" : "") + " <dark_aqua>- " + "<aqua>" + replayer.getPlaybackControl().getSpeed().name();
+                startButton = "<#CC313D><hover:show_text:'<dark_purple>• <red>Replayer is already started.'>[•]</hover> <#79A7D3>Start";
+                stopButton = String.format("<#8A307F><click:run_command:'/pensieve-panel replayer stop %s'><hover:show_text:'<dark_purple>• <red>Click here to stop the replayer'>[•]</hover></click>", replayerName);
+                if (replayer.getPlaybackControl().isPause()) {
+                    pauseButton = String.format("<#8A307F><click:run_command:'/pensieve-panel replayer resume %s'><hover:show_text:'<dark_purple>• <red>Click here to resume the replayer'>[•]</hover></click> <#79A7D3>Resume", replayerName);
+                } else {
+                    pauseButton = String.format("<#8A307F><click:run_command:'/pensieve-panel replayer pause %s'><hover:show_text:'<dark_purple>• <red>Click here to pause the replayer'>[•]</hover></click> <#79A7D3>Pause  ", replayerName);
+                }
+                speedButton = String.format("<#8A307F><click:suggest_command:'/pensieve-panel replayer speed %s '><hover:show_text:'<dark_purple>• <red>Click here to change the speed of the replayer'>[•]</hover></click> <#79A7D3>Speed", replayerName);
+            } else if (replayer.isStopped()) {
+                status = red + "Stopped";
+                startButton = String.format("<#8A307F><click:run_command:'/pensieve-panel replayer start %s'><hover:show_text:'<dark_purple>• <green>Click here to start the replayer again.'>[•]</hover></click> <#79A7D3>Start", replayerName);
+                stopButton = "<#CC313D><hover:show_text:'<dark_purple>• <red>Replayer is already stopped.'>[•]</hover>";
+                pauseButton = "<#CC313D><hover:show_text:'<dark_purple>• <red>Replayer is stopped.'>[•]</hover> <#79A7D3>Pause  ";
+                speedButton = "<#CC313D><hover:show_text:'<dark_purple>• <red>Replayer is stopped.'>[•]</hover> <#79A7D3>Speed";
+            }
+            for (String message : ListUtils.toList(
+                    "",
+                    "<#3A6B35>]<strikethrough>                     </strikethrough>»<blue> Replayer <#3A6B35>«<strikethrough>                     </strikethrough>[",
+                    "<#CBD18F>>",
+                    "<#CBD18F>>   <#8A307F>[•] <#E3B448>Name: <#CBD18F> " + replayerName,
+                    "<#CBD18F>>   <#8A307F>[•] <#E3B448>Status: " + status,
+                    "<#CBD18F>>",
+                    String.format("<#CBD18F>>   %s           %s <#79A7D3>Stop", startButton, stopButton),
+                    String.format("<#CBD18F>>   %s        %s", pauseButton, speedButton),
+                    "<#CBD18F>>",
+                    String.format("<#CBD18F>> %s", skipRewindButtons),
+                    "<#CBD18F>>",
+                    "<#3A6B35>]<strikethrough>                                                           </strikethrough>["
+            )) {
+                ComponentUtils.send(player, ComponentUtils.parse(message));
+            }
+        }, 1);
     }
 
     private Optional<String> getNameFromArgs(String[] args, int arg) {

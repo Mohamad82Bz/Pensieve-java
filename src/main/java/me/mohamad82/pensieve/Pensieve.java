@@ -7,6 +7,7 @@ import me.mohamad82.pensieve.recording.RecordManager;
 import me.mohamad82.pensieve.recording.listeners.PlayerActionListener;
 import me.mohamad82.pensieve.recording.listeners.PlayerUseItemListener;
 import me.mohamad82.pensieve.recording.listeners.RecordListeners;
+import me.mohamad82.pensieve.replaying.ReplayManager;
 import me.mohamad82.pensieve.test.TestRecordCommand;
 import me.mohamad82.ruom.RUoMPlugin;
 import me.mohamad82.ruom.Ruom;
@@ -37,6 +38,10 @@ public final class Pensieve extends RUoMPlugin {
 
     @Override
     public void onDisable() {
+        ReplayManager.getInstance().getInternalReplayers().forEach((name, replayer) -> {
+            replayer.suspend();
+            replayer.rollbackBlockChanges();
+        });
         Ruom.shutdown();
     }
 

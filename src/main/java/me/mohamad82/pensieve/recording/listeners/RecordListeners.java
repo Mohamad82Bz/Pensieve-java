@@ -86,12 +86,14 @@ public class RecordListeners implements Listener {
             if (pendingBlockBreak == null) return;
             List<Integer> stages = new ArrayList<>();
             int i = 1;
-            while (stages.size() <= pendingBlockBreak.timeSpent) {
-                for (int a = 1; a <= Math.round((float) pendingBlockBreak.timeSpent / 9); a++) {
-                    stages.add(i);
+            if (pendingBlockBreak.timeSpent > 3) {
+                while (stages.size() <= pendingBlockBreak.timeSpent) {
+                    for (int a = 1; a <= Math.round((float) pendingBlockBreak.timeSpent / 9); a++) {
+                        stages.add(i);
+                    }
+                    if (i < 9)
+                        i++;
                 }
-                if (i < 9)
-                    i++;
             }
             pendingBlockBreak.setAnimationStages(stages);
         }

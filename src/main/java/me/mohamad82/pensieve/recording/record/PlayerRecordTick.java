@@ -479,14 +479,14 @@ public class PlayerRecordTick extends RecordTick {
         if (blockPlaces != null) {
             JsonObject blockPlacesJson = new JsonObject();
             for (Map.Entry<Vector3, WrappedBlock> entry : blockPlaces.entrySet()) {
-                blockPlacesJson.addProperty(entry.getKey().toString(), entry.getValue().toJson().toString());
+                blockPlacesJson.add(entry.getKey().toString(), entry.getValue().toJson());
             }
             jsonObject.add("bp", blockPlacesJson);
         }
         if (blockBreaks != null) {
             JsonObject blockBreaksJson = new JsonObject();
             for (Map.Entry<Vector3, WrappedBlock> entry : blockBreaks.entrySet()) {
-                blockBreaksJson.addProperty(entry.getKey().toString(), entry.getValue().toJson().toString());
+                blockBreaksJson.add(entry.getKey().toString(), entry.getValue().toJson());
             }
             jsonObject.add("bb", blockBreaksJson);
         }

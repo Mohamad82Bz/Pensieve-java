@@ -2,9 +2,8 @@ package me.mohamad82.pensieve.replaying;
 
 public class PlayBackControl {
 
-    private int progress = 0;
+    private int progress;
     private int maxProgress;
-    private String progressFormatted;
     private boolean pause;
     private float volume;
     private Speed speed;
@@ -36,12 +35,12 @@ public class PlayBackControl {
         this.maxProgress = maxProgress;
     }
 
-    public String getProgressFormatted() {
-        return progressFormatted;
+    public String getMaxProgressFormatted() {
+        return formatTime(maxProgress);
     }
 
-    protected void setProgressFormatted(String progressFormatted) {
-        this.progressFormatted = progressFormatted;
+    public String getProgressFormatted() {
+        return formatTime(progress);
     }
 
     public boolean isPause() {
@@ -74,6 +73,13 @@ public class PlayBackControl {
         x1,
         x2,
         x5
+    }
+
+    private String formatTime(int time) {
+        int seconds = time / 20;
+        int minutes = seconds / 60;
+        seconds %= 60;
+        return String.format("%02d:%02d", minutes, seconds);
     }
 
 }

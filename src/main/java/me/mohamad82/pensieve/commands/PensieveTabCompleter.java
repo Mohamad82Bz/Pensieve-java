@@ -1,6 +1,7 @@
 package me.mohamad82.pensieve.commands;
 
 import me.mohamad82.pensieve.recording.RecordManager;
+import me.mohamad82.pensieve.replaying.PlayBackControl;
 import me.mohamad82.pensieve.replaying.ReplayManager;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.utils.ListUtils;
@@ -23,7 +24,7 @@ public class PensieveTabCompleter implements TabCompleter {
             if (args[0].equalsIgnoreCase("recorder")) {
                 return getTabComplete(args[1], ListUtils.toList("create", "delete", "addplayer", "removeplayer", "start", "stop", "save", "list"));
             } else if (args[0].equalsIgnoreCase("replayer")) {
-                return getTabComplete(args[1], ListUtils.toList("load", "start", "pause", "resume", "stop", "skip", "rewind", "list"));
+                return getTabComplete(args[1], ListUtils.toList("load", "start", "pause", "resume", "stop", "skip", "rewind", "speed", "list", "delete"));
             }
         } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("recorder")) {
@@ -48,6 +49,8 @@ public class PensieveTabCompleter implements TabCompleter {
                     case "resume":
                     case "skip":
                     case "rewind":
+                    case "speed":
+                    case "delete":
                         return getTabComplete(args[2], ReplayManager.getInstance().getInternalReplayers().keySet());
                 }
             }
@@ -67,6 +70,8 @@ public class PensieveTabCompleter implements TabCompleter {
                     case "skip":
                     case "rewind":
                         return ListUtils.toList("<time in ticks (20 ticks = 1 second)>");
+                    case "speed":
+                        return Arrays.stream(PlayBackControl.Speed.values()).map(Enum::name).collect(Collectors.toList());
                 }
             }
         } else if (args.length == 5) {

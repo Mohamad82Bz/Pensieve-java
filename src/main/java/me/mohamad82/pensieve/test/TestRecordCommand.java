@@ -4,22 +4,18 @@ import com.google.gson.JsonObject;
 import me.mohamad82.pensieve.recording.Recorder;
 import me.mohamad82.pensieve.replaying.PlayBackControl;
 import me.mohamad82.pensieve.replaying.Replayer;
-import me.mohamad82.ruom.utils.GsonUtils;
-import me.mohamad82.ruom.world.wrappedblock.WrappedBlock;
-import me.mohamad82.ruom.world.wrappedblock.WrappedBlockUtils;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.npc.entity.ArmorStandNPC;
+import me.mohamad82.ruom.utils.BlockUtils;
+import me.mohamad82.ruom.utils.GsonUtils;
 import me.mohamad82.ruom.utils.Rotations;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -39,6 +35,14 @@ public class TestRecordCommand implements CommandExecutor, Listener {
         Player player = (Player) sender;
 
         switch (args[0].toLowerCase()) {
+            case "particle": {
+                BlockUtils.spawnBlockBreakParticles(player.getLocation(), Material.IRON_BLOCK);
+                break;
+            }
+            case "bowtest": {
+
+                break;
+            }
             case "jsontest": {
                 JsonObject json = new JsonObject();
                 json.addProperty("test", "khikhi");

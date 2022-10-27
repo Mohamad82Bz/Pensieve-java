@@ -9,6 +9,7 @@ public class TickAdditions {
     private boolean swing;
     private boolean foodEatParticle;
     private boolean foodEatSound;
+    private boolean drinking;
     private Vector3 blockBreakParticle;
     private Map.Entry<Vector3, Integer> blockDestructionStage;
 
@@ -46,6 +47,14 @@ public class TickAdditions {
 
     public void setFoodEatSound(boolean foodEatSound) {
         this.foodEatSound = foodEatSound;
+    }
+
+    public boolean isDrinking() {
+        return drinking;
+    }
+
+    public void setDrinking(boolean drinking) {
+        this.drinking = drinking;
     }
 
     public Vector3 getBlockBreakParticle() {
