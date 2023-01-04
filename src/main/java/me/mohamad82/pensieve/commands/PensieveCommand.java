@@ -27,9 +27,8 @@ public class PensieveCommand implements CommandExecutor {
 
     private final Map<String, Recorder> recorders = RecordManager.getInstance().getInternalRecorders();
     private final Map<String, Replayer> replayers = ReplayManager.getInstance().getInternalReplayers();
-    private final Map<Player, ReplayUI> replayUIs = new HashMap<>();
 
-    private final boolean compress = false;
+    private final boolean compress = false; //TODO: Turn this back on
 
     private final String prefix = "<dark_purple>[<light_purple>Pensieve<dark_purple>] <reset>";
 
@@ -44,6 +43,7 @@ public class PensieveCommand implements CommandExecutor {
             return true;
         }
 
+        boolean doNotSendPanel = false;
         if (label.equalsIgnoreCase("pensieve-panel")) {
             player.sendMessage("");
         }
@@ -336,6 +336,7 @@ public class PensieveCommand implements CommandExecutor {
                                             ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Replayer " + name.get() + " is already running!"));
                                         } else {
                                             sendMessage(player, label, prefix + "<green>Preparing replayer " + name.get() + "...");
+                                            doNotSendPanel = true;
                                             replayers.get(name.get()).prepare().whenComplete((v, err) -> {
                                                 if (err != null) {
                                                     ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Could not prepare replayer: " + err.getMessage()));
@@ -345,6 +346,9 @@ public class PensieveCommand implements CommandExecutor {
                                                         sendMessage(player, label, prefix + "<green>Replayer " + name.get() + " started!");
                                                         ReplayUI replayUI = new ReplayUI(replayers.get(name.get()));
                                                         replayUI.addPlayer(player);
+                                                        if (label.equalsIgnoreCase("pensieve-panel")) {
+                                                            sendReplayPanel(player, name.get());
+                                                        }
                                                     } catch (IllegalStateException e) {
                                                         ComponentUtils.send(player, ComponentUtils.parse(prefix + "<red>Could not start replayer: " + e.getMessage()));
                                                     }
@@ -531,7 +535,7 @@ public class PensieveCommand implements CommandExecutor {
             }
         }
 
-        if (label.equalsIgnoreCase("pensieve-panel")) {
+        if (!doNotSendPanel && label.equalsIgnoreCase("pensieve-panel")) {
             getNameFromArgs(args).ifPresent(name -> {
                 if (args[0].equalsIgnoreCase("recorder")) {
                     sendRecordPanel(player, name);
@@ -649,7 +653,7 @@ public class PensieveCommand implements CommandExecutor {
             )) {
                 ComponentUtils.send(player, ComponentUtils.parse(message));
             }
-        }, 1);
+        }, 3);
     }
 
     private Optional<String> getNameFromArgs(String[] args, int arg) {
