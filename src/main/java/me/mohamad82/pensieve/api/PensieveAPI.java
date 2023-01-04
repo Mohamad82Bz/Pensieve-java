@@ -1,18 +1,16 @@
 package me.mohamad82.pensieve.api;
 
-import me.mohamad82.pensieve.recording.RecordContainer;
+import me.mohamad82.pensieve.recording.RecordManager;
 import me.mohamad82.pensieve.recording.Recorder;
-import me.mohamad82.pensieve.serializer.exception.PensieveSerializationException;
+import me.mohamad82.pensieve.serializer.PensieveGsonSerializer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
-import java.io.File;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 public class PensieveAPI {
-
-    //TODO: Implement PensieveAPI
 
     /**
      * Returns all the recorders that this player is in.
@@ -20,8 +18,8 @@ public class PensieveAPI {
      * @param player The player.
      * @return A set of recorders.
      */
-    public static Set<Recorder> getPlayerRecorders(Player player) {
-        return null;
+    public static Collection<Recorder> getPlayerRecorders(Player player) {
+        return new HashSet<>(RecordManager.getInstance().getPlayerRecorder(player));
     }
 
     /**
@@ -31,28 +29,15 @@ public class PensieveAPI {
      * @return A set of recorders.
      */
     public static Set<Recorder> getEntityRecorders(Entity entity) {
-        return null;
+        return new HashSet<>(RecordManager.getInstance().getEntityRecorder(entity));
     }
 
     /**
-     * Returns a RecordContainer from a pensieve file.
-     * @param file The pensieve formatted file.
-     * @return The loaded RecordContainer.
-     * @throws PensieveSerializationException If an error happened during deserialization.
+     * Returns the gson serializer used to save records and load replays.
+     * @return The gson serializer
      */
-    public static RecordContainer getRecordContainerFromFile(File file) throws PensieveSerializationException {
-        return null;
-    }
-
-    /**
-     * Saves a RecordContainer to a file.
-     * @param recordContainer The RecordContainer.
-     * @param file The target file.
-     * @return A CompletableFuture that will be completed once serialization was done. Serialization is async.
-     * @throws PensieveSerializationException If an error happened during serialization.
-     */
-    public static CompletableFuture<Void> saveRecordContainerToFile(RecordContainer recordContainer, File file) throws PensieveSerializationException {
-        return null;
+    public static PensieveGsonSerializer getSerializer() {
+        return PensieveGsonSerializer.get();
     }
 
 }
