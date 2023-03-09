@@ -18,6 +18,9 @@ import org.bukkit.block.data.type.Door;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * An extremely hacky way to deal with doors and beds (Double blocks)
+ */
 public class WrappedBlockUtils {
 
     public final static List<XMaterial> DOORS = ListUtils.toList(XMaterial.OAK_DOOR, XMaterial.ACACIA_DOOR, XMaterial.BIRCH_DOOR, XMaterial.DARK_OAK_DOOR, XMaterial.IRON_DOOR, XMaterial.JUNGLE_DOOR, XMaterial.SPRUCE_DOOR, XMaterial.CRIMSON_DOOR, XMaterial.WARPED_DOOR);

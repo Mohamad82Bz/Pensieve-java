@@ -31,7 +31,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'me.mohamad82:ruom-bukkit:4.10.11'
+    implementation 'me.mohamad82:ruom-bukkit:4.10.25'
     implementation 'commons-io:commons-io:2.11.0'
     compileOnly 'org.spigotmc:spigot:1.16.5-R0.1-SNAPSHOT'
     compileOnly 'com.intellectualsites.fawe:FAWE-Bukkit:1.16-637'

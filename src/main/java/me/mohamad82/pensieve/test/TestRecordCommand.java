@@ -5,10 +5,14 @@ import me.mohamad82.pensieve.recording.Recorder;
 import me.mohamad82.pensieve.replaying.PlayBackControl;
 import me.mohamad82.pensieve.replaying.Replayer;
 import me.mohamad82.ruom.Ruom;
+import me.mohamad82.ruom.adventure.ComponentUtils;
+import me.mohamad82.ruom.hologram.Hologram;
+import me.mohamad82.ruom.hologram.HologramLine;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.npc.entity.ArmorStandNPC;
 import me.mohamad82.ruom.utils.BlockUtils;
 import me.mohamad82.ruom.utils.GsonUtils;
+import me.mohamad82.ruom.utils.ListUtils;
 import me.mohamad82.ruom.utils.Rotations;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -35,12 +39,18 @@ public class TestRecordCommand implements CommandExecutor, Listener {
         Player player = (Player) sender;
 
         switch (args[0].toLowerCase()) {
-            case "particle": {
-                BlockUtils.spawnBlockBreakParticles(player.getLocation(), Material.IRON_BLOCK);
+            case "hologram": {
+                Hologram holo = Hologram.hologram(
+                        ListUtils.toList(
+                                HologramLine.hologramLine(ComponentUtils.parse("<rainbow>Test----------"), 0f)
+                        ),
+                        player.getLocation().add(0, 2, 0)
+                );
+                holo.addViewers(player);
                 break;
             }
-            case "bowtest": {
-
+            case "particle": {
+                BlockUtils.spawnBlockBreakParticles(player.getLocation(), Material.IRON_BLOCK);
                 break;
             }
             case "jsontest": {

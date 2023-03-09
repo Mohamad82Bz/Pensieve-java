@@ -1,9 +1,9 @@
 package me.mohamad82.pensieve.recording;
 
 import com.google.gson.JsonObject;
-import me.mohamad82.particle.ParticleBuilder;
-import me.mohamad82.particle.ParticleEffect;
-import me.mohamad82.particle.data.texture.BlockTexture;
+import me.mohamad82.ruom.particle.ParticleBuilder;
+import me.mohamad82.ruom.particle.ParticleEffect;
+import me.mohamad82.ruom.particle.data.texture.BlockTexture;
 import me.mohamad82.ruom.math.vector.Vector3;
 import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.utils.NMSUtils;

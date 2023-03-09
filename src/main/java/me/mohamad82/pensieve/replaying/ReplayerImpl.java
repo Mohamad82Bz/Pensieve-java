@@ -1,7 +1,8 @@
 package me.mohamad82.pensieve.replaying;
 
-import me.mohamad82.particle.ParticleBuilder;
-import me.mohamad82.particle.ParticleEffect;
+import me.mohamad82.pensieve.utils.Utils;
+import me.mohamad82.ruom.particle.ParticleBuilder;
+import me.mohamad82.ruom.particle.ParticleEffect;
 import me.mohamad82.pensieve.api.event.PensieveNPCLookEvent;
 import me.mohamad82.pensieve.api.event.PensieveNPCMoveAndLookEvent;
 import me.mohamad82.pensieve.recording.PendingBlockBreak;
@@ -21,7 +22,6 @@ import me.mohamad82.ruom.npc.LivingEntityNPC;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.npc.PlayerNPC;
 import me.mohamad82.ruom.npc.entity.*;
-import me.mohamad82.ruom.utils.SoundGroup;
 import me.mohamad82.ruom.utils.*;
 import me.mohamad82.ruom.world.wrappedblock.WrappedBlock;
 import me.mohamad82.ruom.xseries.XMaterial;
@@ -211,7 +211,7 @@ public class ReplayerImpl implements Replayer {
                                         pendingFoodEatSkippedTicks.put(record.getUuid(), 0);
                                     }
                                     int skippedFoodTicks = pendingFoodEatSkippedTicks.get(record.getUuid());
-                                    boolean isDrinkable = isDrinkableItem(playerRecordTick.getEatingMaterial());
+                                    boolean isDrinkable = Utils.isDrinkableItem(playerRecordTick.getEatingMaterial());
                                     if (skippedFoodTicks % 7 == 0) {
                                         if (!isDrinkable) {
                                             tickAdditions.setFoodEatParticle(true);
@@ -219,7 +219,9 @@ public class ReplayerImpl implements Replayer {
                                     }
                                     if (skippedFoodTicks % 4 == 0) {
                                         tickAdditions.setFoodEatSound(true);
-                                        tickAdditions.setDrinking(true);
+                                        if (isDrinkable) {
+                                            tickAdditions.setDrinking(true);
+                                        }
                                     }
                                     pendingFoodEatSkippedTicks.put(record.getUuid(), skippedFoodTicks + 1);
                                 } else {
@@ -717,31 +719,32 @@ public class ReplayerImpl implements Replayer {
                                 blockModification.apply();
 
                                 SoundContainer soundContainer = null;
-                                SoundGroup soundGroup = null;
-                                if (!ServerVersion.supports(13)) {
-                                    //Getting sound group with the block from location makes issues for break sounds (A default sound will be played because it's air)
-                                    //No known fix for this
-                                    soundGroup = NMSUtils.getSoundGroup(blockModification.getLocation().getBlock());
-                                }
                                 switch (blockModification.getType()) {
                                     case PLACE: {
+                                        BlockChange blockChange = (BlockChange) blockModification;
                                         if (ServerVersion.supports(13)) {
-                                            soundGroup = new SoundGroup(((BlockChange) blockModification).getAfterBlockData().getMaterial().parseMaterial().createBlockData().getSoundGroup());
+                                            soundContainer = SoundContainer.soundContainer(blockChange.getAfterBlockData().getMaterial().parseMaterial().createBlockData().getSoundGroup().getPlaceSound());
+                                        } else {
+                                            soundContainer = SoundContainer.soundContainer(SoundGroupUtils.getBlockSound(SoundGroupUtils.SoundType.PLACE, blockChange.getAfterBlockData().getMaterial().parseMaterial()));
                                         }
-                                        soundContainer = SoundContainer.soundContainer(soundGroup.getPlaceSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
+                                        soundContainer.withVolume(playbackControl.getVolume()).withPitch(0.8f);
                                         break;
                                     }
                                     case BREAK: {
+                                        //Future implementation: 1.8 support: SoundGroupUtils.getBlockSound requires a BLOCK to work (we are now using material as parameter) which we can't give in BREAK because the block doesn't exist during replay
+                                        BlockChange blockChange = (BlockChange) blockModification;
                                         if (ServerVersion.supports(13)) {
-                                            soundGroup = new SoundGroup(((BlockChange) blockModification).getBeforeBlockData().getMaterial().parseMaterial().createBlockData().getSoundGroup());
+                                            soundContainer = SoundContainer.soundContainer(blockChange.getBeforeBlockData().getMaterial().parseMaterial().createBlockData().getSoundGroup().getBreakSound());
+                                        } else {
+                                            soundContainer = SoundContainer.soundContainer(SoundGroupUtils.getBlockSound(SoundGroupUtils.SoundType.BREAK, blockChange.getBeforeBlockData().getMaterial().parseMaterial()));
                                         }
-                                        soundContainer = SoundContainer.soundContainer(soundGroup.getBreakSound()).withVolume(playbackControl.getVolume()).withPitch(0.8f);
+                                        soundContainer.withVolume(playbackControl.getVolume()).withPitch(0.8f);
                                         NMSUtils.sendBlockDestruction(npc.getViewers(), Vector3UtilsBukkit.toVector3(blockModification.getLocation()), -1);
                                         BlockUtils.spawnBlockBreakParticles(blockModification.getLocation(), ((BlockChange) blockModification).getBeforeBlockData().getMaterial().parseMaterial());
                                         break;
                                     }
                                     case DATA_CHANGE: {
-                                        //TODO: 1.12.2 and lower support
+                                        //Future implementation: 1.12 and below support. Many of methods used below does not support 1.12 and below
                                         if (ServerVersion.supports(13)) {
                                             BlockChange blockChange = (BlockChange) blockModification;
                                             Optional<SoundContainer> blockDataSound = BlockUtils.getBlockDataSound(Bukkit.createBlockData(blockChange.getAfterBlockData().getModernData()));
@@ -860,11 +863,12 @@ public class ReplayerImpl implements Replayer {
     }
 
     public void rollbackBlockChanges() {
-        for (Set<BlockModification> blockChangeSet : blockChanges.values()) {
+        //TODO (Not important): commented block change rollback because it could create blocks (rollbacks placed & broke blocks)
+        /*for (Set<BlockModification> blockChangeSet : blockChanges.values()) {
             for (BlockModification blockChange : blockChangeSet) {
                 blockChange.rollback();
             }
-        }
+        }*/
     }
 
     public void applyProgress(int currentTick, int newTick) {
@@ -1204,11 +1208,6 @@ public class ReplayerImpl implements Replayer {
                 BlockUtils.getBlockDataSound(button.getBlockData()).ifPresent(soundContainer -> soundContainer.withVolume(0.5f).play(button.getLocation()));
             }
         }, 25);
-    }
-
-    private boolean isDrinkableItem(Material material) {
-        //TODO: Drinking is not working properly
-        return material.equals(XMaterial.POTION.parseMaterial()) || material.equals(XMaterial.MILK_BUCKET.parseMaterial());
     }
 
     private int getEntityId(UUID uuid) {

@@ -2,6 +2,7 @@ package me.mohamad82.pensieve.recording.listeners;
 
 import me.mohamad82.pensieve.recording.RecordManager;
 import me.mohamad82.pensieve.recording.record.PlayerRecordTick;
+import me.mohamad82.pensieve.utils.Utils;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.event.PlayerUseItemEvent;
 import me.mohamad82.ruom.utils.ServerVersion;
@@ -50,7 +51,7 @@ public class PlayerUseItemListener extends PlayerUseItemEvent {
         Collection<PlayerRecordTick> collection = RecordManager.getInstance().getCurrentRecordTick(player);
         if (collection.isEmpty()) return;
 
-        if (itemStack.getType().isEdible()) {
+        if (itemStack.getType().isEdible() || Utils.isDrinkableItem(itemStack.getType())) {
             collection.forEach(playerRecordTick -> playerRecordTick.setEatingMaterial(itemStack.getType()));
             RecordManager.getInstance().getEatingPlayers().put(player, itemStack);
             eatingPlayers.add(player.getUniqueId());

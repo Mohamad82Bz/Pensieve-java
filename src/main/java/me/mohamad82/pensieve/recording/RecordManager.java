@@ -2,8 +2,10 @@ package me.mohamad82.pensieve.recording;
 
 import me.mohamad82.pensieve.recording.record.EntityRecordTick;
 import me.mohamad82.pensieve.recording.record.PlayerRecordTick;
+import me.mohamad82.pensieve.utils.Utils;
 import me.mohamad82.ruom.Ruom;
 import me.mohamad82.ruom.utils.ServerVersion;
+import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
@@ -37,8 +39,7 @@ public class RecordManager {
                         if (foodItem.getAmount() == 0) {
                             eatingPlayers.remove(player);
                         } else {
-                            if (!player.getInventory().getItem(EquipmentSlot.HAND).getType().isEdible() &&
-                                    (ServerVersion.supports(9) && !player.getInventory().getItem(EquipmentSlot.OFF_HAND).getType().isEdible())) {
+                            if (!Utils.hasEdibleItemInHand(player)) {
                                 eatingPlayers.remove(player);
                             } else {
                                 collection.forEach(playerRecordTick -> playerRecordTick.setEatingMaterial(foodItem.getType()));

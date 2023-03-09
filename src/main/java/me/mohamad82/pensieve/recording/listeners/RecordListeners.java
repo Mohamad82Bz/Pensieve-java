@@ -537,6 +537,17 @@ public class RecordListeners implements Listener {
         });
     }
 
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        Collection<RecorderImpl> collection = RecordManager.getInstance().getPlayerRecorder(player);
+        if (collection.isEmpty()) return;
+
+        collection.forEach(recorder -> {
+            recorder.safeRemovePlayer(player);
+        });
+    }
+
     @SuppressWarnings("deprecation")
     private boolean isCritical(Player player) {
         return player.getFallDistance() > 0.0f &&

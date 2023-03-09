@@ -1,6 +1,10 @@
 package me.mohamad82.pensieve.utils;
 
 import com.google.common.collect.Lists;
+import me.mohamad82.ruom.utils.ServerVersion;
+import me.mohamad82.ruom.xseries.XMaterial;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
@@ -36,6 +40,21 @@ public class Utils {
             return newObject;
         } catch (Exception e) {
             throw new Error(e);
+        }
+    }
+
+    public static boolean isDrinkableItem(Material material) {
+        return material.equals(XMaterial.POTION.parseMaterial()) || material.equals(XMaterial.MILK_BUCKET.parseMaterial());
+    }
+
+    @SuppressWarnings("deprecation")
+    public static boolean hasEdibleItemInHand(Player player) {
+        if (ServerVersion.supports(9)) {
+            if (player.getInventory().getItemInMainHand().getType().isEdible() || isDrinkableItem(player.getInventory().getItemInMainHand().getType())) {
+                return true;
+            } else return player.getInventory().getItemInOffHand().getType().isEdible() || isDrinkableItem(player.getInventory().getItemInOffHand().getType());
+        } else {
+            return player.getInventory().getItemInHand().getType().isEdible() || isDrinkableItem(player.getInventory().getItemInHand().getType());
         }
     }
 

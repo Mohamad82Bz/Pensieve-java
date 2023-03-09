@@ -294,7 +294,7 @@ public class RecorderImpl implements Recorder {
                                     if (!(entity instanceof SpectralArrow)) {
                                         try {
                                             color = ((Arrow) entity).getColor().asRGB();
-                                        } catch (IllegalArgumentException ignore) {
+                                        } catch (Exception ignore) {
                                         }
                                     }
                                     record = new ArrowRecord(entity.getUniqueId(), center, currentTickIndex, color);
@@ -402,7 +402,7 @@ public class RecorderImpl implements Recorder {
                     RecordManager.getInstance().getRecorders().remove(instance);
                     cancel();
                     e.printStackTrace();
-                    Ruom.error(StringUtils.colorize("&4Something wrong happened with the recorder. Record process is now suspended" +
+                    Ruom.error(StringUtils.colorize("Something wrong happened with the recorder. Record process is now suspended" +
                             " to prevent furthur errors. Please contact the developer and provide the errors you see above."));
                 }
             }
