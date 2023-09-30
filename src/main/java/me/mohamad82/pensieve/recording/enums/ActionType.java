@@ -6,27 +6,27 @@ import java.util.EnumSet;
 import java.util.Set;
 
 public enum ActionType {
-    SWING(1),
-    EAT_FOOD(2),
-    THROW_PROJECTILE(4),
-    THROW_TRIDENT(8),
-    THROW_FIREWORK(16),
-    THROW_FISHING_ROD(32),
-    RETRIEVE_FISHING_ROD(64),
-    DRAW_CROSSBOW(128),
-    SHOOT_CROSSBOW(256),
-    OPEN_CHEST_INTERACTION(512),
-    BURN(1024),
-    CROUCH(2048),
-    SPRINT(4096),
-    SWIM(8192),
-    GLOW(16384),
-    GLIDE(32768),
-    INVISIBLE(65536);
+    SWING(0x01),
+    EAT_FOOD(0x02),
+    THROW_PROJECTILE(0x04),
+    THROW_TRIDENT(0x08),
+    THROW_FIREWORK(0x10),
+    THROW_FISHING_ROD(0x20),
+    RETRIEVE_FISHING_ROD(0x40),
+    DRAW_CROSSBOW(0x80),
+    SHOOT_CROSSBOW(0x100),
+    OPEN_CHEST_INTERACTION(0x200),
+    BURN(0x400),
+    CROUCH(0x800),
+    SPRINT(0x1000),
+    SWIM(0x2000),
+    GLOW(0x4000),
+    GLIDE(0x8000),
+    INVISIBLE(0x10000);
 
     private final int bitMask;
 
-    private ActionType(int bitMask) {
+    ActionType(int bitMask) {
         this.bitMask = bitMask;
     }
 

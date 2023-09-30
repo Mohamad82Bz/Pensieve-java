@@ -10,10 +10,7 @@ import me.mohamad82.ruom.hologram.Hologram;
 import me.mohamad82.ruom.hologram.HologramLine;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.npc.entity.ArmorStandNPC;
-import me.mohamad82.ruom.utils.BlockUtils;
-import me.mohamad82.ruom.utils.GsonUtils;
-import me.mohamad82.ruom.utils.ListUtils;
-import me.mohamad82.ruom.utils.Rotations;
+import me.mohamad82.ruom.utils.*;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -39,6 +36,10 @@ public class TestRecordCommand implements CommandExecutor, Listener {
         Player player = (Player) sender;
 
         switch (args[0].toLowerCase()) {
+            case "foodparticle": {
+                PlayerUtils.spawnFoodEatParticles(player.getLocation(), Material.APPLE);
+                break;
+            }
             case "hologram": {
                 Hologram holo = Hologram.hologram(
                         ListUtils.toList(

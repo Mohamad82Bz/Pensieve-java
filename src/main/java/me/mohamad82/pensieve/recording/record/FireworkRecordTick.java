@@ -19,8 +19,4 @@ public class FireworkRecordTick extends EntityRecordTick {
         return (FireworkRecordTick) super.fromJson(recordTick, jsonObject);
     }
 
-    public FireworkRecordTick fromJson(JsonObject jsonObject) {
-        return fromJson(new FireworkRecordTick(), jsonObject);
-    }
-
 }

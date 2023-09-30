@@ -13,7 +13,7 @@ import me.mohamad82.ruom.utils.ListUtils;
 import me.mohamad82.ruom.utils.NMSUtils;
 import me.mohamad82.ruom.utils.ServerVersion;
 import me.mohamad82.ruom.utils.item.CrossbowUtils;
-import me.mohamad82.ruom.world.wrappedblock.WrappedBlockUtils;
+import me.mohamad82.pensieve.utils.wrappedblock.WrappedBlockUtils;
 import me.mohamad82.ruom.xseries.XBlock;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Bukkit;

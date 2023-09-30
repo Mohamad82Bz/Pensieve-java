@@ -41,8 +41,4 @@ public class FishingHookRecordTick extends EntityRecordTick {
         return (FishingHookRecordTick) super.fromJson(tick, jsonObject);
     }
 
-    public FishingHookRecordTick fromJson(JsonObject jsonObject) {
-        return fromJson(new FishingHookRecordTick(), jsonObject);
-    }
-
 }

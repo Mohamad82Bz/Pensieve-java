@@ -39,8 +39,4 @@ public class DroppedItemRecordTick extends EntityRecordTick {
         return (DroppedItemRecordTick) super.fromJson(tick, jsonObject);
     }
 
-    public DroppedItemRecordTick fromJson(JsonObject jsonObject) {
-        return fromJson(new DroppedItemRecordTick(), jsonObject);
-    }
-
 }

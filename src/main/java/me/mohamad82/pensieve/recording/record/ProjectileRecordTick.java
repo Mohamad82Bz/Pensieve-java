@@ -19,8 +19,4 @@ public class ProjectileRecordTick extends EntityRecordTick {
         return (ProjectileRecordTick) super.fromJson(recordTick, jsonObject);
     }
 
-    public ProjectileRecordTick fromJson(JsonObject jsonObject) {
-        return fromJson(new ProjectileRecordTick(), jsonObject);
-    }
-
 }

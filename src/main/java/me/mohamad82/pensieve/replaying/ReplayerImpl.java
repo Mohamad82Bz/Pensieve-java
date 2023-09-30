@@ -22,8 +22,9 @@ import me.mohamad82.ruom.npc.LivingEntityNPC;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.npc.PlayerNPC;
 import me.mohamad82.ruom.npc.entity.*;
+import me.mohamad82.ruom.string.StringUtils;
 import me.mohamad82.ruom.utils.*;
-import me.mohamad82.ruom.world.wrappedblock.WrappedBlock;
+import me.mohamad82.pensieve.utils.wrappedblock.WrappedBlock;
 import me.mohamad82.ruom.xseries.XMaterial;
 import me.mohamad82.ruom.xseries.XSound;
 import org.bukkit.*;
@@ -152,6 +153,7 @@ public class ReplayerImpl implements Replayer {
                     final Map<UUID, Integer> pendingBlockBreakStages = new HashMap<>();
                     final Map<UUID, Integer> pendingBlockBreakSkippedParticles = new HashMap<>();
                     final Map<UUID, Integer> pendingFoodEatSkippedTicks = new HashMap<>();
+                    final Map<UUID, Integer> foodEatSoundCooldown = new HashMap<>();
                     PendingBlockBreak previousPendingBlockBreak = null;
 
                     for (RecordTick tick : record.getRecordTicks()) {
@@ -211,13 +213,25 @@ public class ReplayerImpl implements Replayer {
                                         pendingFoodEatSkippedTicks.put(record.getUuid(), 0);
                                     }
                                     int skippedFoodTicks = pendingFoodEatSkippedTicks.get(record.getUuid());
+
+                                    if (foodEatSoundCooldown.containsKey(record.getUuid())) {
+                                        int foodSoundCooldown = foodEatSoundCooldown.get(record.getUuid());
+                                        Ruom.broadcast("Food eat cooldown: " + foodSoundCooldown);
+                                        if (foodSoundCooldown <= 0) {
+                                            foodEatSoundCooldown.remove(record.getUuid());
+                                        } else {
+                                            foodEatSoundCooldown.put(record.getUuid(), foodSoundCooldown - 1);
+                                        }
+                                    }
+
                                     boolean isDrinkable = Utils.isDrinkableItem(playerRecordTick.getEatingMaterial());
                                     if (skippedFoodTicks % 7 == 0) {
                                         if (!isDrinkable) {
                                             tickAdditions.setFoodEatParticle(true);
                                         }
                                     }
-                                    if (skippedFoodTicks % 4 == 0) {
+                                    if (skippedFoodTicks % 4 == 0 && !foodEatSoundCooldown.containsKey(record.getUuid())) {
+                                        foodEatSoundCooldown.put(record.getUuid(), 10);
                                         tickAdditions.setFoodEatSound(true);
                                         if (isDrinkable) {
                                             tickAdditions.setDrinking(true);
@@ -315,8 +329,6 @@ public class ReplayerImpl implements Replayer {
             npc.addViewers(Ruom.getOnlinePlayers());
             Ruom.runAsync(() -> {
                 npc.setTabList(null);
-                //TODO: Remove if unnecessary
-                //npc.setCustomNameVisible(false);
             }, 20);
 
             if (record.getLength() > maxTicks) {
@@ -703,13 +715,8 @@ public class ReplayerImpl implements Replayer {
                                     PlayerUtils.spawnFoodEatParticles(locationYawFixed, tick.getEatingMaterial());
                                 }
                                 if (tickAddition.isFoodEatSound()) {
-                                    SoundContainer soundContainer;
-                                    if (tickAddition.isDrinking()) {
-                                        soundContainer = SoundContainer.soundContainer(XSound.ENTITY_GENERIC_DRINK);
-                                    } else {
-                                        soundContainer = SoundContainer.soundContainer(XSound.ENTITY_GENERIC_EAT);
-                                    }
-                                    soundContainer.withVolume(playbackControl.getVolume()).withPitch(1f).play(location, npc.getViewers());
+                                    SoundContainer.soundContainer(tickAddition.isDrinking() ? XSound.ENTITY_GENERIC_DRINK : XSound.ENTITY_GENERIC_EAT)
+                                            .withVolume(playbackControl.getVolume()).withPitch(1f).play(location, npc.getViewers());
                                 }
                             }
                         }
@@ -821,7 +828,16 @@ public class ReplayerImpl implements Replayer {
                 } catch (Exception e) {
                     e.printStackTrace();
                     Ruom.error("An error occured while playing a replay, The replay was terminated to prevent furthur errors." +
-                            " Please report errors you see above to the developer.");
+                            " Please report errors you see above to the developers if you think it's not on your side.");
+                    playerRecords.keySet().stream().findFirst().ifPresent(record -> {
+                        for (Player player : playerRecords.get(record).getViewers()) {
+                            if (player.isOp()) {
+                                player.sendMessage(StringUtils.colorize("&4An error occured while playing a replay. Please check console for furthur errors."));
+                            } else {
+                                player.sendMessage(StringUtils.colorize("&4An error occured while playing a replay. Please report this to the server administrator."));
+                            }
+                        }
+                    });
                     for (PlayerRecord record : playerRecords.keySet()) {
                         playerRecords.get(record).removeViewers(Ruom.getOnlinePlayers());
                     }

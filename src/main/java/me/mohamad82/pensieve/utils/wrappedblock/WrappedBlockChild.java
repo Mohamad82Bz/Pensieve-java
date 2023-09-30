@@ -1,4 +1,4 @@
-package me.mohamad82.ruom.world.wrappedblock;
+package me.mohamad82.pensieve.utils.wrappedblock;
 
 import me.mohamad82.ruom.math.vector.Vector3;
 

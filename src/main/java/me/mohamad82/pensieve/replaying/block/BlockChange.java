@@ -1,6 +1,6 @@
 package me.mohamad82.pensieve.replaying.block;
 
-import me.mohamad82.ruom.world.wrappedblock.WrappedBlock;
+import me.mohamad82.pensieve.utils.wrappedblock.WrappedBlock;
 import org.bukkit.Location;
 
 public class BlockChange implements BlockModification {

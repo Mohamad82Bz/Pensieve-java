@@ -10,8 +10,8 @@ import me.mohamad82.ruom.math.vector.Vector3;
 import me.mohamad82.ruom.math.vector.Vector3Utils;
 import me.mohamad82.ruom.npc.NPC;
 import me.mohamad82.ruom.utils.NMSUtils;
-import me.mohamad82.ruom.world.wrappedblock.WrappedBlock;
-import me.mohamad82.ruom.world.wrappedblock.WrappedBlockUtils;
+import me.mohamad82.pensieve.utils.wrappedblock.WrappedBlock;
+import me.mohamad82.pensieve.utils.wrappedblock.WrappedBlockUtils;
 import me.mohamad82.ruom.xseries.XMaterial;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -40,15 +40,16 @@ public class PlayerRecordTick extends RecordTick {
      * @see ActionType
      */
     private int actions;
-    /**
-     * Bitmask of actions
-     * @see NPC.Pose
-     */
-    private int poses;
 
     private double health = -1;
     private int hunger = -1;
     private int ping = -1;
+    /**
+     * 0 = No interaction
+     * 1 = MainHand interaction
+     * 2 = OffHand interaction
+     * 3 = Release
+     */
     private byte useItemInteraction = -1;
     private int usedItemTime = -1;
     private int bodyArrows = -1;
@@ -525,7 +526,7 @@ public class PlayerRecordTick extends RecordTick {
             jsonObject.addProperty("hung", hunger);
         }
         if (ping != -1) {
-            jsonObject.addProperty("pg", ping);
+            jsonObject.addProperty("ping", ping);
         }
         if (useItemInteraction != -1) {
             jsonObject.addProperty("uii", useItemInteraction);
@@ -615,8 +616,8 @@ public class PlayerRecordTick extends RecordTick {
         if (jsonObject.has("hung")) {
             tick.hunger = jsonObject.get("hung").getAsInt();
         }
-        if (jsonObject.has("pg")) {
-            tick.ping = jsonObject.get("pg").getAsInt();
+        if (jsonObject.has("ping")) {
+            tick.ping = jsonObject.get("ping").getAsInt();
         }
         if (jsonObject.has("uii")) {
             tick.useItemInteraction = jsonObject.get("uii").getAsByte();
@@ -651,10 +652,6 @@ public class PlayerRecordTick extends RecordTick {
         }
 
         return (PlayerRecordTick) super.fromJson(tick, jsonObject);
-    }
-
-    public PlayerRecordTick fromJson(JsonObject jsonObject) {
-        return fromJson(new PlayerRecordTick(), jsonObject);
     }
 
 }

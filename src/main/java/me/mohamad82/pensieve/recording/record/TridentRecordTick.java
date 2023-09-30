@@ -54,8 +54,4 @@ public class TridentRecordTick extends EntityRecordTick {
         return (TridentRecordTick) super.fromJson(recordTick, jsonObject);
     }
 
-    public TridentRecordTick fromJson(JsonObject jsonObject) {
-        return fromJson(new TridentRecordTick(), jsonObject);
-    }
-
 }

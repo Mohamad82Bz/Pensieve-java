@@ -19,8 +19,4 @@ public class ArrowRecordTick extends EntityRecordTick {
         return (ArrowRecordTick) super.fromJson(recordTick, jsonObject);
     }
 
-    public ArrowRecordTick fromJson(JsonObject jsonObject) {
-        return fromJson(new ArrowRecordTick(), jsonObject);
-    }
-
 }
