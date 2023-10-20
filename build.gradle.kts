@@ -40,7 +40,7 @@ dependencies {
 
 tasks {
     runServer {
-        minecraftVersion("1.19.4")
+        minecraftVersion("1.20.1")
         serverJar(file("run/purpur-1.20.1-2056.jar"))
     }
 
@@ -55,6 +55,10 @@ tasks {
         archiveClassifier.set("")
         exclude("META-INF/**")
         minimize()
+    }
+
+    compileJava {
+        options.encoding = Charsets.UTF_8.name()
     }
 }
 
