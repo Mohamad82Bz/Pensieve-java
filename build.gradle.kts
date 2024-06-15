@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation("me.mohamad82:ruom-bukkit:4.13.26")
+    implementation("me.mohamad82:ruom-bukkit:4.17.3")
     implementation("commons-io:commons-io:2.11.0")
 
     compileOnly("org.spigotmc:spigot:1.16.5-R0.1-SNAPSHOT")
@@ -47,11 +47,16 @@ tasks {
     val relocate = task<ConfigureShadowRelocation>("relocateShadowJar") {
         println(actions)
         target = shadowJar.get()
-        prefix = "me.mohamad82"
+        prefix = "me.mohamad82.pensieve"
     }
 
     shadowJar {
-        dependsOn(relocate)
+        val prefix = "me.mohamad82.pensieve"
+        relocate("me.mohamad82.ruom", "$prefix.ruom")
+        relocate("org.apache", "$prefix.apache")
+        relocate("org.patheloper", "$prefix.patheloper")
+
+        //dependsOn(relocate)
         archiveClassifier.set("")
         exclude("META-INF/**")
         minimize()

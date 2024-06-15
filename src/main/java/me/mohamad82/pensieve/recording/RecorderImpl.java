@@ -44,6 +44,7 @@ public class RecorderImpl implements Recorder {
     private final Set<Entity> entities = new HashSet<>();
     private final Set<PlayerRecord> playerRecords = new HashSet<>();
     private final Set<EntityRecord> entityRecords = new HashSet<>();
+    private final Set<RawRecord> rawRecords = new HashSet<>();
     private final Map<Player, PlayerRecordTick> playerCurrentTick = new HashMap<>();
     private final Map<Entity, RecordTick> entityCurrentTick = new HashMap<>();
     private final Map<UUID, RecordTick> lastNonNullTicks = new HashMap<>();
@@ -229,7 +230,7 @@ public class RecorderImpl implements Recorder {
                             }
                         }
 
-                        PensieveRecorderPlayerTickEvent recorderTickEvent = new PensieveRecorderPlayerTickEvent(instance, player, currentTickIndex, tick);
+                        PensieveRecorderPlayerTickEvent recorderTickEvent = new PensieveRecorderPlayerTickEvent(instance, player, currentTickIndex, getPlayerRecord(player), tick);
                         Ruom.getServer().getPluginManager().callEvent(recorderTickEvent);
 
                         getPlayerRecord(player).addRecordTick(tick);
@@ -385,7 +386,7 @@ public class RecorderImpl implements Recorder {
                             }
                         }
 
-                        PensieveRecorderEntityTickEvent recorderTickEvent = new PensieveRecorderEntityTickEvent(instance, entity, currentTickIndex, tick);
+                        PensieveRecorderEntityTickEvent recorderTickEvent = new PensieveRecorderEntityTickEvent(instance, entity, currentTickIndex, getEntityRecord(entity), tick);
                         Ruom.getServer().getPluginManager().callEvent(recorderTickEvent);
 
                         if (entity.isDead()) {

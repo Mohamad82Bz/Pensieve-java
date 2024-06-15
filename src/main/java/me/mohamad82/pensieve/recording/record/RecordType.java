@@ -10,7 +10,9 @@ public enum RecordType {
     FISHING_HOOK(FishingHookRecord.class, FishingHookRecordTick.class),
     PLAYER(PlayerRecord.class, PlayerRecordTick.class),
     PROJECTILE(ProjectileRecord.class, ProjectileRecordTick.class),
-    TRIDENT(TridentRecord.class, TridentRecordTick.class);
+    TRIDENT(TridentRecord.class, TridentRecordTick.class),
+
+    RAW(RawRecord.class, RawRecordTick.class);
 
     private final Class<?> recordClass;
     private final Class<?> recordTickClass;

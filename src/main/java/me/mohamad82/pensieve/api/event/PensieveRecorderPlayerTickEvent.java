@@ -1,6 +1,7 @@
 package me.mohamad82.pensieve.api.event;
 
 import me.mohamad82.pensieve.recording.Recorder;
+import me.mohamad82.pensieve.recording.record.PlayerRecord;
 import me.mohamad82.pensieve.recording.record.RecordTick;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -14,11 +15,13 @@ public class PensieveRecorderPlayerTickEvent extends Event {
     private final Recorder recorder;
     private final Player player;
     private final int tickIndex;
+    private final PlayerRecord record;
     private final RecordTick recordTick;
 
-    public PensieveRecorderPlayerTickEvent(Recorder recorder, Player player, int tickIndex, RecordTick recordTick) {
+    public PensieveRecorderPlayerTickEvent(Recorder recorder, Player player, int tickIndex, PlayerRecord record, RecordTick recordTick) {
         this.recorder = recorder;
         this.player = player;
+        this.record = record;
         this.tickIndex = tickIndex;
         this.recordTick = recordTick;
     }
@@ -39,6 +42,10 @@ public class PensieveRecorderPlayerTickEvent extends Event {
 
     public Player getPlayer() {
         return player;
+    }
+
+    public PlayerRecord getRecord() {
+        return record;
     }
 
     public int getTickIndex() {

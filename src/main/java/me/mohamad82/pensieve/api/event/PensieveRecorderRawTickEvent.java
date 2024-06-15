@@ -1,26 +1,22 @@
 package me.mohamad82.pensieve.api.event;
 
 import me.mohamad82.pensieve.recording.Recorder;
-import me.mohamad82.pensieve.recording.record.EntityRecord;
-import me.mohamad82.pensieve.recording.record.RecordTick;
-import org.bukkit.entity.Entity;
+import me.mohamad82.pensieve.recording.record.RawRecord;
+import me.mohamad82.pensieve.recording.record.RawRecordTick;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 
-public class PensieveRecorderEntityTickEvent extends Event {
+public class PensieveRecorderRawTickEvent extends Event {
 
     private static final HandlerList HANDLER_LIST = new HandlerList();
-
     private final Recorder recorder;
-    private final Entity entity;
     private final int tickIndex;
-    private final EntityRecord record;
-    private final RecordTick recordTick;
+    private final RawRecord record;
+    private final RawRecordTick recordTick;
 
-    public PensieveRecorderEntityTickEvent(Recorder recorder, Entity entity, int tickIndex, EntityRecord record, RecordTick recordTick) {
+    public PensieveRecorderRawTickEvent(Recorder recorder, int tickIndex, RawRecord record, RawRecordTick recordTick) {
         this.recorder = recorder;
-        this.entity = entity;
         this.tickIndex = tickIndex;
         this.record = record;
         this.recordTick = recordTick;
@@ -32,27 +28,19 @@ public class PensieveRecorderEntityTickEvent extends Event {
         return HANDLER_LIST;
     }
 
-    public static HandlerList getHandlerList() {
-        return HANDLER_LIST;
-    }
-
     public Recorder getRecorder() {
         return recorder;
-    }
-
-    public Entity getEntity() {
-        return entity;
     }
 
     public int getTickIndex() {
         return tickIndex;
     }
 
-    public EntityRecord getRecord() {
+    public RawRecord getRecord() {
         return record;
     }
 
-    public RecordTick getRecordTick() {
+    public RawRecordTick getRecordTick() {
         return recordTick;
     }
 
