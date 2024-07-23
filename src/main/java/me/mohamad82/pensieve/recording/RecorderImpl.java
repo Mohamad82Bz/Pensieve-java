@@ -214,7 +214,7 @@ public class RecorderImpl implements Recorder {
                                 potionEffect = effect;
                         }
                         if (potionEffect != null) {
-                            ItemStack potionItem = new ItemStack(XMaterial.POTION.parseMaterial());
+                            ItemStack potionItem = XMaterial.POTION.parseItem();
                             PotionMeta potionMeta = (PotionMeta) potionItem.getItemMeta();
                             potionMeta.addCustomEffect(potionEffect, true);
                             potionItem.setItemMeta(potionMeta);
